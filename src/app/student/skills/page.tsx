@@ -5,25 +5,79 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, Shield, TrendingUp, Code, Database, Layout, Server, GitBranch, Loader2 } from "lucide-react"
-import { getStudentSkillsCategories } from "@/lib/database/student"
+import { CheckCircle2, Shield, TrendingUp, Code, Database, Layout, Server, GitBranch, Loader2, Sparkles, ArrowRight } from "lucide-react"
+import { useDemo } from "@/lib/demo/demo-context"
 import { SkillCategoryGroup } from "@/types"
 
 export default function SkillsPage() {
+  const { isDemo, student } = useDemo()
   const [categories, setCategories] = useState<SkillCategoryGroup[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemo) {
+      const demoGroups: SkillCategoryGroup[] = [
+        {
+          category: "Backend & Systems",
+          skills: student.skills.map(s => ({
+            id: s.id,
+            name: s.name,
+            score: s.currentLevel,
+            level: `${s.currentLevel}/100`,
+            status: s.status === 'ready' ? 'ready' : 'gap',
+            verification: s.verificationStatus === 'practical_verified'
+              ? 'Practical'
+              : s.verificationStatus === 'assessment_verified'
+              ? 'Assessment'
+              : 'Self-Declared'
+          }))
+        }
+      ]
+      setCategories(demoGroups)
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
-        const groups = await getStudentSkillsCategories()
-        setCategories(groups)
+        const res = await fetch('/api/student/skills')
+        const json = await res.json()
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const groups: Record<string, any[]> = {}
+          json.data.forEach((row: any) => {
+            const cat = row.skills?.category || 'Technical Competencies'
+            if (!groups[cat]) groups[cat] = []
+            let badge = 'Self-Declared'
+            if (row.verification_status === 'assessment_verified') badge = 'Assessment'
+            if (row.verification_status === 'practical_verified') badge = 'Practical'
+            if (row.verification_status === 'evidence_verified') badge = 'Verified Evidence'
+            if (row.verification_status === 'institution_verified') badge = 'Institution Verified'
+
+            const score = row.current_level || 0
+            const status = score >= 75 ? 'ready' : score >= 60 ? 'improve' : 'gap'
+
+            groups[cat].push({
+              id: row.skills?.id,
+              name: row.skills?.name || 'Skill',
+              score,
+              level: `${score}/100`,
+              status,
+              verification: badge,
+            })
+          })
+
+          setCategories(Object.entries(groups).map(([category, skills]) => ({ category, skills })))
+        } else {
+          setCategories([])
+        }
+      } catch {
+        setCategories([])
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [isDemo, student])
 
   const getCategoryIcon = (categoryName: string) => {
     if (categoryName.includes("Backend")) return <Server className="h-5 w-5" />
@@ -45,6 +99,11 @@ export default function SkillsPage() {
     }
   }
 
+  const allSkills = categories.flatMap(c => c.skills)
+  const verifiedCount = allSkills.filter(s => s.verification === 'Practical' || s.verification === 'Verified Evidence' || s.verification === 'Institution Verified').length
+  const assessmentPassedCount = allSkills.filter(s => s.verification === 'Assessment').length
+  const selfDeclaredCount = allSkills.filter(s => s.verification === 'Self-Declared').length
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -57,15 +116,17 @@ export default function SkillsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-h1 font-semibold">My Skills</h1>
           <p className="text-[var(--color-text-secondary)] mt-1">Manage and verify your skill portfolio.</p>
         </div>
-        <Button>
-          <Code className="mr-2 h-4 w-4" /> Add New Skill
-        </Button>
+        <Link href="/student/assessment">
+          <Button>
+            <Code className="mr-2 h-4 w-4" /> Start Assessment
+          </Button>
+        </Link>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -76,7 +137,7 @@ export default function SkillsPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-[var(--color-text-secondary)]">Verified Skills</p>
-              <p className="text-2xl font-bold">4</p>
+              <p className="text-2xl font-bold">{verifiedCount}</p>
             </div>
           </CardContent>
         </Card>
@@ -87,7 +148,7 @@ export default function SkillsPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-[var(--color-text-secondary)]">Assessment Passed</p>
-              <p className="text-2xl font-bold">3</p>
+              <p className="text-2xl font-bold">{assessmentPassedCount}</p>
             </div>
           </CardContent>
         </Card>
@@ -98,66 +159,87 @@ export default function SkillsPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-[var(--color-text-secondary)]">Self-Declared</p>
-              <p className="text-2xl font-bold">4</p>
+              <p className="text-2xl font-bold">{selfDeclaredCount}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="space-y-6">
-        {categories.map((category, idx) => (
-          <Card key={idx}>
-            <CardHeader className="bg-[var(--color-surface-secondary)] border-b border-[var(--color-border-primary)] py-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                {getCategoryIcon(category.category)}
-                {category.category}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-[var(--color-border-primary)]">
-                {category.skills.map((skill, sIdx) => (
-                  <div key={sIdx} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--color-surface-secondary)] transition-colors">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between sm:justify-start gap-4">
-                        <h4 className="font-semibold">{skill.name}</h4>
-                        {getVerificationBadge(skill.verification)}
+      {categories.length === 0 ? (
+        <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-secondary)] p-8 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="h-12 w-12 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center mx-auto">
+              <Code className="h-6 w-6" />
+            </div>
+            <h3 className="text-h3 font-semibold">No Skills Recorded Yet</h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Complete an assessment to measure and verify your first skill.
+            </p>
+            <div className="pt-2">
+              <Link href="/student/assessment">
+                <Button className="px-6">
+                  Start Assessment <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {categories.map((category, idx) => (
+            <Card key={idx}>
+              <CardHeader className="bg-[var(--color-surface-secondary)] border-b border-[var(--color-border-primary)] py-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  {getCategoryIcon(category.category)}
+                  {category.category}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-[var(--color-border-primary)]">
+                  {category.skills.map((skill, sIdx) => (
+                    <div key={sIdx} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--color-surface-secondary)] transition-colors">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between sm:justify-start gap-4">
+                          <h4 className="font-semibold">{skill.name}</h4>
+                          {getVerificationBadge(skill.verification)}
+                        </div>
+                        <p className="text-sm text-[var(--color-text-secondary)]">{skill.level} • Score: {skill.score}</p>
                       </div>
-                      <p className="text-sm text-[var(--color-text-secondary)]">{skill.level} • Score: {skill.score}</p>
+                      
+                      <div className="flex items-center gap-3">
+                        <Link href="/student/evidence">
+                          <Button size="sm" variant="outline" className="text-xs">
+                            <Shield className="h-3.5 w-3.5 mr-1 text-[var(--color-accent)]" /> Attach Proof
+                          </Button>
+                        </Link>
+                        {skill.verification === "Self-Declared" ? (
+                          <Link href="/student/assessment">
+                            <Button size="sm" className="border-[var(--color-accent)] text-white">
+                              Take Assessment
+                            </Button>
+                          </Link>
+                        ) : skill.status === "gap" || skill.status === "improve" ? (
+                          <Link href="/student/assessment">
+                            <Button size="sm" variant="secondary">
+                              Improve
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Link href="/student/passport">
+                            <Button size="sm" variant="ghost" className="text-[var(--color-text-secondary)]">
+                              In Passport
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <Link href="/student/evidence">
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <Shield className="h-3.5 w-3.5 mr-1 text-[var(--color-accent)]" /> Attach Proof
-                        </Button>
-                      </Link>
-                      {skill.verification === "Self-Declared" ? (
-                        <Link href="/student/assessment">
-                          <Button size="sm" className="border-[var(--color-accent)] text-white">
-                            Take Assessment
-                          </Button>
-                        </Link>
-                      ) : skill.status === "gap" || skill.status === "improve" ? (
-                        <Link href="/student/assessment">
-                          <Button size="sm" variant="secondary">
-                            Improve
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Link href="/student/passport">
-                          <Button size="sm" variant="ghost" className="text-[var(--color-text-secondary)]">
-                            In Passport
-                          </Button>
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

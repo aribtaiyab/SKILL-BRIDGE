@@ -23,17 +23,26 @@ export default function LandingPage() {
                   SkillBridge measures your skills against real career and opportunity requirements, identifies the gaps holding you back, helps you improve, verifies your progress, and connects you with relevant opportunities.
                 </p>
                 
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link href="/signup">
-                    <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base">
-                      Get Started <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/how-it-works">
-                    <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base">
-                      See How It Works
-                    </Button>
-                  </Link>
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+                    <Link href="/signup">
+                      <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base shadow-sm">
+                        Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link href="/student?demo=true">
+                      <Button size="lg" variant="secondary" className="w-full sm:w-auto h-12 px-7 text-base border border-[var(--color-accent)]/30 bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] font-medium hover:bg-[var(--color-accent)]/20 shadow-sm">
+                        Explore Demo ✨
+                      </Button>
+                    </Link>
+                  </div>
+                  <div>
+                    <Link href="/how-it-works" className="inline-block">
+                      <Button size="sm" variant="ghost" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)] px-3 py-2 h-auto font-medium">
+                        See How It Works <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-6 pt-4 text-sm text-[var(--color-text-secondary)] font-medium">

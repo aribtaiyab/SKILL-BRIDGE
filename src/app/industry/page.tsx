@@ -5,14 +5,40 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Briefcase, Users, PlusCircle, CheckCircle2, TrendingUp, User, FileText, Loader2 } from "lucide-react"
+import { Briefcase, Users, PlusCircle, CheckCircle2, TrendingUp, User, FileText, Loader2, Sparkles } from "lucide-react"
 import { getIndustryDashboardData, IndustryDashboardStats } from "@/lib/database/industry"
+import { useDemo } from "@/lib/demo/demo-context"
 
 export default function IndustryDashboardPage() {
+  const { isDemo, opportunities } = useDemo()
   const [stats, setStats] = useState<IndustryDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemo) {
+      const topOpp = opportunities[0]
+      setStats({
+        activeOpportunities: opportunities.length,
+        matchedCandidates: topOpp?.candidates?.length || 4,
+        avgVerifiedSkillLevel: 78,
+        recentApplications: topOpp?.candidates?.length || 4,
+        candidates: (topOpp?.candidates || []).map(c => ({
+          name: c.name,
+          role: topOpp.title,
+          match: c.matchPercentage,
+          skills: c.skills.map(s => s.name),
+        })),
+        inDemandSkills: [
+          { skill: "Java", demand: "High", trend: "up" },
+          { skill: "Spring Boot", demand: "High", trend: "up" },
+          { skill: "SQL & Databases", demand: "Medium", trend: "flat" },
+          { skill: "AWS / Cloud", demand: "Medium", trend: "up" },
+        ],
+      })
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
         const data = await getIndustryDashboardData()
@@ -22,7 +48,7 @@ export default function IndustryDashboardPage() {
       }
     }
     load()
-  }, [])
+  }, [isDemo, opportunities])
 
   if (loading) {
     return (

@@ -17,54 +17,60 @@ export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient()
 
   let targetCareerId = careerId
-  let careerName = 'Backend Developer'
+  let careerName = ''
+
+  const { data: studentProfile } = await (supabase as any)
+    .from('student_profiles')
+    .select('target_career_id, career_targets(id, name)')
+    .eq('profile_id', user.id)
+    .single()
+
+  if (!targetCareerId && studentProfile?.target_career_id) {
+    targetCareerId = studentProfile.target_career_id
+    careerName = studentProfile.career_targets?.name || ''
+  }
 
   if (!targetCareerId) {
-    const { data: studentProfile } = await (supabase as any)
-      .from('student_profiles')
-      .select('target_career_id, career_targets(id, name)')
-      .eq('profile_id', user.id)
-      .single()
-
-    targetCareerId = studentProfile?.target_career_id || null
-    careerName = studentProfile?.career_targets?.name || careerName
+    return apiSuccess({
+      hasTargetCareer: false,
+      careerName: null,
+      priorityGap: null,
+      criticalGaps: [],
+      nearReadySkills: [],
+      readySkills: [],
+      allGaps: [],
+      summary: {
+        strengthsText: [],
+        nearReadyText: [],
+        criticalText: [],
+        recommendedAction: 'Choose a career target to analyze your skill gaps.',
+      },
+    })
   }
 
-  let requirements: SkillRequirement[] = [
-    { skillId: 's1', skillName: 'Node.js', category: 'Backend', requiredLevel: 80, importance: 'High' },
-    { skillId: 's2', skillName: 'REST APIs', category: 'Backend', requiredLevel: 75, importance: 'High' },
-    { skillId: 's3', skillName: 'SQL', category: 'Database', requiredLevel: 70, importance: 'High' },
-    { skillId: 's4', skillName: 'Git', category: 'DevOps', requiredLevel: 60, importance: 'Medium' },
-  ]
+  let requirements: SkillRequirement[] = []
 
-  if (targetCareerId) {
-    const { data: dbReqs } = await (supabase as any)
-      .from('career_target_skills')
-      .select(`
-        required_level, importance,
-        skills(id, name, category),
-        career_targets(name)
-      `)
-      .eq('career_target_id', targetCareerId)
+  const { data: dbReqs } = await (supabase as any)
+    .from('career_target_skills')
+    .select(`
+      required_level, importance,
+      skills(id, name, category),
+      career_targets(name)
+    `)
+    .eq('career_target_id', targetCareerId)
 
-    if (dbReqs && dbReqs.length > 0) {
-      careerName = dbReqs[0].career_targets?.name || careerName
-      requirements = dbReqs.map((r: any) => ({
-        skillId: r.skills?.id || 'skill',
-        skillName: r.skills?.name || 'Skill',
-        category: r.skills?.category || 'Technical',
-        requiredLevel: r.required_level || 70,
-        importance: r.importance || 'High',
-      }))
-    }
+  if (dbReqs && dbReqs.length > 0) {
+    careerName = dbReqs[0].career_targets?.name || careerName || 'Target Career'
+    requirements = dbReqs.map((r: any) => ({
+      skillId: r.skills?.id || 'skill',
+      skillName: r.skills?.name || 'Skill',
+      category: r.skills?.category || 'Technical',
+      requiredLevel: r.required_level || 70,
+      importance: r.importance || 'High',
+    }))
   }
 
-  let studentSkills: StudentSkillScore[] = [
-    { skillId: 's1', skillName: 'Node.js', currentLevel: 45, verificationStatus: 'assessment_verified' },
-    { skillId: 's2', skillName: 'REST APIs', currentLevel: 60, verificationStatus: 'assessment_verified' },
-    { skillId: 's3', skillName: 'SQL', currentLevel: 75, verificationStatus: 'practical_verified' },
-    { skillId: 's4', skillName: 'Git', currentLevel: 70, verificationStatus: 'self_declared' },
-  ]
+  let studentSkills: StudentSkillScore[] = []
 
   const { data: dbSkills } = await (supabase as any)
     .from('student_skills')
@@ -80,11 +86,12 @@ export async function GET(request: Request) {
     }))
   }
 
-  const evaluation = evaluateCareerReadiness(careerName, requirements, studentSkills)
+  const evaluation = evaluateCareerReadiness(careerName || 'Target Career', requirements, studentSkills)
 
   return apiSuccess({
-    careerName,
-    priorityGap: evaluation.priorityGap,
+    hasTargetCareer: true,
+    careerName: careerName || 'Target Career',
+    priorityGap: studentSkills.length > 0 ? evaluation.priorityGap : null,
     criticalGaps: evaluation.criticalGaps,
     nearReadySkills: evaluation.nearReadySkills,
     readySkills: evaluation.strengths,

@@ -47,16 +47,14 @@ export async function PATCH(request: Request) {
     .eq('id', careerId)
     .single()
 
-  if (!careerTarget) return apiError('NOT_FOUND', 'Career target not found.', 404)
-
-  // Update career target on student profile
+  // Upsert career target on student profile (prevents failure if row was not pre-created)
   const { data, error } = await (supabase as any)
     .from('student_profiles')
-    .update({
+    .upsert({
+      profile_id: user.id,
       target_career_id: careerId,
       updated_at: new Date().toISOString(),
-    })
-    .eq('profile_id', user.id)
+    }, { onConflict: 'profile_id' })
     .select()
     .single()
 

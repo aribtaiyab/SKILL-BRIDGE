@@ -25,6 +25,7 @@ import {
   Loader2,
   ChevronRight,
 } from "lucide-react"
+import { useDemo } from "@/lib/demo/demo-context"
 import {
   DiagnosticOutput,
   LearningPlan,
@@ -35,10 +36,12 @@ import {
 } from "@/lib/ai/types"
 
 export default function AICoachPage() {
+  const { isDemo, student } = useDemo()
   const [activeTab, setActiveTab] = useState("diagnosis")
   const [loading, setLoading] = useState(true)
   const [diagnosis, setDiagnosis] = useState<DiagnosticOutput | null>(null)
   const [learningPlan, setLearningPlan] = useState<LearningPlan | null>(null)
+  const [hasNoAssessments, setHasNoAssessments] = useState(false)
 
   // Practice state
   const [practiceDifficulty, setPracticeDifficulty] = useState<DifficultyLevel>("Intermediate")
@@ -53,10 +56,10 @@ export default function AICoachPage() {
   const [inputMessage, setInputMessage] = useState("")
   const [chatLoading, setChatLoading] = useState(false)
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([
-    "Why is Node.js my priority gap?",
-    "Explain asynchronous streams simply",
-    "Give me a practice question",
-    "Am I ready to reassess?",
+    "Why is Spring Boot my priority gap?",
+    "Explain Dependency Injection in Spring simply",
+    "Give me a practice challenge",
+    "Am I ready to reassess Spring Boot?",
   ])
 
   // Completed steps tracking in session
@@ -64,6 +67,106 @@ export default function AICoachPage() {
 
   useEffect(() => {
     async function initCoach() {
+      if (isDemo) {
+        setDiagnosis({
+          skill: "Spring Boot",
+          summary: "Diagnostic analysis identifies a 25-point deficit in Spring Boot. Mastering REST controllers, dependency injection, and JPA repository queries will elevate your career readiness from 82% to 90%+.",
+          currentScore: 50,
+          targetScore: 75,
+          gap: 25,
+          weakAreas: ["REST Controller Testing", "Dependency Injection Lifecycle", "Spring Data JPA Queries"],
+          strengths: ["Solid Java 80% Core Foundation", "Relational Database SQL Competency"],
+          commonMistakes: [
+            "Missing @Transactional annotations leading to inconsistent database states",
+            "Field injection instead of constructor injection leading to untestable beans",
+          ],
+          prerequisites: ["Java Collections Framework", "HTTP & REST conventions"],
+          recommendedSequence: [
+            "1. Bean Lifecycle & Inversion of Control",
+            "2. RESTful Controller Endpoints & DTOs",
+            "3. Data Persistence with JPA & Repositories",
+            "4. Integration Testing with MockMvc",
+            "5. Practical Benchmark Assessment",
+          ],
+          nextAction: {
+            title: "Spring Boot Microservices Practice Challenge",
+            description: "Solve a 5-question adaptive challenge on RESTful endpoints and Dependency Injection.",
+            estimatedMinutes: 20,
+          },
+          confidence: "high",
+        })
+
+        setLearningPlan({
+          skill: "Spring Boot",
+          careerTarget: "Backend Developer",
+          initialScore: 50,
+          targetScore: 75,
+          estimatedTotalHours: 12,
+          summary: "A 5-step structured microservices pathway to eliminate the 25-point gap in Spring Boot.",
+          steps: [
+            {
+              stepNumber: 1,
+              stepType: "understand",
+              title: "Spring Core & Inversion of Control (IoC)",
+              description: "Understand Bean lifecycle, ApplicationContext, and @Autowired dependency injection mechanisms.",
+              estimatedMinutes: 90,
+              keyConcept: "Bean scopes & Constructor Injection",
+              careerRelevance: "Essential for decoupled enterprise backend architecture",
+              isCompleted: false,
+            },
+            {
+              stepNumber: 2,
+              stepType: "learn",
+              title: "Building RESTful Web Services",
+              description: "Implement @RestController endpoints, request mapping, error handling with @ControllerAdvice.",
+              estimatedMinutes: 120,
+              keyConcept: "REST principles & HTTP Status Codes",
+              careerRelevance: "Core responsibility of API developers",
+              isCompleted: false,
+            },
+            {
+              stepNumber: 3,
+              stepType: "practice",
+              title: "Data Persistence with Spring Data JPA",
+              description: "Configure repositories, entity mappings, and custom JPQL query methods.",
+              estimatedMinutes: 150,
+              keyConcept: "Entity Relationships & Transactions",
+              careerRelevance: "Required for robust database operations",
+              isCompleted: false,
+            },
+            {
+              stepNumber: 4,
+              stepType: "build",
+              title: "Integration Testing with MockMvc",
+              description: "Write unit and integration tests for REST APIs using SpringBootTest and MockMvc.",
+              estimatedMinutes: 120,
+              keyConcept: "Automated Mock API Testing",
+              careerRelevance: "Industry standard for quality assurance in CI/CD",
+              isCompleted: false,
+            },
+            {
+              stepNumber: 5,
+              stepType: "reassess",
+              title: "Official Spring Boot Practical Reassessment",
+              description: "Take the verified SkillBridge practical coding assessment to prove benchmark competency.",
+              estimatedMinutes: 45,
+              keyConcept: "Verified Benchmark Evaluation",
+              careerRelevance: "Upgrades your Skill Passport to Evidence Verified",
+              isCompleted: false,
+            },
+          ],
+        })
+
+        setChatMessages([
+          {
+            role: "assistant",
+            content: `Hello ${student.name.split(' ')[0]}! I am your **SkillBridge AI Coach**. I have analyzed your career target (**${student.targetCareer}**) and current readiness benchmarks. Your current priority is closing the **25-point gap in Spring Boot** (Current: 50 / Target: 75). How can I assist your preparation today?`,
+          },
+        ])
+        setLoading(false)
+        return
+      }
+
       try {
         const [diagRes, planRes] = await Promise.all([
           fetch("/api/ai/diagnose", { method: "POST" }).then(r => r.json()),
@@ -72,26 +175,29 @@ export default function AICoachPage() {
 
         if (diagRes.success && diagRes.data?.diagnosis) {
           setDiagnosis(diagRes.data.diagnosis)
+        } else {
+          setHasNoAssessments(true)
         }
+
         if (planRes.success && planRes.data?.plan) {
           setLearningPlan(planRes.data.plan)
         }
 
-        // Initial welcome message from AI Coach
         setChatMessages([
           {
             role: "assistant",
-            content: `Hello! I am your **SkillBridge AI Coach**. I have analyzed your career target (**Backend Developer**) and verified readiness benchmarks. Your current priority is closing the **15-point gap in Node.js** (Current: 65 / Target: 80). How can I assist your preparation today?`,
+            content: `Hello! I am your **SkillBridge AI Coach**. I am ready to guide your skill development and benchmark preparation. Start an assessment to get a personalized diagnostic!`,
           },
         ])
       } catch (err) {
         console.warn("Coach init warning:", err)
+        setHasNoAssessments(true)
       } finally {
         setLoading(false)
       }
     }
     initCoach()
-  }, [])
+  }, [isDemo, student])
 
   // Generate Practice Question
   const loadPractice = async (diff: DifficultyLevel = practiceDifficulty) => {
@@ -196,12 +302,45 @@ export default function AICoachPage() {
     )
   }
 
+  // Real user with no assessment data yet (Section 10 requirement)
+  if (!isDemo && hasNoAssessments && !diagnosis) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-h1 font-semibold">AI Skill Coach</h1>
+            <p className="text-[var(--color-text-secondary)] mt-1">Diagnostic intelligence, personalized learning plans, and practice.</p>
+          </div>
+        </div>
+
+        <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-secondary)] p-8 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="h-12 w-12 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center mx-auto">
+              <Bot className="h-6 w-6" />
+            </div>
+            <h3 className="text-h3 font-semibold">Assessment Required for Diagnosis</h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              I need at least one assessment result to diagnose your skill gaps. Start your assessment →
+            </p>
+            <div className="pt-2">
+              <Link href="/student/assessment">
+                <Button className="px-6">
+                  Start Assessment <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
   const diag = diagnosis || {
-    skill: "Node.js",
-    summary: "Diagnostic analysis identifies a 15-point deficit in Node.js.",
-    currentScore: 65,
-    targetScore: 80,
-    gap: 15,
+    skill: "Spring Boot",
+    summary: "Diagnostic analysis identifies a 25-point deficit in Spring Boot.",
+    currentScore: 50,
+    targetScore: 75,
+    gap: 25,
     weakAreas: [
       "Asynchronous control flow (Promise chaining vs async/await rejection handling)",
       "Event loop tick phases and non-blocking I/O patterns",

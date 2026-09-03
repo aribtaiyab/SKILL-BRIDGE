@@ -65,7 +65,10 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
+import { useDemo } from "@/lib/demo/demo-context"
+
 export default function CandidatesPage() {
+  const { isDemo, opportunities: demoOpps } = useDemo()
   const [candidates, setCandidates] = useState<CandidateResult[]>([])
   const [opportunities, setOpportunities] = useState<{ id: string; title: string }[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,7 +77,12 @@ export default function CandidatesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
-  const loadOpportunities = async () => {
+  const loadOpportunities = useCallback(async () => {
+    if (isDemo) {
+      setOpportunities(demoOpps.map(o => ({ id: o.id, title: o.title })))
+      return
+    }
+
     try {
       const res = await fetch('/api/industry/opportunities?status=published')
       const json = await res.json()
@@ -84,9 +92,48 @@ export default function CandidatesPage() {
     } catch {
       // noop
     }
-  }
+  }, [isDemo, demoOpps])
 
   const load = useCallback(async () => {
+    if (isDemo) {
+      const topOpp = demoOpps[0]
+      if (topOpp && topOpp.candidates) {
+        const mapped: CandidateResult[] = topOpp.candidates.map((c, i) => ({
+          applicationId: `app-demo-${i}`,
+          applicationStatus: i === 0 ? 'shortlisted' : 'applied',
+          appliedAt: new Date().toISOString(),
+          candidate: {
+            id: c.id,
+            name: c.name,
+            institution: 'Apex Institute of Technology',
+          },
+          opportunity: {
+            id: topOpp.id,
+            title: topOpp.title,
+            type: topOpp.type,
+          },
+          readiness: {
+            matchPercentage: c.matchPercentage,
+            readinessCategory: c.matchPercentage >= 85 ? 'High Readiness' : c.matchPercentage >= 70 ? 'Moderate Readiness' : 'Developing',
+            skillsMetCount: c.skills.filter(s => s.met).length,
+            totalSkillsCount: c.skills.length,
+            mainBlocker: c.skills.find(s => !s.met)?.name || null,
+            skills: c.skills.map(s => ({
+              name: s.name,
+              met: s.met,
+              currentLevel: s.current,
+              requiredLevel: s.required,
+            })),
+          },
+        }))
+        setCandidates(mapped)
+      } else {
+        setCandidates([])
+      }
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -105,9 +152,9 @@ export default function CandidatesPage() {
     } finally {
       setLoading(false)
     }
-  }, [oppFilter, minMatch])
+  }, [isDemo, demoOpps, oppFilter, minMatch])
 
-  useEffect(() => { loadOpportunities() }, [])
+  useEffect(() => { loadOpportunities() }, [loadOpportunities])
   useEffect(() => { load() }, [load])
 
   const handleUpdateStatus = async (applicationId: string, newStatus: string) => {

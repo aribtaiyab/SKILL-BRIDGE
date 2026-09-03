@@ -36,6 +36,14 @@
     color: var(--foreground);
     font-family: var(--font-inter), sans-serif;
   }
+
+  button, a, [role="button"], select, summary, input[type="submit"], input[type="button"], input[type="checkbox"], input[type="radio"] {
+    cursor: pointer;
+  }
+
+  button:disabled, input:disabled, select:disabled, [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 /* Typography styles based on the spec */

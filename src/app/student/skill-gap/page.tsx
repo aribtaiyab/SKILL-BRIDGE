@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { AlertTriangle, Target, CheckCircle2, ChevronRight, BookOpen, Code, Loader2 } from "lucide-react"
+import { AlertTriangle, Target, CheckCircle2, ChevronRight, BookOpen, Code, Loader2, ArrowRight } from "lucide-react"
+import { useDemo } from "@/lib/demo/demo-context"
 import { EvaluatedSkillGap } from "@/lib/intelligence/engine"
 
 interface SkillGapsResponse {
@@ -25,10 +26,49 @@ interface SkillGapsResponse {
 }
 
 export default function SkillGapPage() {
+  const { isDemo, student } = useDemo()
   const [data, setData] = useState<SkillGapsResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemo) {
+      const allGaps: EvaluatedSkillGap[] = student.skills.map(s => ({
+        skillId: s.id,
+        skillName: s.name,
+        category: s.category,
+        requiredLevel: s.requiredLevel,
+        currentLevel: s.currentLevel,
+        gap: s.gap,
+        status: s.status,
+        importance: s.importance,
+        priorityScore: s.gap * (s.importance === 'High' ? 2 : 1),
+        isAssessed: s.isAssessed,
+        recommendation: s.gap > 0 ? `Improve ${s.name} benchmark by ${s.gap} points.` : `${s.name} benchmark satisfied.`,
+      }))
+
+      const criticalGaps = allGaps.filter(g => g.status === 'critical')
+      const nearReadySkills = allGaps.filter(g => g.status === 'needs_improvement')
+      const readySkills = allGaps.filter(g => g.status === 'ready')
+      const priority = criticalGaps[0] || nearReadySkills[0] || null
+
+      setData({
+        careerName: student.targetCareer,
+        priorityGap: priority,
+        criticalGaps,
+        nearReadySkills,
+        readySkills,
+        allGaps,
+        summary: {
+          strengthsText: readySkills.map(r => `${r.skillName} (${r.currentLevel}/${r.requiredLevel})`),
+          nearReadyText: nearReadySkills.map(r => `${r.skillName} (${r.gap} pts to target)`),
+          criticalText: criticalGaps.map(r => `${r.skillName} (${r.gap} pts to target)`),
+          recommendedAction: priority ? `Prioritize closing the ${priority.gap}-point gap in ${priority.skillName} to advance to 90%+ readiness.` : 'All benchmarks satisfied.',
+        },
+      })
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
         const res = await fetch('/api/student/skill-gaps')
@@ -43,15 +83,46 @@ export default function SkillGapPage() {
       }
     }
     load()
-  }, [])
+  }, [isDemo, student])
 
-  if (loading) {
+  if (loading && !isDemo) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
           <p className="text-sm text-[var(--color-text-secondary)]">Analyzing skill gap intelligence...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Real user with no assessment data yet (Section 9 requirement: Hide Priority Gap completely)
+  if (!isDemo && (!data || !data.allGaps.some(g => g.isAssessed))) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+        <div>
+          <h1 className="text-h1 font-semibold">Skill Gap Analysis</h1>
+          <p className="text-[var(--color-text-secondary)] mt-1">Identify the exact missing capabilities holding you back from target opportunities.</p>
+        </div>
+
+        <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-secondary)] p-8 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="h-12 w-12 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center mx-auto">
+              <AlertTriangle className="h-6 w-6 text-[var(--color-warning)]" />
+            </div>
+            <h3 className="text-h3 font-semibold">Take an Assessment to Identify Gaps</h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Before we can calculate your skill gaps, complete a benchmark assessment for your target career.
+            </p>
+            <div className="pt-2">
+              <Link href="/student/assessment">
+                <Button className="px-6">
+                  Start Assessment <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
       </div>
     )
   }

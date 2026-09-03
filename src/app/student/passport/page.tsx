@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,7 @@ import {
   ExternalLink, Calendar, MapPin, Building, Loader2, Sparkles,
   Lock, Globe, Copy, Check, Eye, AlertCircle, ArrowUpRight, PlusCircle
 } from "lucide-react"
+import { useDemo } from "@/lib/demo/demo-context"
 
 interface PassportData {
   profile: {
@@ -59,13 +60,93 @@ interface PassportData {
 }
 
 export default function PassportPage() {
+  const { isDemo, student } = useDemo()
   const [data, setData] = useState<PassportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
 
-  const loadPassport = async () => {
+  const loadPassport = useCallback(async () => {
+    if (isDemo) {
+      setData({
+        profile: {
+          name: student.name,
+          email: student.email,
+          institution: student.institution,
+          targetCareer: student.targetCareer,
+        },
+        settings: {
+          shareToken: student.passport.shareToken,
+          isPublic: true,
+          headline: student.passport.headline,
+          bio: student.passport.bio,
+          showSkills: true,
+          showProjects: true,
+          showCertifications: true,
+          showReadiness: true,
+        },
+        skills: student.skills.map(s => ({
+          id: s.id,
+          skillId: s.id,
+          name: s.name,
+          category: s.category,
+          currentLevel: s.currentLevel,
+          verificationStatus: s.verificationStatus,
+          verificationBadge: {
+            label: s.verificationLabel,
+            shortLabel: s.verificationLabel.split(' ')[0],
+            variant: s.verificationStatus === 'practical_verified' ? 'success' : 'default',
+            description: s.verificationStatus === 'practical_verified' ? 'Verified by practical task and GitHub repo' : 'Verified by assessment score',
+          },
+          proofCount: s.proofCount,
+          proofItems: s.proofItems,
+        })),
+        projects: [
+          {
+            id: 'proj-1',
+            title: 'Distributed Cache Engine in Java',
+            description: 'Implemented an in-memory LRU cache with concurrency controls and persistence replication.',
+            skills: ['Java', 'Concurrency', 'Distributed Systems'],
+            url: 'https://github.com/aditi/distributed-cache',
+            isVerified: true,
+          },
+        ],
+        certifications: [
+          {
+            id: 'cert-1',
+            name: 'Oracle Certified Associate: Java SE 11',
+            issuer: 'Oracle University',
+            issueDate: '2025-11-10',
+            credentialId: 'OCA-2025-8819',
+            isVerified: true,
+          },
+        ],
+        auditRecords: [
+          {
+            id: 'audit-1',
+            skillName: 'Java',
+            verificationType: 'practical_verified',
+            verifiedLevel: 80,
+            source: 'Faculty Review',
+            notes: 'Verified repository code structure and test coverage (>85%).',
+            verifiedAt: '2026-08-15',
+          },
+          {
+            id: 'audit-2',
+            skillName: 'SQL',
+            verificationType: 'assessment_verified',
+            verifiedLevel: 60,
+            source: 'SkillBridge Benchmark Assessment',
+            notes: 'Scored 60% in Database Architecture benchmark assessment.',
+            verifiedAt: '2026-08-10',
+          },
+        ],
+      })
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await fetch('/api/student/passport')
       const json = await res.json()
@@ -77,11 +158,11 @@ export default function PassportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isDemo, student])
 
   useEffect(() => {
     loadPassport()
-  }, [])
+  }, [loadPassport])
 
   const togglePublic = async () => {
     if (!data) return

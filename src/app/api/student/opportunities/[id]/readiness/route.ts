@@ -52,13 +52,8 @@ export async function GET(
     }
   }
 
-  // 2. Fetch student's measured skills
-  let studentSkills: StudentSkillScore[] = [
-    { skillId: 's1', skillName: 'Node.js', currentLevel: 65 },
-    { skillId: 's2', skillName: 'REST APIs', currentLevel: 72 },
-    { skillId: 's3', skillName: 'SQL', currentLevel: 82 },
-    { skillId: 's4', skillName: 'Git', currentLevel: 75 },
-  ]
+  // 2. Fetch student's measured skills (strictly from DB)
+  let studentSkills: StudentSkillScore[] = []
 
   const { data: dbSkills } = await (supabase as any)
     .from('student_skills')

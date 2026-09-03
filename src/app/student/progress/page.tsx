@@ -1,9 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Target, Award, Calendar, CheckCircle2, Loader2, ArrowUpRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { TrendingUp, Target, Award, Calendar, CheckCircle2, Loader2, ArrowUpRight, ArrowRight } from "lucide-react"
+import { useDemo } from "@/lib/demo/demo-context"
 
 interface ProgressData {
   growthTimeline: { month: string; score: number; label: string }[]
@@ -17,10 +20,60 @@ interface ProgressData {
 }
 
 export default function ProgressPage() {
+  const { isDemo, student } = useDemo()
   const [data, setData] = useState<ProgressData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemo) {
+      setData({
+        growthTimeline: [
+          { month: 'Month 1', score: 55, label: 'Java Initial' },
+          { month: 'Month 2', score: 68, label: 'Java Core Assessment' },
+          { month: 'Month 3', score: 60, label: 'SQL Assessment' },
+          { month: 'Month 4', score: 50, label: 'Spring Boot Assessment' },
+          { month: 'Current', score: 80, label: 'Java Practical Reassessment' },
+        ],
+        reassessments: student.reassessmentHistory.map((h, i) => ({
+          id: `reassess-${i}`,
+          previous_score: h.baselineScore,
+          new_score: h.currentScore,
+          recorded_at: h.date,
+          skills: { name: h.skillName },
+        })),
+        recentAttempts: [
+          {
+            id: 'att-1',
+            score: 80,
+            percentage: 80,
+            completed_at: '2026-08-20',
+            assessments: { title: 'Java Practical Benchmark Assessment' },
+          },
+          {
+            id: 'att-2',
+            score: 60,
+            percentage: 60,
+            completed_at: '2026-08-10',
+            assessments: { title: 'SQL & Database Architecture' },
+          },
+          {
+            id: 'att-3',
+            score: 50,
+            percentage: 50,
+            completed_at: '2026-08-05',
+            assessments: { title: 'Spring Boot REST Microservices' },
+          },
+        ],
+        summary: {
+          overallReadiness: student.readinessPercentage,
+          verifiedSkillsCount: student.passport.verifiedSkillsCount,
+          sixMonthGain: '+12 pts',
+        },
+      })
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
         const res = await fetch('/api/student/progress')
@@ -35,15 +88,48 @@ export default function ProgressPage() {
       }
     }
     load()
-  }, [])
+  }, [isDemo, student])
 
-  if (loading) {
+  if (loading && !isDemo) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
           <p className="text-sm text-[var(--color-text-secondary)]">Loading historical progress...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Real user with no history yet (Section 11 requirement)
+  if (!isDemo && (!data || (data.reassessments.length === 0 && data.recentAttempts.length === 0))) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-h1 font-semibold">My Progress</h1>
+            <p className="text-[var(--color-text-secondary)] mt-1">Track your verified skill development and score history over time.</p>
+          </div>
+        </div>
+
+        <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-secondary)] p-8 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="h-12 w-12 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center mx-auto">
+              <TrendingUp className="h-6 w-6" />
+            </div>
+            <h3 className="text-h3 font-semibold">No Progress History Yet</h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              No history yet — your first assessment becomes your baseline.
+            </p>
+            <div className="pt-2">
+              <Link href="/student/assessment">
+                <Button className="px-6">
+                  Take Your First Assessment <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
       </div>
     )
   }

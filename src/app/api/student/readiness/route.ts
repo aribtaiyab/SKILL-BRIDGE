@@ -18,56 +18,74 @@ export async function GET(request: Request) {
 
   // 1. Get student profile with target career
   let targetCareerId = careerIdParam
-  let careerName = 'Backend Developer'
+  let careerName = ''
 
+  const { data: studentProfile } = await (supabase as any)
+    .from('student_profiles')
+    .select('target_career_id, career_targets(id, name)')
+    .eq('profile_id', user.id)
+    .single()
+
+  if (!targetCareerId && studentProfile?.target_career_id) {
+    targetCareerId = studentProfile.target_career_id
+    careerName = studentProfile.career_targets?.name || ''
+  }
+
+  // If user has not chosen a target career yet
   if (!targetCareerId) {
-    const { data: studentProfile } = await (supabase as any)
-      .from('student_profiles')
-      .select('target_career_id, career_targets(id, name)')
-      .eq('profile_id', user.id)
-      .single()
-
-    targetCareerId = studentProfile?.target_career_id || null
-    careerName = studentProfile?.career_targets?.name || careerName
+    return apiSuccess({
+      hasTargetCareer: false,
+      careerId: null,
+      careerName: null,
+      readinessPercentage: 0,
+      readinessCategory: 'Not Assessed',
+      readinessVariant: 'secondary',
+      priorityGap: null,
+      requirements: [],
+      skills: [],
+      strengths: [],
+      nearReadySkills: [],
+      criticalGaps: [],
+      unassessedSkills: [],
+      isAssessed: false,
+      explanation: {
+        summary: 'Choose a target career to begin measuring your skill benchmarks.',
+        strengthsText: [],
+        nearReadyText: [],
+        criticalText: [],
+        recommendedAction: 'Select your target career track to view industry requirements.',
+      },
+    })
   }
 
-  // 2. Fetch career requirements from career_target_skills or fallback
-  let requirements: SkillRequirement[] = [
-    { skillId: 's1', skillName: 'Node.js', category: 'Backend', requiredLevel: 80, importance: 'High' },
-    { skillId: 's2', skillName: 'REST APIs', category: 'Backend', requiredLevel: 75, importance: 'High' },
-    { skillId: 's3', skillName: 'SQL', category: 'Database', requiredLevel: 70, importance: 'High' },
-    { skillId: 's4', skillName: 'Git', category: 'DevOps', requiredLevel: 60, importance: 'Medium' },
-  ]
+  // 2. Fetch career requirements from career_target_skills
+  let requirements: SkillRequirement[] = []
 
-  if (targetCareerId) {
-    const { data: dbReqs } = await (supabase as any)
-      .from('career_target_skills')
-      .select(`
-        required_level, importance,
-        skills(id, name, category),
-        career_targets(name)
-      `)
-      .eq('career_target_id', targetCareerId)
+  const { data: dbReqs } = await (supabase as any)
+    .from('career_target_skills')
+    .select(`
+      required_level, importance,
+      skills(id, name, category),
+      career_targets(name)
+    `)
+    .eq('career_target_id', targetCareerId)
 
-    if (dbReqs && dbReqs.length > 0) {
-      careerName = dbReqs[0].career_targets?.name || careerName
-      requirements = dbReqs.map((r: any) => ({
-        skillId: r.skills?.id || 'skill',
-        skillName: r.skills?.name || 'Skill',
-        category: r.skills?.category || 'Technical',
-        requiredLevel: r.required_level || 70,
-        importance: r.importance || 'High',
-      }))
-    }
+  if (dbReqs && dbReqs.length > 0) {
+    careerName = dbReqs[0].career_targets?.name || careerName || 'Target Career'
+    requirements = dbReqs.map((r: any) => ({
+      skillId: r.skills?.id || 'skill',
+      skillName: r.skills?.name || 'Skill',
+      category: r.skills?.category || 'Technical',
+      requiredLevel: r.required_level || 70,
+      importance: r.importance || 'High',
+    }))
+  } else {
+    // If no specific skills mapped yet in database
+    careerName = careerName || 'Target Career'
   }
 
-  // 3. Fetch student's measured skills
-  let studentSkills: StudentSkillScore[] = [
-    { skillId: 's1', skillName: 'Node.js', currentLevel: 65, verificationStatus: 'assessment_verified' },
-    { skillId: 's2', skillName: 'REST APIs', currentLevel: 72, verificationStatus: 'assessment_verified' },
-    { skillId: 's3', skillName: 'SQL', currentLevel: 82, verificationStatus: 'practical_verified' },
-    { skillId: 's4', skillName: 'Git', currentLevel: 75, verificationStatus: 'self_declared' },
-  ]
+  // 3. Fetch student's measured skills (strictly from DB, no fake defaults)
+  let studentSkills: StudentSkillScore[] = []
 
   const { data: dbSkills } = await (supabase as any)
     .from('student_skills')
@@ -86,8 +104,12 @@ export async function GET(request: Request) {
   // 4. Compute deterministic evaluation
   const result = evaluateCareerReadiness(careerName, requirements, studentSkills)
 
+  const isAssessed = studentSkills.length > 0
+
   return apiSuccess({
+    hasTargetCareer: true,
     careerId: targetCareerId,
     ...result,
+    isAssessed,
   })
 }

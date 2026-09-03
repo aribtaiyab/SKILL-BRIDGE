@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, ChevronRight, FileText, Clock, Shield, AlertTriangle, ArrowRight, Loader2 } from "lucide-react"
 import { QuestionSafeView, AssessmentAttemptResult, FALLBACK_QUESTIONS } from "@/lib/intelligence/types"
 
+import { useDemo } from "@/lib/demo/demo-context"
+
 export default function AssessmentPage() {
+  const { isDemo, submitAssessment } = useDemo()
   const [isTaking, setIsTaking] = useState(false)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -47,6 +50,38 @@ export default function AssessmentPage() {
 
   const submitAnswers = useCallback(async (finalAnswers: { questionId: string; selectedOptionId: string }[]) => {
     setSubmitting(true)
+    if (isDemo) {
+      // Deterministic calculation in Demo Mode
+      const correctCount = 4
+      const totalQuestions = 5
+      const score = 80
+      const skillName = "Spring Boot"
+
+      submitAssessment(skillName, score)
+
+      setAssessmentResult({
+        attemptId,
+        assessmentId: "1",
+        title: "Spring Boot Microservices Benchmark Assessment",
+        skillName,
+        totalQuestions,
+        correctCount,
+        score,
+        percentage: score,
+        passed: true,
+        previousScore: 50,
+        improvement: 30,
+        explanationSummary: {
+          strengths: ["REST Controller Mapping", "Dependency Injection Lifecycle"],
+          weaknesses: ["MockMvc Integration Testing"],
+          careerImpact: "Your Spring Boot score increased by 30 points (50 → 80), eliminating the 25-point gap!",
+          nextStep: "Submit code repository evidence to earn Evidence Verified status in your Passport.",
+        },
+      })
+      setSubmitting(false)
+      return
+    }
+
     try {
       const res = await fetch(`/api/student/assessments/1/submit`, {
         method: "POST",
@@ -62,26 +97,26 @@ export default function AssessmentPage() {
       setAssessmentResult({
         attemptId,
         assessmentId: "1",
-        title: "Node.js Fundamentals Assessment",
-        skillName: "Node.js",
+        title: "Java Fundamentals Benchmark Assessment",
+        skillName: "Java",
         totalQuestions: 5,
         correctCount: 4,
         score: 80,
         percentage: 80,
         passed: true,
-        previousScore: 65,
-        improvement: 15,
+        previousScore: 68,
+        improvement: 12,
         explanationSummary: {
-          strengths: ["Asynchronous control flow", "Event Loop mechanics"],
-          weaknesses: ["Error propagation in streams"],
-          careerImpact: "Your verified score increased by 15 points, raising your Backend Developer readiness.",
+          strengths: ["Object-Oriented Design", "Collections & Streams API"],
+          weaknesses: ["Concurrency controls & Synchronization"],
+          careerImpact: "Your verified score increased by 12 points, satisfying the Backend Developer benchmark.",
           nextStep: "Complete a practical challenge to achieve Practical Verified status.",
         },
       })
     } finally {
       setSubmitting(false)
     }
-  }, [attemptId])
+  }, [attemptId, isDemo, submitAssessment])
 
   const handleSubmit = useCallback(() => {
     if (selectedOption) {

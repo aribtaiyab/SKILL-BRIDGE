@@ -49,7 +49,12 @@ export function Navbar() {
           </div>
         </div>
         
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="hidden md:flex items-center space-x-3">
+          <Link href="/student?demo=true">
+            <Button variant="outline" className="border-[var(--color-accent)]/40 bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] font-medium hover:bg-[var(--color-accent)]/20 text-xs h-9">
+              Explore Demo ✨
+            </Button>
+          </Link>
           <Link href="/login">
             <Button variant="ghost">Sign In</Button>
           </Link>

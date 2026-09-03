@@ -4,14 +4,47 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle, BookOpen, UserCheck, TrendingUp, Loader2 } from "lucide-react"
+import { Users, AlertTriangle, BookOpen, UserCheck, TrendingUp, Loader2, Sparkles } from "lucide-react"
 import { getAcademicianDashboardData, AcademicianDashboardStats } from "@/lib/database/academician"
+import { useDemo } from "@/lib/demo/demo-context"
 
 export default function AcademicianDashboardPage() {
+  const { isDemo, academicianData, cohortStudents } = useDemo()
   const [stats, setStats] = useState<AcademicianDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemo) {
+      setStats({
+        cohortName: academicianData.cohortName,
+        totalCohort: academicianData.totalStudents,
+        avgReadiness: academicianData.averageReadiness,
+        needIntervention: 2,
+        internshipReady: 2,
+        criticalGaps: [
+          {
+            skill: "Spring Boot",
+            affected: "4/4 (100%)",
+            current: 56,
+            req: 75,
+          },
+          {
+            skill: "SQL Optimization",
+            affected: "2/4 (50%)",
+            current: 68,
+            req: 75,
+          },
+        ],
+        alignmentItems: [
+          { skill: "Java", demand: 90, alignment: 88 },
+          { skill: "Spring Boot", demand: 85, alignment: 56 },
+          { skill: "SQL", demand: 75, alignment: 68 },
+        ],
+      })
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
         const data = await getAcademicianDashboardData()
@@ -21,7 +54,7 @@ export default function AcademicianDashboardPage() {
       }
     }
     load()
-  }, [])
+  }, [isDemo, academicianData, cohortStudents])
 
   if (loading) {
     return (

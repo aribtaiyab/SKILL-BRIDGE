@@ -163,7 +163,10 @@ function OpportunityCard({
   )
 }
 
+import { useDemo } from "@/lib/demo/demo-context"
+
 export default function OpportunitiesPage() {
+  const { isDemo, opportunities: demoOpps } = useDemo()
   const [activeTab, setActiveTab] = useState<TabType>('recommended')
   const [opportunities, setOpportunities] = useState<OpportunityCard[]>([])
   const [loading, setLoading] = useState(true)
@@ -172,6 +175,43 @@ export default function OpportunitiesPage() {
   const [workModeFilter, setWorkModeFilter] = useState("all")
 
   const loadOpportunities = useCallback(async () => {
+    if (isDemo) {
+      const formatted: OpportunityCard[] = demoOpps.map(o => ({
+        id: o.id,
+        title: o.title,
+        company: o.company,
+        type: o.type,
+        location: o.location,
+        workMode: o.workMode,
+        duration: o.duration,
+        deadline: o.deadline,
+        deadlineLabel: o.deadlineLabel,
+        isDeadlineSoon: o.isDeadlineSoon,
+        isDeadlinePassed: o.isDeadlinePassed,
+        matchPercentage: o.matchPercentage,
+        readinessCategory: o.readinessCategory,
+        skillsMetCount: o.skillsMetCount,
+        totalSkillsCount: o.totalSkillsCount,
+        mainBlocker: o.mainBlocker,
+        skills: o.skills.map(s => ({
+          name: s.name,
+          met: s.met,
+          currentLevel: s.currentLevel,
+          requiredLevel: s.requiredLevel,
+        })),
+        isSaved: o.isSaved,
+        hasApplied: o.hasApplied,
+      }))
+
+      if (activeTab === 'saved') {
+        setOpportunities(formatted.filter(o => o.isSaved))
+      } else {
+        setOpportunities(formatted)
+      }
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       if (activeTab === 'recommended') {
@@ -198,40 +238,10 @@ export default function OpportunitiesPage() {
         if (workModeFilter !== 'all') params.set('work_mode', workModeFilter)
         params.set('limit', '40')
 
-        const res = await fetch(`/api/opportunities?${params}`)
+        const res = await fetch(`/api/student/opportunities?${params.toString()}`)
         const json = await res.json()
-        if (json.success && json.data?.opportunities) {
-          // Map API format to card format — readiness is not included in public listing
-          setOpportunities(
-            json.data.opportunities.map((opp: any) => ({
-              id: opp.id,
-              title: opp.title,
-              company: opp.industry_profiles?.organization_name || 'Organization',
-              type: opp.opportunity_type || 'Internship',
-              location: opp.location || 'Remote',
-              workMode: opp.work_mode || 'hybrid',
-              duration: opp.duration || null,
-              deadline: opp.deadline || null,
-              deadlineLabel: opp.deadline
-                ? new Date(opp.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                : 'Rolling',
-              isDeadlineSoon: false,
-              isDeadlinePassed: opp.deadline ? new Date(opp.deadline) < new Date() : false,
-              matchPercentage: 0, // Not computed in public listing
-              readinessCategory: '',
-              skillsMetCount: 0,
-              totalSkillsCount: (opp.opportunity_skills || []).length,
-              mainBlocker: null,
-              skills: (opp.opportunity_skills || []).map((os: any) => ({
-                name: os.skills?.name || 'Skill',
-                met: false,
-                currentLevel: 0,
-                requiredLevel: os.minimum_level || 60,
-              })),
-              isSaved: false,
-              hasApplied: false,
-            }))
-          )
+        if (json.success && json.data) {
+          setOpportunities(json.data)
         } else {
           setOpportunities([])
         }
@@ -241,7 +251,7 @@ export default function OpportunitiesPage() {
     } finally {
       setLoading(false)
     }
-  }, [activeTab, search, typeFilter, workModeFilter])
+  }, [isDemo, demoOpps, activeTab, search, typeFilter, workModeFilter])
 
   useEffect(() => {
     const timer = setTimeout(loadOpportunities, 250)

@@ -4,14 +4,36 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Users, TrendingUp, Briefcase, Award, ArrowRight, Loader2 } from "lucide-react"
+import { Users, TrendingUp, Briefcase, Award, ArrowRight, Loader2, Sparkles } from "lucide-react"
 import { getInstitutionDashboardData, InstitutionDashboardStats } from "@/lib/database/institution"
+import { useDemo } from "@/lib/demo/demo-context"
 
 export default function InstitutionDashboardPage() {
+  const { isDemo, institutionData } = useDemo()
   const [stats, setStats] = useState<InstitutionDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemo) {
+      setStats({
+        totalStudents: `${institutionData.totalStudentsEnrolled}`,
+        overallReadiness: institutionData.overallReadiness,
+        industryPlacements: 34,
+        verifiedSkills: "184",
+        departments: institutionData.departments.map(d => ({
+          dept: d.name,
+          score: d.avgReadiness,
+          target: 80,
+        })),
+        topHiringPartners: [
+          { name: "TechNova Solutions", hires: 12, avgMatch: 88 },
+          { name: "Apex Cloud Labs", hires: 8, avgMatch: 82 },
+        ],
+      })
+      setLoading(false)
+      return
+    }
+
     async function load() {
       try {
         const data = await getInstitutionDashboardData()
@@ -21,7 +43,7 @@ export default function InstitutionDashboardPage() {
       }
     }
     load()
-  }, [])
+  }, [isDemo, institutionData])
 
   if (loading) {
     return (

@@ -163,35 +163,20 @@ export async function getStudentDashboardData(studentId: string = DEFAULT_STUDEN
     }
   }
 
-  // Consistent Phase 1 database-aligned fallback
+  // Return genuine empty state if no profile or career found
   return {
-    studentName: 'Sarah Jenkins',
-    careerTarget: 'Backend Developer',
-    readinessPercentage: 78,
+    studentName: 'Student',
+    careerTarget: 'Not Set',
+    readinessPercentage: 0,
     priorityGap: {
-      skillName: 'Node.js',
-      currentScore: 65,
-      targetScore: 80,
-      description: 'Your Node.js score is 65 (Target: 80). Addressing this 15-point gap will improve your overall readiness to 85% and unlock 3 new internship opportunities.'
+      skillName: 'None',
+      currentScore: 0,
+      targetScore: 0,
+      description: 'Choose a target career and complete an assessment to see your skill gaps.'
     },
-    skills: [
-      { name: 'Node.js', req: 80, val: 65, status: 'gap' },
-      { name: 'REST APIs', req: 75, val: 72, status: 'near' },
-      { name: 'SQL', req: 70, val: 82, status: 'ready' },
-      { name: 'Git', req: 60, val: 75, status: 'ready' },
-    ],
-    topMatches: [
-      { role: 'Backend Developer Internship', company: 'TechFlow Solutions', match: 91, type: 'Internship' },
-      { role: 'Junior API Developer', company: 'DataSync Inc', match: 85, type: 'Job' },
-      { role: 'Backend Mentorship Program', company: 'Senior Dev Network', match: 100, type: 'Mentorship' },
-      { role: 'Industrial Training: Database Architecture', company: 'Enterprise Systems', match: 94, type: 'Industrial Training' },
-    ],
-    recentActivity: [
-      { text: 'SQL Skill verified through practical assessment', time: '2 days ago', type: 'success' },
-      { text: 'Career Target set to Backend Developer', time: '1 week ago', type: 'warning' },
-      { text: 'Improved REST APIs score from 60 to 72', time: '2 weeks ago', type: 'accent' },
-      { text: 'Completed Initial Baseline Assessment', time: '1 month ago', type: 'neutral' },
-    ]
+    skills: [],
+    topMatches: [],
+    recentActivity: []
   }
 }
 
@@ -290,31 +275,5 @@ export async function getStudentSkillsCategories(studentId: string = DEFAULT_STU
     }
   }
 
-  // Consistent Phase 1 database-aligned fallback
-  return [
-    {
-      category: "Backend & Systems",
-      skills: [
-        { name: "Node.js", score: 65, level: "65/100", status: "improve", verification: "Assessment" },
-        { name: "REST API Architecture", score: 72, level: "72/100", status: "improve", verification: "Assessment" },
-        { name: "Express.js", score: 60, level: "60/100", status: "improve", verification: "Self-Declared" },
-      ]
-    },
-    {
-      category: "Database Systems",
-      skills: [
-        { name: "SQL Query Optimization", score: 82, level: "82/100", status: "ready", verification: "Practical" },
-        { name: "PostgreSQL Schema Design", score: 78, level: "78/100", status: "ready", verification: "Practical" },
-        { name: "Redis Caching", score: 40, level: "40/100", status: "gap", verification: "Self-Declared" },
-      ]
-    },
-    {
-      category: "DevOps & Infrastructure",
-      skills: [
-        { name: "Git Version Control", score: 75, level: "75/100", status: "ready", verification: "Verified Evidence" },
-        { name: "Docker Basics", score: 30, level: "30/100", status: "gap", verification: "Self-Declared" },
-        { name: "Linux Administration", score: 50, level: "50/100", status: "improve", verification: "Self-Declared" },
-      ]
-    }
-  ]
+  return []
 }

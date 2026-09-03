@@ -85,7 +85,7 @@ export async function buildStudentAIContext(
       ]
     }
 
-    // Fetch student verified skills
+    // Fetch student verified skills (strictly from DB)
     const { data: userSkills } = await (supabase as any)
       .from('student_skills')
       .select('skill_id, current_level, verification_status, skills(id, name)')
@@ -99,12 +99,7 @@ export async function buildStudentAIContext(
         verificationStatus: us.verification_status,
       }))
     } else {
-      studentScores = [
-        { skillId: 's-node', skillName: 'Node.js', currentLevel: 65, verificationStatus: 'assessment_verified' },
-        { skillId: 's-rest', skillName: 'REST APIs', currentLevel: 72, verificationStatus: 'assessment_verified' },
-        { skillId: 's-sql', skillName: 'SQL', currentLevel: 82, verificationStatus: 'practical_verified' },
-        { skillId: 's-git', skillName: 'Git', currentLevel: 75, verificationStatus: 'evidence_verified' },
-      ]
+      studentScores = []
     }
   } catch (err) {
     console.warn('Context builder skills query warning:', err)

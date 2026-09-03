@@ -28,27 +28,64 @@ export async function GET() {
     .select('id, score, percentage, status, started_at, completed_at, assessments(title, skills(name))')
     .eq('student_id', user.id)
     .eq('status', 'completed')
-    .order('completed_at', { ascending: false })
+    .order('completed_at', { ascending: true })
 
-  // 4. Default 6-month growth timeline
-  const growthTimeline = [
-    { month: 'Month 1', score: 45, label: 'Node.js Initial' },
-    { month: 'Month 2', score: 55, label: 'Async Foundations' },
-    { month: 'Month 3', score: 65, label: 'Node.js Practical' },
-    { month: 'Month 4', score: 72, label: 'REST APIs Verified' },
-    { month: 'Month 5', score: 82, label: 'SQL Architecture' },
-    { month: 'Current', score: 85, label: 'Verified Readiness' },
-  ]
+  // 4. Fetch verified skills count & current levels
+  const { data: studentSkills } = await (supabase as any)
+    .from('student_skills')
+    .select('current_level, verification_status')
+    .eq('student_id', user.id)
+
+  const verifiedSkillsCount = (studentSkills || []).filter(
+    (s: any) => s.verification_status && s.verification_status !== 'self_declared'
+  ).length
+
+  // 5. Build dynamic growth timeline from actual user attempts & progress records
+  let growthTimeline: { month: string; score: number; label: string }[] = []
+
+  if (attempts && attempts.length > 0) {
+    growthTimeline = attempts.map((att: any, idx: number) => {
+      const dateStr = att.completed_at ? new Date(att.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Attempt ${idx + 1}`
+      const skillName = att.assessments?.skills?.name || att.assessments?.title || 'Assessment'
+      return {
+        month: dateStr,
+        score: att.score || att.percentage || 0,
+        label: `${skillName} (${att.score || att.percentage}%)`,
+      }
+    })
+  } else if (progressHistory && progressHistory.length > 0) {
+    growthTimeline = progressHistory.map((ph: any, idx: number) => {
+      const dateStr = ph.recorded_at ? new Date(ph.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Record ${idx + 1}`
+      return {
+        month: dateStr,
+        score: ph.score || 0,
+        label: `${ph.skills?.name || 'Skill'} (${ph.score}%)`,
+      }
+    })
+  }
+
+  // Compute gain from first attempt to latest attempt
+  let sixMonthGain = '0 pts'
+  if (growthTimeline.length >= 2) {
+    const firstScore = growthTimeline[0].score
+    const latestScore = growthTimeline[growthTimeline.length - 1].score
+    const diff = latestScore - firstScore
+    sixMonthGain = diff >= 0 ? `+${diff} pts` : `${diff} pts`
+  }
+
+  const avgReadiness = (studentSkills && studentSkills.length > 0)
+    ? Math.round(studentSkills.reduce((acc: number, s: any) => acc + (s.current_level || 0), 0) / studentSkills.length)
+    : 0
 
   return apiSuccess({
     growthTimeline,
     progressHistory: progressHistory || [],
     reassessments: reassessments || [],
-    recentAttempts: attempts || [],
+    recentAttempts: (attempts || []).slice().reverse(),
     summary: {
-      overallReadiness: 78,
-      verifiedSkillsCount: 4,
-      sixMonthGain: '+15%',
+      overallReadiness: avgReadiness,
+      verifiedSkillsCount,
+      sixMonthGain,
     },
   })
 }
