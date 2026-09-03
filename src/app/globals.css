@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+  
+  --color-background: #FAF9F6;
+  --color-surface-secondary: #F4F2ED;
+  --color-surface-card: #FFFFFF;
+  
+  --color-foreground: #1C1C1C;
+  --color-text-secondary: #5F625D;
+  --color-text-muted: #858780;
+  
+  --color-border-primary: #E5E2DA;
+  --color-border-subtle: #EEECE7;
+  
+  --color-accent: #3F6B4F;
+  --color-accent-hover: #345A42;
+  --color-accent-light: #EAF0EB;
+  
+  --color-success: #3F6B4F;
+  --color-warning: #B7791F;
+  --color-critical: #B84A4A;
+}
+
+@layer base {
+  :root {
+    --background: #FAF9F6;
+    --foreground: #1C1C1C;
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter), sans-serif;
+  }
+}
+
+/* Typography styles based on the spec */
+@layer utilities {
+  .text-h1 {
+    font-size: 32px;
+    line-height: 40px;
+  }
+  .text-h2 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+  .text-h3 {
+    font-size: 18px;
+    line-height: 26px;
+  }
+  .text-body {
+    font-size: 15px;
+    line-height: 24px;
+  }
+  .text-small {
+    font-size: 13px;
+    line-height: 20px;
+  }
+  .text-caption {
+    font-size: 12px;
+    line-height: 18px;
+  }
+}
