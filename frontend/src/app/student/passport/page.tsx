@@ -12,6 +12,7 @@ import {
   Lock, Globe, Copy, Check, Eye, AlertCircle, ArrowUpRight, PlusCircle
 } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface PassportData {
   profile: {
@@ -148,8 +149,7 @@ export default function PassportPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/passport`)
-      const json = await res.json()
+      const json = await apiClient('/api/student/passport')
       if (json.success && json.data) {
         setData(json.data)
       }
@@ -169,12 +169,10 @@ export default function PassportPage() {
     setSavingSettings(true)
     try {
       const newPublicState = !data.settings.isPublic
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/passport/settings`, {
+      const json = await apiClient('/api/student/passport/settings', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isPublic: newPublicState }),
       })
-      const json = await res.json()
       if (json.success) {
         setData(prev => (prev ? { ...prev, settings: { ...prev.settings, isPublic: newPublicState } } : null))
       }

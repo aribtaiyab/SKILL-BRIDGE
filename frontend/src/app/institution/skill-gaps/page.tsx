@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, Loader2, Info, TrendingUp } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface SkillGapItem {
   skillId: string
@@ -30,8 +31,7 @@ export default function InstitutionSkillGapsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/institution/insights`)
-      .then(r => r.json())
+    apiClient('/api/institution/insights')
       .then(json => { if (json.success) setData(json.data) })
       .catch(() => {})
       .finally(() => setLoading(false))

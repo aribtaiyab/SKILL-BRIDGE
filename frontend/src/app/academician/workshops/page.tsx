@@ -11,6 +11,7 @@ import {
   Presentation, Loader2, X, AlertCircle, Trash2
 } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface WorkshopItem {
   id: string
@@ -93,8 +94,7 @@ function WorkshopsContent() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/workshops`)
-      const json = await res.json()
+      const json = await apiClient('/api/academician/workshops')
       if (json.success && Array.isArray(json.data)) {
         setWorkshops(json.data)
       } else {
@@ -142,9 +142,8 @@ function WorkshopsContent() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/workshops`, {
+      const json = await apiClient('/api/academician/workshops', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
           description: `Targeted intervention workshop covering ${skillTarget || 'core skills'}.`,
@@ -153,7 +152,6 @@ function WorkshopsContent() {
           date: date ? new Date(date).toISOString() : new Date().toISOString(),
         }),
       })
-      const json = await res.json()
       if (json.success) {
         setModalOpen(false)
         setTitle("")
@@ -176,9 +174,8 @@ function WorkshopsContent() {
     }
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/workshops/${id}`, {
+      await apiClient(`/api/academician/workshops/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       })
       loadWorkshops()
@@ -194,7 +191,7 @@ function WorkshopsContent() {
     }
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/workshops/${id}`, { method: 'DELETE' })
+      await apiClient(`/api/academician/workshops/${id}`, { method: 'DELETE' })
       loadWorkshops()
     } catch {
       // noop

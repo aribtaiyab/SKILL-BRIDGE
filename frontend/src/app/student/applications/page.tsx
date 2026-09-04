@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Building, Calendar, CheckCircle2, ExternalLink, Loader2, FileText, TrendingUp, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface ApplicationItem {
   id: string
@@ -51,8 +52,7 @@ export default function ApplicationsPage() {
   const [tab, setTab] = useState<TabStatus>('all')
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/applications`)
-      .then(r => r.json())
+    apiClient('/api/applications')
       .then(json => {
         if (json.success && json.data) {
           setApplications(json.data)

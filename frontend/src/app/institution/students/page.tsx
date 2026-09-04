@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Search, Filter, Shield, UserCheck, ArrowRight, Loader2 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface InstStudentItem {
   id: string
@@ -23,8 +24,7 @@ export default function InstitutionStudentsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/institution/students`)
-      .then(r => r.json())
+    apiClient('/api/institution/students')
       .then(json => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           setStudents(json.data)

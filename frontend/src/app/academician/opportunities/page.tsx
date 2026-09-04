@@ -9,6 +9,7 @@ import {
   Loader2, Filter, Info, ExternalLink
 } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface AcademicOpportunity {
   id: string
@@ -90,8 +91,7 @@ export default function AcademicianOpportunitiesPage() {
       return
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/opportunities?type=${typeFilter}`)
-      .then(r => r.json())
+    apiClient(`/api/academician/opportunities?type=${typeFilter}`)
       .then(json => {
         if (json.success && Array.isArray(json.data)) {
           setOpportunities(json.data)

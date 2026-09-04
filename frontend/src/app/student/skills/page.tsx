@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle2, Shield, TrendingUp, Code, Database, Layout, Server, GitBranch, Loader2, Sparkles, ArrowRight } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
 import { SkillCategoryGroup } from "@/types"
+import { apiClient } from "@/lib/api-client"
 
 export default function SkillsPage() {
   const { isDemo, student } = useDemo()
@@ -40,8 +41,7 @@ export default function SkillsPage() {
 
     async function load() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/skills`)
-        const json = await res.json()
+        const json = await apiClient('/api/student/skills')
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           const groups: Record<string, any[]> = {}
           json.data.forEach((row: any) => {

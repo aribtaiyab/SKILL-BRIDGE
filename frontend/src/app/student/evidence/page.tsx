@@ -11,6 +11,7 @@ import {
   ExternalLink, Trash2, Edit3, Send, Loader2, ArrowLeft,
   Shield, Code, AlertCircle, HelpCircle, Sparkles
 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface SkillOption {
   id: string
@@ -101,8 +102,8 @@ export default function EvidenceManagementPage() {
     setLoading(true)
     try {
       const [evRes, skRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/evidence`).then(r => r.json()),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/skills`).then(r => r.json()),
+        apiClient('/api/student/evidence'),
+        apiClient('/api/student/skills'),
       ])
 
       if (evRes.success && evRes.data) {
@@ -135,9 +136,8 @@ export default function EvidenceManagementPage() {
         ? [{ skillId: selectedSkillId, claimDescription: claimDescription.trim() || undefined }]
         : []
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/evidence`, {
+      const json = await apiClient('/api/student/evidence', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),
@@ -147,9 +147,7 @@ export default function EvidenceManagementPage() {
           skills: skillsPayload,
         }),
       })
-
-      const json = await res.json()
-      if (res.ok && json.success) {
+      if (json.success) {
         setShowAddModal(false)
         setTitle("")
         setDescription("")
@@ -170,10 +168,8 @@ export default function EvidenceManagementPage() {
   const handleSubmitDraft = async (id: string) => {
     setActionLoadingId(id)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/evidence/${id}/submit`, { method: 'POST' })
-      if (res.ok) {
-        loadData()
-      }
+      await apiClient(`/api/student/evidence/${id}/submit`, { method: 'POST' })
+      loadData()
     } catch {
       // noop
     } finally {
@@ -185,10 +181,8 @@ export default function EvidenceManagementPage() {
     if (!confirm("Are you sure you want to delete this draft evidence?")) return
     setActionLoadingId(id)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/evidence/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setEvidenceList(prev => prev.filter(e => e.id !== id))
-      }
+      await apiClient(`/api/student/evidence/${id}`, { method: 'DELETE' })
+      setEvidenceList(prev => prev.filter(e => e.id !== id))
     } catch {
       // noop
     } finally {

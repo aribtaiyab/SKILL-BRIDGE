@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Briefcase, TrendingUp, Building, Presentation, Loader2, Info } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface IndustryTrend {
   skill: string
@@ -34,8 +35,7 @@ export default function AcademicianIndustryPage() {
       return
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/industry`)
-      .then(r => r.json())
+    apiClient('/api/academician/industry')
       .then(json => {
         if (json.success && Array.isArray(json.data)) {
           setTrends(json.data)

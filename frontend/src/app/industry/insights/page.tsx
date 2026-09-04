@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Users, Target, CheckCircle2, BarChart3, Loader2, AlertCircle, Info } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface InsightsData {
   summary: {
@@ -24,8 +25,7 @@ export default function IndustryInsightsPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/insights`)
-      .then(r => r.json())
+    apiClient('/api/industry/insights')
       .then(json => {
         if (json.success && json.data) {
           setData(json.data)

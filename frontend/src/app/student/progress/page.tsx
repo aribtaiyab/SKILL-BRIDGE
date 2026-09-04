@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TrendingUp, Target, Award, Calendar, CheckCircle2, Loader2, ArrowUpRight, ArrowRight } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface ProgressData {
   growthTimeline: { month: string; score: number; label: string }[]
@@ -76,8 +77,7 @@ export default function ProgressPage() {
 
     async function load() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/progress`)
-        const json = await res.json()
+        const json = await apiClient('/api/student/progress')
         if (json.success && json.data) {
           setData(json.data)
         }

@@ -10,6 +10,7 @@ import {
   PlusCircle, Loader2, X, AlertCircle, Clock
 } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface MentorshipSession {
   id: string
@@ -82,13 +83,10 @@ export default function AcademicianMentorshipPage() {
     }
 
     try {
-      const [resSessions, resStudents] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/mentorship`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/students`),
+      const [jsonSessions, jsonStudents] = await Promise.all([
+        apiClient.get<any>("/api/academician/mentorship"),
+        apiClient.get<any>("/api/academician/students"),
       ])
-
-      const jsonSessions = await resSessions.json()
-      const jsonStudents = await resStudents.json()
 
       if (jsonSessions.success && Array.isArray(jsonSessions.data)) {
         setSessions(jsonSessions.data)
@@ -143,16 +141,11 @@ export default function AcademicianMentorshipPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/mentorship`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudent,
-          notes: topic.trim(),
-          startDate: sessionDate ? new Date(sessionDate).toISOString() : new Date().toISOString(),
-        }),
+      const json = await apiClient.post<any>("/api/academician/mentorship", {
+        studentId: selectedStudent,
+        notes: topic.trim(),
+        startDate: sessionDate ? new Date(sessionDate).toISOString() : new Date().toISOString(),
       })
-      const json = await res.json()
       if (json.success) {
         setModalOpen(false)
         setTopic("")
@@ -161,8 +154,8 @@ export default function AcademicianMentorshipPage() {
       } else {
         setError(json.error || 'Failed to schedule session.')
       }
-    } catch {
-      setError('Network error. Please try again.')
+    } catch (err: any) {
+      setError(err?.message || 'Network error. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -175,14 +168,8 @@ export default function AcademicianMentorshipPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/mentorship/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      if (res.ok) {
-        loadData()
-      }
+      await apiClient.patch(`/api/academician/mentorship/${id}`, { status: newStatus })
+      loadData()
     } catch {
       // noop
     }

@@ -10,6 +10,7 @@ import {
   Shield, CheckCircle2, Award, Code, Building, Lock,
   ExternalLink, Loader2, Sparkles, ArrowLeft
 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 export default function PublicPassportPage() {
   const params = useParams()
@@ -22,8 +23,7 @@ export default function PublicPassportPage() {
   useEffect(() => {
     if (!shareToken) return
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/passport/${shareToken}`)
-      .then(r => r.json())
+    apiClient(`/api/passport/${shareToken}`)
       .then(json => {
         if (json.success && json.data) {
           setData(json.data)

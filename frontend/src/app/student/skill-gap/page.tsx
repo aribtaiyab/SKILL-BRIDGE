@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { AlertTriangle, Target, CheckCircle2, ChevronRight, BookOpen, Code, Loader2, ArrowRight } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
 import { EvaluatedSkillGap } from "@/lib/intelligence/engine"
+import { apiClient } from "@/lib/api-client"
 
 interface SkillGapsResponse {
   careerName: string
@@ -71,8 +72,7 @@ export default function SkillGapPage() {
 
     async function load() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/skill-gaps`)
-        const json = await res.json()
+        const json = await apiClient('/api/student/skill-gaps')
         if (json.success && json.data) {
           setData(json.data)
         }

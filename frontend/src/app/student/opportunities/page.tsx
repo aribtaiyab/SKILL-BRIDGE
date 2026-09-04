@@ -69,7 +69,7 @@ function OpportunityCard({
     setToggling(true)
     try {
       const method = opp.isSaved ? 'DELETE' : 'POST'
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/opportunities/${opp.id}/save`, { method })
+      await apiClient(`/api/opportunities/${opp.id}/save`, { method })
       onToggleSave(opp.id, !opp.isSaved)
     } catch {
       // noop
@@ -164,6 +164,7 @@ function OpportunityCard({
 }
 
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 export default function OpportunitiesPage() {
   const { isDemo, opportunities: demoOpps } = useDemo()
@@ -215,16 +216,14 @@ export default function OpportunitiesPage() {
     setLoading(true)
     try {
       if (activeTab === 'recommended') {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/opportunities/recommended?limit=30`)
-        const json = await res.json()
+        const json = await apiClient('/api/student/opportunities/recommended?limit=30')
         if (json.success && json.data) {
           setOpportunities(json.data)
         } else {
           setOpportunities([])
         }
       } else if (activeTab === 'saved') {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/opportunities/saved`)
-        const json = await res.json()
+        const json = await apiClient('/api/student/opportunities/saved')
         if (json.success && json.data) {
           setOpportunities(json.data.map((o: any) => ({ ...o, isSaved: true })))
         } else {
@@ -238,8 +237,7 @@ export default function OpportunitiesPage() {
         if (workModeFilter !== 'all') params.set('work_mode', workModeFilter)
         params.set('limit', '40')
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/opportunities?${params.toString()}`)
-        const json = await res.json()
+        const json = await apiClient(`/api/student/opportunities?${params.toString()}`)
         if (json.success && json.data) {
           setOpportunities(json.data)
         } else {

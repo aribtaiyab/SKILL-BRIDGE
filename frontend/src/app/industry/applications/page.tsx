@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Search, Filter, CheckCircle2, Clock, XCircle, ArrowRight, UserCheck, Loader2 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface ApplicationItem {
   id: string
@@ -32,8 +33,7 @@ export default function IndustryApplicationsPage() {
   const loadApplications = useCallback(async () => {
     try {
       const url = statusFilter !== "all" ? `/api/industry/applications?status=${statusFilter}` : `/api/industry/applications`
-      const res = await fetch(url)
-      const json = await res.json()
+      const json = await apiClient(url)
       if (json.success && json.data) {
         setApplications(json.data)
       }
@@ -77,14 +77,11 @@ export default function IndustryApplicationsPage() {
   const handleUpdateStatus = async (appId: string, newStatus: string) => {
     setUpdatingId(appId)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/applications/${appId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+      await apiClient(`/api/industry/applications/${appId}/status`, {
+        method: 'PATCH',
         body: JSON.stringify({ status: newStatus }),
       })
-      if (res.ok) {
-        setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a))
-      }
+      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a))
     } catch (err) {
       console.warn("Status update error:", err)
     } finally {

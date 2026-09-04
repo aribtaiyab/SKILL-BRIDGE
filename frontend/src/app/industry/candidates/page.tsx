@@ -10,6 +10,7 @@ import {
   Search, Filter, User, Shield, CheckCircle2, AlertTriangle,
   Loader2, TrendingUp, Building, ChevronDown, ChevronUp, Users
 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface CandidateResult {
   applicationId: string
@@ -84,8 +85,7 @@ export default function CandidatesPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/opportunities?status=published`)
-      const json = await res.json()
+      const json = await apiClient('/api/industry/opportunities?status=published')
       if (json.success && json.data) {
         setOpportunities(json.data.map((o: any) => ({ id: o.id, title: o.title })))
       }
@@ -140,8 +140,7 @@ export default function CandidatesPage() {
       if (oppFilter) params.set('opportunity_id', oppFilter)
       if (minMatch && parseInt(minMatch) > 0) params.set('min_match', minMatch)
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/candidates?${params}`)
-      const json = await res.json()
+      const json = await apiClient(`/api/industry/candidates?${params}`)
       if (json.success && json.data) {
         setCandidates(json.data)
       } else {
@@ -160,16 +159,13 @@ export default function CandidatesPage() {
   const handleUpdateStatus = async (applicationId: string, newStatus: string) => {
     setUpdatingId(applicationId)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/applications/${applicationId}/status`, {
+      await apiClient(`/api/industry/applications/${applicationId}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       })
-      if (res.ok) {
-        setCandidates(prev =>
-          prev.map(c => c.applicationId === applicationId ? { ...c, applicationStatus: newStatus } : c)
-        )
-      }
+      setCandidates(prev =>
+        prev.map(c => c.applicationId === applicationId ? { ...c, applicationStatus: newStatus } : c)
+      )
     } catch {
       // noop
     } finally {

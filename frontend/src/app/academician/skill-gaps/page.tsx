@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, Loader2, Info, BookOpen, Presentation, Filter } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface SkillGapItem {
   skillId: string
@@ -81,8 +82,7 @@ export default function AcademicianSkillGapsPage() {
       return
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/insights`)
-      .then(r => r.json())
+    apiClient('/api/academician/insights')
       .then(json => {
         if (json.success && json.data) setData(json.data)
       })

@@ -12,6 +12,7 @@ import {
   Clock, TrendingUp, ChevronRight, Sparkles
 } from "lucide-react"
 import { buildMatchExplanation } from "@/lib/intelligence/matching"
+import { apiClient } from "@/lib/api-client"
 
 interface OpportunityDetail {
   id: string
@@ -74,11 +75,11 @@ export default function OpportunityDetailsPage() {
     setLoading(true)
 
     Promise.all([
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/opportunities/${opportunityId}`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/opportunities/${opportunityId}/readiness`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/applications`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/opportunities/saved`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/opportunities/${opportunityId}/proof`).then(r => r.ok ? r.json() : null).catch(() => null),
+      apiClient(`/api/opportunities/${opportunityId}`).catch(() => null),
+      apiClient(`/api/student/opportunities/${opportunityId}/readiness`).catch(() => null),
+      apiClient('/api/applications').catch(() => null),
+      apiClient('/api/student/opportunities/saved').catch(() => null),
+      apiClient(`/api/opportunities/${opportunityId}/proof`).catch(() => null),
     ]).then(([oppRes, readRes, appsRes, savedRes, proofRes]) => {
       const d = oppRes?.success ? oppRes.data : null
       const readData = readRes?.success ? readRes.data : null
@@ -176,13 +177,11 @@ export default function OpportunityDetailsPage() {
     setIsApplying(true)
     setError("")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/applications`, {
+      const json = await apiClient('/api/applications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ opportunity_id: opportunityId, cover_letter: coverLetter }),
       })
-      const json = await res.json()
-      if (res.ok && json.success) {
+      if (json.success) {
         setHasApplied(true)
       } else if (json.error?.code === 'DUPLICATE') {
         setHasApplied(true)
@@ -193,8 +192,8 @@ export default function OpportunityDetailsPage() {
       } else {
         setError(json.error?.message || 'Could not submit application. Please try again.')
       }
-    } catch {
-      setError('Network error. Please check your connection and try again.')
+    } catch (err: any) {
+      setError(err?.message || 'Network error. Please check your connection and try again.')
     } finally {
       setIsApplying(false)
     }
@@ -204,8 +203,8 @@ export default function OpportunityDetailsPage() {
     setSavingState(true)
     try {
       const method = isSaved ? 'DELETE' : 'POST'
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/opportunities/${opportunityId}/save`, { method })
-      if (res.ok) setIsSaved(!isSaved)
+      await apiClient(`/api/opportunities/${opportunityId}/save`, { method })
+      setIsSaved(!isSaved)
     } catch {
       // noop
     } finally {

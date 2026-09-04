@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, ChevronRight, FileText, Clock, Shield, AlertTriangle, ArrowRight, Loader2 } from "lucide-react"
 import { QuestionSafeView, AssessmentAttemptResult, FALLBACK_QUESTIONS } from "@/lib/intelligence/types"
+import { apiClient } from "@/lib/api-client"
 
 import { useDemo } from "@/lib/demo/demo-context"
 
@@ -28,8 +29,7 @@ export default function AssessmentPage() {
   const handleStart = async (assessmentId: string = "1") => {
     setLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/assessments/${assessmentId}/start`, { method: "POST" })
-      const json = await res.json()
+      const json = await apiClient(`/api/student/assessments/${assessmentId}/start`, { method: 'POST' })
       if (json.success && json.data) {
         setAttemptId(json.data.attemptId)
         setQuestions(json.data.questions || FALLBACK_QUESTIONS)
@@ -83,12 +83,10 @@ export default function AssessmentPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/assessments/1/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const json = await apiClient('/api/student/assessments/1/submit', {
+        method: 'POST',
         body: JSON.stringify({ attemptId, answers: finalAnswers }),
       })
-      const json = await res.json()
       if (json.success && json.data) {
         setAssessmentResult(json.data)
       }

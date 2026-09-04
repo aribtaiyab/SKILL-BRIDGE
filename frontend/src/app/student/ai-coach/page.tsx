@@ -34,6 +34,7 @@ import {
   CoachMessage,
   DifficultyLevel,
 } from "@/lib/ai/types"
+import { apiClient } from "@/lib/api-client"
 
 export default function AICoachPage() {
   const { isDemo, student } = useDemo()
@@ -169,8 +170,8 @@ export default function AICoachPage() {
 
       try {
         const [diagRes, planRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/diagnose`, { method: "POST" }).then(r => r.json()),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/learning-plan`, { method: "POST" }).then(r => r.json()),
+          apiClient('/api/ai/diagnose', { method: 'POST' }),
+          apiClient('/api/ai/learning-plan', { method: 'POST' }),
         ])
 
         if (diagRes.success && diagRes.data?.diagnosis) {
@@ -205,12 +206,10 @@ export default function AICoachPage() {
     setPracticeFeedback(null)
     setSelectedOption(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/practice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const json = await apiClient('/api/ai/practice', {
+        method: 'POST',
         body: JSON.stringify({ skillName: diagnosis?.skill || "Node.js", difficulty: diff }),
       })
-      const json = await res.json()
       if (json.success && json.data?.question) {
         setPracticeQuestion(json.data.question)
       }
@@ -226,16 +225,14 @@ export default function AICoachPage() {
     if (!selectedOption || !practiceQuestion) return
     setSubmittingPractice(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const json = await apiClient('/api/ai/feedback', {
+        method: 'POST',
         body: JSON.stringify({
           practiceId: practiceQuestion.id,
           skillName: practiceQuestion.skill,
           studentAnswer: selectedOption,
         }),
       })
-      const json = await res.json()
       if (json.success && json.data) {
         setPracticeFeedback(json.data)
       }
@@ -257,12 +254,10 @@ export default function AICoachPage() {
     setChatLoading(true)
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/coach`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const json = await apiClient('/api/ai/coach', {
+        method: 'POST',
         body: JSON.stringify({ message: text, history: newHistory }),
       })
-      const json = await res.json()
       if (json.success && json.data) {
         setChatMessages(prev => [
           ...prev,

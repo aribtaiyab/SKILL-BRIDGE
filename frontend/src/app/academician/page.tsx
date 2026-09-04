@@ -10,6 +10,7 @@ import {
   Loader2, Presentation, Award, ArrowRight, ShieldCheck
 } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface InsightsData {
   summary: {
@@ -118,8 +119,7 @@ export default function AcademicianDashboardPage() {
 
     async function load() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/insights`)
-        const json = await res.json()
+        const json = await apiClient('/api/academician/insights')
         if (json.success && json.data) {
           setData(json.data)
         }

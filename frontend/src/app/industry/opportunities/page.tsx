@@ -12,6 +12,7 @@ import {
   Loader2, AlertCircle, Eye, MoreHorizontal, CheckCircle2,
   Clock, Archive, Globe, PauseCircle
 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface IndustryOpportunity {
   id: string
@@ -49,8 +50,7 @@ export default function IndustryOpportunitiesPage() {
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/opportunities?${params}`)
-      const json = await res.json()
+      const json = await apiClient(`/api/industry/opportunities?${params}`)
       if (json.success && json.data) {
         setOpportunities(json.data)
       } else {
@@ -70,14 +70,11 @@ export default function IndustryOpportunitiesPage() {
   const updateStatus = async (id: string, status: string) => {
     setUpdatingId(id)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/opportunities/${id}`, {
+      await apiClient(`/api/industry/opportunities/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      if (res.ok) {
-        setOpportunities(prev => prev.map(o => o.id === id ? { ...o, status } : o))
-      }
+      setOpportunities(prev => prev.map(o => o.id === id ? { ...o, status } : o))
     } catch {
       // noop
     } finally {

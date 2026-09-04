@@ -10,6 +10,7 @@ import {
   User, Loader2, BookOpen, X, Award, ExternalLink, Calendar
 } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface StudentItem {
   id: string
@@ -102,8 +103,7 @@ export default function AcademicianStudentsPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/students`)
-      const json = await res.json()
+      const json = await apiClient('/api/academician/students')
       if (json.success && Array.isArray(json.data)) {
         setStudents(json.data)
       } else {
@@ -168,8 +168,7 @@ export default function AcademicianStudentsPage() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/students/${id}`)
-      const json = await res.json()
+      const json = await apiClient(`/api/academician/students/${id}`)
       if (json.success && json.data) {
         setStudentDetail(json.data)
       }

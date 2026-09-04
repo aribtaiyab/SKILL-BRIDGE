@@ -10,6 +10,7 @@ import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, Trendin
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import { CareerReadinessResult } from "@/lib/intelligence/engine"
+import { apiClient } from "@/lib/api-client"
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth()
@@ -25,8 +26,7 @@ export default function StudentDashboard() {
 
     async function loadData() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/student/readiness`)
-        const json = await res.json()
+        const json = await apiClient('/api/student/readiness')
         if (json.success && json.data) {
           setReadiness(json.data)
         }

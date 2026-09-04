@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CheckCircle2, Plus, X, AlertCircle, Loader2, Eye, Save } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface SkillEntry {
   name: string
@@ -72,24 +73,20 @@ export default function CreateOpportunityPage() {
           spots_available: 1,
         }
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/opportunities`, {
+        const json = await apiClient('/api/industry/opportunities', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
 
-        const json = await res.json()
-
-        if (!res.ok || !json.success) {
+        if (!json.success) {
           setError(json.error?.message || 'Could not create opportunity. Please try again.')
           return
         }
 
         // If publishing (not draft), update status
         if (publishMode === 'published') {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/industry/opportunities/${json.data.id}`, {
+          await apiClient(`/api/industry/opportunities/${json.data.id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'published' }),
           })
         }

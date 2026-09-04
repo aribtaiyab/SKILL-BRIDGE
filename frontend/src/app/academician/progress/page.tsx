@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Award, Users, CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
 
 interface ProgressSummary {
   averageReadiness: number
@@ -74,8 +75,7 @@ export default function AcademicianProgressPage() {
       return
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/academician/progress`)
-      .then(r => r.json())
+    apiClient('/api/academician/progress')
       .then(json => {
         if (json.success && json.data) {
           setSummary(json.data.summary)

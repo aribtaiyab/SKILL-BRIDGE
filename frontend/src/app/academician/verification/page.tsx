@@ -8,6 +8,7 @@ import {
   Shield, CheckCircle2, AlertTriangle, Clock, HelpCircle,
   ExternalLink, Loader2, User, Building, MessageSquare, Check, X
 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
 interface QueueItem {
   id: string
@@ -47,8 +48,7 @@ export default function AcademicianVerificationQueuePage() {
   const loadQueue = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/verification/queue?status=${statusFilter}`)
-      const json = await res.json()
+      const json = await apiClient(`/api/verification/queue?status=${statusFilter}`)
       if (json.success && json.data) {
         setItems(json.data)
       } else {
@@ -68,14 +68,11 @@ export default function AcademicianVerificationQueuePage() {
   const handleApprove = async (id: string) => {
     setActionLoadingId(id)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/verification/${id}/approve`, {
+      await apiClient(`/api/verification/${id}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: 'Verified through academic proof review.' }),
       })
-      if (res.ok) {
-        loadQueue()
-      }
+      loadQueue()
     } catch {
       // noop
     } finally {
@@ -92,17 +89,13 @@ export default function AcademicianVerificationQueuePage() {
       const endpoint = type === 'reject' ? `/api/verification/${id}/reject` : `/api/verification/${id}/clarify`
       const payload = type === 'reject' ? { reason: feedbackText.trim() } : { message: feedbackText.trim() }
 
-      const res = await fetch(endpoint, {
+      await apiClient(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-
-      if (res.ok) {
-        setActiveModal(null)
-        setFeedbackText("")
-        loadQueue()
-      }
+      setActiveModal(null)
+      setFeedbackText("")
+      loadQueue()
     } catch {
       // noop
     } finally {
