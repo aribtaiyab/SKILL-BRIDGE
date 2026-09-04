@@ -6,22 +6,23 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "prestart": "npm run build",
     "start": "node dist/server.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.114.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.17.19",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "typescript": "^5.7.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^20.17.19",
-    "tsx": "^4.19.3",
-    "typescript": "^5.7.3"
+    "tsx": "^4.19.3"
   }
 }
