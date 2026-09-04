@@ -29,7 +29,7 @@ export async function getInstitutionStudents(req: AuthenticatedRequest, res: Res
 
     const { data, error } = await supabase
       .from('student_profiles')
-      .select('profile_id, education, graduation_year, profiles(full_name, email), career_targets(name), student_skills(current_score)')
+      .select('profile_id, education, graduation_year, profiles(full_name, email), career_targets(name), student_skills(current_level)')
 
     if (error) return res.status(500).json({ success: false, error: 'Could not fetch students' })
     res.status(200).json({ data: data || [] })

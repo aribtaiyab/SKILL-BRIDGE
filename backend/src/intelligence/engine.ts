@@ -217,7 +217,9 @@ export function evaluateCareerReadiness(
     const priorityScore = calculatePriorityScore(gap, req.requiredLevel, req.importance)
 
     let recommendation = ''
-    if (status === 'ready') {
+    if (!isAssessed) {
+      recommendation = `Complete the ${req.skillName} assessment to replace this initial estimate with a verified score.`
+    } else if (status === 'ready') {
       recommendation = `Target met (${currentLevel}/${req.requiredLevel}). Keep maintaining practical skills.`
     } else if (status === 'critical') {
       recommendation = `Complete targeted practice and take the ${req.skillName} practical challenge to close the ${gap}-point gap.`

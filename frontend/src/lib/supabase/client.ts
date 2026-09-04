@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/database'
 
@@ -16,28 +15,19 @@ export const isSupabaseConfigured = (): boolean => {
 }
 
 /**
- * Standard Supabase client — used for public/unauthenticated reads
- * and as a base client when auth is not required. 
- * For auth-aware operations in Server Components, use createSupabaseServerClient() from ./server.ts
+ * One auth-aware browser client for all client components and API calls.
+ * Keeping this singleton on the SSR client prevents session stores from diverging.
  */
-export const supabase = createClient<Database>(
+type BrowserSupabaseClient = ReturnType<typeof createBrowserClient<Database>>
+type SupabaseGlobal = typeof globalThis & { __skillbridgeSupabase?: BrowserSupabaseClient }
+
+const supabaseGlobal = globalThis as SupabaseGlobal
+export const supabase = supabaseGlobal.__skillbridgeSupabase ?? createBrowserClient<Database>(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-anon-key'
 )
+supabaseGlobal.__skillbridgeSupabase = supabase
 
-let browserClientInstance: ReturnType<typeof createBrowserClient<Database>> | null = null
-
-/**
- * Auth-aware browser client — use in Client Components that need real-time
- * auth state or auth operations (signin/signout).
- * Uses @supabase/ssr to properly sync auth cookies with a singleton instance.
- */
 export function createAuthBrowserClient() {
-  if (!browserClientInstance) {
-    browserClientInstance = createBrowserClient<Database>(
-      supabaseUrl || 'https://placeholder.supabase.co',
-      supabaseAnonKey || 'placeholder-anon-key'
-    )
-  }
-  return browserClientInstance
+  return supabase
 }

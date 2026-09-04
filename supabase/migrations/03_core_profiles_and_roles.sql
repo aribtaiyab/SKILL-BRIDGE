@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     full_name VARCHAR(255) NOT NULL,
     role user_role NOT NULL DEFAULT 'student',
     avatar_url TEXT,
+    onboarding_completed BOOLEAN NOT NULL DEFAULT false,
     phone VARCHAR(50),
     bio TEXT,
     location VARCHAR(255),

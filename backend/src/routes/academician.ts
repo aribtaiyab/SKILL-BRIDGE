@@ -1,10 +1,11 @@
 import { Router } from 'express'
 import * as ac from '../controllers/academicianController.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = Router()
 
 router.use(requireAuth)
+router.use(requireRole('academician'))
 
 router.get('/students', ac.getCohortStudents)
 router.get('/students/:id', ac.getStudentDetail)

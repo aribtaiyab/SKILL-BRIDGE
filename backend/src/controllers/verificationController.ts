@@ -8,9 +8,9 @@ export async function getVerificationQueue(req: AuthenticatedRequest, res: Respo
     if (!supabase) return res.status(200).json({ data: [] })
 
     const { data, error } = await supabase
-      .from('student_evidence')
-      .select('*, skills(name), student_profiles(profile_id, profiles(full_name, email))')
-      .eq('status', 'pending')
+      .from('evidence')
+      .select('*')
+      .eq('status', 'under_review')
 
     if (error) return res.status(500).json({ success: false, error: 'Could not fetch verification queue' })
     res.status(200).json({ data: data || [] })
@@ -29,12 +29,12 @@ export async function approveVerification(req: AuthenticatedRequest, res: Respon
     if (!supabase) return res.status(200).json({ data: { id, status: 'approved' } })
 
     const { data: evidence, error: evError } = await supabase
-      .from('student_evidence')
+      .from('evidence')
       .update({
-        status: 'approved',
-        reviewer_id: user?.id,
-        reviewed_at: new Date().toISOString(),
-        feedback,
+        status: 'verified',
+        verified_by: user?.id,
+        verified_at: new Date().toISOString(),
+        reviewer_feedback: feedback,
       })
       .eq('id', id)
       .select()
@@ -43,17 +43,6 @@ export async function approveVerification(req: AuthenticatedRequest, res: Respon
     if (evError || !evidence) return res.status(500).json({ success: false, error: 'Could not approve evidence' })
 
     // Upgrade student skill status to evidence_verified
-    if (evidence.student_id && evidence.skill_id) {
-      await supabase
-        .from('student_skills')
-        .update({
-          verification_status: 'evidence_verified',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('student_id', evidence.student_id)
-        .eq('skill_id', evidence.skill_id)
-    }
-
     res.status(200).json({ data: evidence })
   } catch (err) {
     next(err)
@@ -70,12 +59,11 @@ export async function rejectVerification(req: AuthenticatedRequest, res: Respons
     if (!supabase) return res.status(200).json({ data: { id, status: 'rejected' } })
 
     const { data, error } = await supabase
-      .from('student_evidence')
+      .from('evidence')
       .update({
         status: 'rejected',
-        reviewer_id: user?.id,
-        reviewed_at: new Date().toISOString(),
-        feedback,
+        verified_by: user?.id,
+        reviewer_feedback: feedback,
       })
       .eq('id', id)
       .select()
@@ -98,12 +86,11 @@ export async function clarifyVerification(req: AuthenticatedRequest, res: Respon
     if (!supabase) return res.status(200).json({ data: { id, status: 'clarification_requested' } })
 
     const { data, error } = await supabase
-      .from('student_evidence')
+      .from('evidence')
       .update({
-        status: 'clarification_requested',
-        reviewer_id: user?.id,
-        reviewed_at: new Date().toISOString(),
-        feedback,
+        status: 'needs_clarification',
+        verified_by: user?.id,
+        reviewer_feedback: feedback,
       })
       .eq('id', id)
       .select()

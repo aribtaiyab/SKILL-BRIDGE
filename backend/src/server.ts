@@ -18,8 +18,8 @@ app.use(
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  ENV.FRONTEND_URL,
-].filter(Boolean)
+  ...ENV.FRONTEND_URLS,
+].filter((origin, index, origins) => origins.indexOf(origin) === index)
 
 app.use(
   cors({
@@ -27,9 +27,7 @@ app.use(
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true)
       if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.vercel.app') ||
-        process.env.NODE_ENV === 'development'
+        allowedOrigins.includes(origin)
       ) {
         return callback(null, true)
       }

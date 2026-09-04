@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAuthBrowserClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase/client'
 import { User, Session } from '@supabase/supabase-js'
 import { UserRole } from '@/types/database'
 
@@ -43,8 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Use singleton browser client instance
-  const supabase = useMemo(() => createAuthBrowserClient(), [])
-
   const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase

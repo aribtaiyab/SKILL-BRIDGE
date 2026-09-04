@@ -45,6 +45,8 @@ INSERT INTO skills (id, name, slug, category, description, is_active) VALUES
 ('40000000-0000-0000-0000-000000000012', 'Python', 'python', 'Technical', 'Data structures, scripting, and backend processing in Python', true),
 ('40000000-0000-0000-0000-000000000013', 'REST API Security', 'rest-api-security', 'Backend & APIs', 'JWT authentication, RBAC, rate limiting, and CORS headers', true),
 ('40000000-0000-0000-0000-000000000014', 'System Design Basics', 'system-design', 'Technical', 'Microservices architecture, caching strategies, and load balancing', true)
+,
+('40000000-0000-0000-0000-000000000015', 'JavaScript', 'javascript', 'Frontend Basics', 'Modern JavaScript language fundamentals for browser and server applications', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Map Career Target Requirements (e.g. Backend Developer requirements)
@@ -59,9 +61,11 @@ ON CONFLICT (career_target_id, skill_id) DO NOTHING;
 -- Distinct requirements for the other supported career targets
 INSERT INTO career_target_skills (career_target_id, skill_id, required_level, importance) VALUES
 ('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000006', 75, 'High'),
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000015', 80, 'High'),
 ('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000007', 80, 'High'),
 ('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', 60, 'Medium'),
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000006', 75, 'High'),
+('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000015', 80, 'High'),
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000001', 75, 'High'),
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000002', 75, 'High'),
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', 70, 'High'),

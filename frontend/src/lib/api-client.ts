@@ -7,7 +7,9 @@
 
 import { supabase } from './supabase/client'
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/$/, '')
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
+const API_BASE_URL = configuredApiUrl ? configuredApiUrl.replace(/\/$/, '') : ''
+const REQUEST_TIMEOUT_MS = 15000
 
 export interface ApiClientOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>
@@ -18,6 +20,14 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
 
   // Ensure endpoint starts with /
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+
+  if (!API_BASE_URL) {
+    throw new Error(
+      process.env.NODE_ENV === 'production'
+        ? 'The application API is not configured. Please contact support.'
+        : 'The local API is not configured. Set NEXT_PUBLIC_API_URL and restart the frontend.'
+    )
+  }
   
   // Build URL with query params
   let url = `${API_BASE_URL}${cleanEndpoint}`
@@ -36,10 +46,12 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
 
   // Retrieve auth token from Supabase client if available
   let authToken: string | undefined
+  let hasSession = false
   try {
     if (typeof window !== 'undefined' && supabase) {
       const { data: { session } } = await supabase.auth.getSession()
       authToken = session?.access_token
+      hasSession = Boolean(session)
     }
   } catch {
     // ignore session fetch errors
@@ -51,18 +63,61 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
     isDemo = document.cookie.includes('sb_demo_mode=true')
   }
 
-  const reqHeaders: Record<string, string> = {
+  const isProtectedEndpoint = /^\/api\/(student|ai|applications|verification|passport)(\/|$)/.test(cleanEndpoint) ||
+    /^\/api\/opportunities\/[^/]+\/(readiness|proof|save)$/.test(cleanEndpoint)
+  if (typeof window !== 'undefined' && isProtectedEndpoint && !hasSession && !isDemo) {
+    const redirect = `${window.location.pathname}${window.location.search}`
+    window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
+    throw new Error('Authentication required')
+  }
+
+  let reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(isDemo ? { 'x-demo-mode': 'true' } : {}),
     ...(headers as Record<string, string>),
   }
 
-  const response = await fetch(url, {
-    ...customConfig,
-    headers: reqHeaders,
-    credentials: 'omit',
-  })
+  const request = async () => {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    const abortHandler = () => controller.abort()
+    customConfig.signal?.addEventListener('abort', abortHandler, { once: true })
+
+    try {
+      return await fetch(url, {
+        ...customConfig,
+        headers: reqHeaders,
+        credentials: 'omit',
+        signal: controller.signal,
+      })
+    } finally {
+      window.clearTimeout(timeout)
+      customConfig.signal?.removeEventListener('abort', abortHandler)
+    }
+  }
+
+  let response: Response
+  try {
+    response = await request()
+  } catch (error: any) {
+    if (error?.name === 'AbortError') throw new Error('The server took too long to respond. Please try again.')
+    throw new Error('Network error. Please check your connection and try again.')
+  }
+
+  if (response.status === 401 && typeof window !== 'undefined' && !isDemo) {
+    const { data: refreshed } = await supabase.auth.refreshSession()
+    if (refreshed.session?.access_token) {
+      reqHeaders = { ...reqHeaders, Authorization: `Bearer ${refreshed.session.access_token}` }
+      response = await request()
+    }
+  }
+
+  if (response.status === 401 && typeof window !== 'undefined' && !isDemo) {
+    const redirect = `${window.location.pathname}${window.location.search}`
+    window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
+    throw new Error('Your session expired. Please sign in again.')
+  }
 
   if (!response.ok) {
     let errorMsg = `API request failed with status ${response.status}`

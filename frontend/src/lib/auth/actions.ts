@@ -134,46 +134,54 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
     }
 
     if (!data.user || !data.session) {
-      return { success: false, error: 'Sign in failed. Please try again.' }
+      return { success: false, error: 'Login succeeded, but your session could not be established.' }
     }
 
-    // Get profile to determine where to redirect
-    const { data: profile } = await (supabase as any)
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single()
-
-    const role = (profile as { role?: UserRole })?.role || null
-
-    // Check if role-specific onboarding is complete
-    let onboardingComplete = false
-    if (role) {
-      const roleTableMap: Record<string, string> = {
-        student: 'student_profiles',
-        industry: 'industry_profiles',
-        academician: 'academician_profiles',
-        institution: 'institution_profiles',
-      }
-      const table = roleTableMap[role]
-      if (table) {
-        const { data: roleProfile } = await (supabase as any)
-          .from(table)
-          .select('onboarding_completed')
-          .eq('profile_id', data.user.id)
-          .single()
-        onboardingComplete = Boolean((roleProfile as { onboarding_completed?: boolean })?.onboarding_completed)
-      }
-    }
-
-    if (!role || !onboardingComplete) {
-      return { success: true, redirectTo: '/onboarding' }
-    }
-
-    const dashboard = getDashboardForRole(role as UserRole)
-    return { success: true, redirectTo: dashboard }
+    return resolveAuthenticatedRedirect(supabase, data.user.id)
   } catch {
-    return { success: false, error: 'We couldn\'t connect right now. Please try again.' }
+    return { success: false, error: 'Couldn\'t reach the authentication service. Please check your connection and try again.' }
+  }
+}
+
+async function resolveAuthenticatedRedirect(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string): Promise<ActionResult> {
+  const { data: profile } = await (supabase as any)
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single()
+
+  const role = (profile as { role?: UserRole })?.role || null
+  let onboardingComplete = false
+  if (role) {
+    const roleTableMap: Record<string, string> = {
+      student: 'student_profiles',
+      industry: 'industry_profiles',
+      academician: 'academician_profiles',
+      institution: 'institution_profiles',
+    }
+    const table = roleTableMap[role]
+    if (table) {
+      const { data: roleProfile } = await (supabase as any)
+        .from(table)
+        .select('onboarding_completed')
+        .eq('profile_id', userId)
+        .single()
+      onboardingComplete = Boolean((roleProfile as { onboarding_completed?: boolean })?.onboarding_completed)
+    }
+  }
+
+  if (!role || !onboardingComplete) return { success: true, redirectTo: '/onboarding' }
+  return { success: true, redirectTo: getDashboardForRole(role as UserRole) }
+}
+
+export async function resolveLoginRedirectAction(): Promise<ActionResult> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) return { success: false, error: 'Signed in, but your session could not be restored. Please try again.' }
+    return resolveAuthenticatedRedirect(supabase, user.id)
+  } catch {
+    return { success: false, error: 'You\'re signed in, but we couldn\'t load your account. Please refresh.' }
   }
 }
 

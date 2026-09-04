@@ -339,6 +339,63 @@ export async function getStudentSkillGaps(req: AuthenticatedRequest, res: Respon
   }
 }
 
+export async function getStudentOpportunities(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const supabase = getSupabaseAdmin()
+    if (!supabase) return res.status(503).json({ success: false, error: 'Opportunity service is unavailable' })
+
+    let query = supabase
+      .from('opportunities')
+      .select('*, industry_profiles(organization_name, location), opportunity_skills(minimum_level, importance, skill_id, skills(id, name, category))')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+
+    const type = typeof req.query.type === 'string' ? req.query.type : null
+    const workMode = typeof req.query.work_mode === 'string' ? req.query.work_mode : null
+    const search = typeof req.query.search === 'string' ? req.query.search : null
+    if (type && type !== 'All Types') query = query.eq('opportunity_type', type)
+    if (workMode && workMode !== 'all') query = query.eq('work_mode', workMode)
+    if (search) query = query.ilike('title', `%${search}%`)
+
+    const { data, error } = await query.limit(40)
+    if (error) return res.status(500).json({ success: false, error: 'Could not fetch opportunities' })
+    res.status(200).json({ success: true, data: data || [] })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getSavedStudentOpportunities(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const supabase = getSupabaseAdmin()
+    if (!supabase) return res.status(503).json({ success: false, error: 'Opportunity service is unavailable' })
+
+    const { data: saved, error: savedError } = await supabase
+      .from('saved_opportunities')
+      .select('opportunity_id')
+      .eq('student_id', user.id)
+    if (savedError) return res.status(500).json({ success: false, error: 'Could not fetch saved opportunities' })
+
+    const ids = (saved || []).map(row => row.opportunity_id)
+    if (ids.length === 0) return res.status(200).json({ success: true, data: [] })
+
+    const { data, error } = await supabase
+      .from('opportunities')
+      .select('*, industry_profiles(organization_name, location), opportunity_skills(minimum_level, importance, skill_id, skills(id, name, category))')
+      .in('id', ids)
+    if (error) return res.status(500).json({ success: false, error: 'Could not fetch saved opportunities' })
+    res.status(200).json({ success: true, data: data || [] })
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function getStudentAssessments(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const supabase = getSupabaseAdmin()
@@ -438,8 +495,8 @@ export async function getStudentEvidence(req: AuthenticatedRequest, res: Respons
     if (!supabase) return res.status(200).json({ data: [] })
 
     const { data, error } = await supabase
-      .from('student_evidence')
-      .select('*, skills(id, name)')
+      .from('evidence')
+      .select('*')
       .eq('student_id', user.id)
 
     if (error) return res.status(500).json({ success: false, error: 'Could not fetch evidence' })
@@ -455,12 +512,18 @@ export async function createStudentEvidence(req: AuthenticatedRequest, res: Resp
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const body = req.body || {}
+    const evidencePayload = {
+      title: body.title,
+      description: body.description,
+      evidence_type: body.evidence_type || body.evidenceType || 'project',
+      url: body.url,
+    }
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { id: 'demo-ev-id', ...body, student_id: user.id } })
+    if (!supabase) return res.status(503).json({ success: false, error: 'Evidence service is unavailable' })
 
     const { data, error } = await supabase
-      .from('student_evidence')
-      .insert({ student_id: user.id, ...body, status: 'draft' })
+      .from('evidence')
+      .insert({ student_id: user.id, ...evidencePayload, status: 'draft' })
       .select()
       .single()
 
@@ -478,11 +541,11 @@ export async function submitStudentEvidence(req: AuthenticatedRequest, res: Resp
     const { id } = req.params
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { id, status: 'pending' } })
+    if (!supabase) return res.status(503).json({ success: false, error: 'Evidence service is unavailable' })
 
     const { data, error } = await supabase
-      .from('student_evidence')
-      .update({ status: 'pending', submitted_at: new Date().toISOString() })
+      .from('evidence')
+      .update({ status: 'submitted', submitted_at: new Date().toISOString() })
       .eq('id', id)
       .eq('student_id', user.id)
       .select()
@@ -505,7 +568,7 @@ export async function deleteStudentEvidence(req: AuthenticatedRequest, res: Resp
     if (!supabase) return res.status(200).json({ success: true })
 
     const { error } = await supabase
-      .from('student_evidence')
+      .from('evidence')
       .delete()
       .eq('id', id)
       .eq('student_id', user.id)
@@ -526,7 +589,7 @@ export async function getStudentProjects(req: AuthenticatedRequest, res: Respons
     if (!supabase) return res.status(200).json({ data: [] })
 
     const { data, error } = await supabase
-      .from('student_projects')
+      .from('projects')
       .select('*')
       .eq('student_id', user.id)
 
@@ -547,7 +610,7 @@ export async function createStudentProject(req: AuthenticatedRequest, res: Respo
     if (!supabase) return res.status(200).json({ data: { id: 'demo-proj-id', ...body, student_id: user.id } })
 
     const { data, error } = await supabase
-      .from('student_projects')
+      .from('projects')
       .insert({ student_id: user.id, ...body })
       .select()
       .single()
@@ -565,10 +628,10 @@ export async function getStudentPassport(req: AuthenticatedRequest, res: Respons
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { share_token: 'demo-share-token', show_skills: true, show_projects: true } })
+    if (!supabase) return res.status(503).json({ success: false, error: 'Passport service is unavailable' })
 
     const { data: settings } = await supabase
-      .from('student_passport_settings')
+      .from('passport_settings')
       .select('*')
       .eq('student_id', user.id)
       .single()
@@ -579,13 +642,13 @@ export async function getStudentPassport(req: AuthenticatedRequest, res: Respons
       .eq('student_id', user.id)
 
     const { data: projects } = await supabase
-      .from('student_projects')
+      .from('projects')
       .select('*')
       .eq('student_id', user.id)
 
     res.status(200).json({
       data: {
-        settings: settings || { share_token: 'token-' + user.id, is_public: true },
+        settings: settings || null,
         skills: skills || [],
         projects: projects || [],
       },
@@ -602,10 +665,10 @@ export async function updateStudentPassportSettings(req: AuthenticatedRequest, r
 
     const body = req.body || {}
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: body })
+    if (!supabase) return res.status(503).json({ success: false, error: 'Passport service is unavailable' })
 
     const { data, error } = await supabase
-      .from('student_passport_settings')
+      .from('passport_settings')
       .upsert({ student_id: user.id, ...body, updated_at: new Date().toISOString() }, { onConflict: 'student_id' })
       .select()
       .single()
@@ -626,7 +689,7 @@ export async function getStudentProgress(req: AuthenticatedRequest, res: Respons
     if (!supabase) return res.status(200).json({ data: [] })
 
     const { data, error } = await supabase
-      .from('student_progress_history')
+      .from('progress_history')
       .select('*')
       .eq('student_id', user.id)
       .order('recorded_at', { ascending: true })

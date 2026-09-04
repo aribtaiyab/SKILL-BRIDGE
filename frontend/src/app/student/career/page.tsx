@@ -21,6 +21,7 @@ export default function CareerTargetPage() {
   const [savingSkillId, setSavingSkillId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const filteredCareers = useMemo(() => careers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())), [careers, searchTerm])
   const activeCareer = careers.find(c => c.id === selectedCareerId) || careers[0]
@@ -28,6 +29,7 @@ export default function CareerTargetPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        setLoadError(null)
         const careersResponse = await apiClient<{ success: boolean; data: Array<{ id: string; name: string; slug: string; description?: string | null; category?: string }> }>('/api/student/career-targets')
         const list = (careersResponse.data || []).map(c => ({
           id: c.id,
@@ -49,6 +51,7 @@ export default function CareerTargetPage() {
         }
       } catch (err) {
         console.warn('Could not load career target data:', err)
+        setLoadError("We couldn't load your career information. Please try again.")
       } finally {
         setLoadingCareers(false)
       }
@@ -143,6 +146,15 @@ export default function CareerTargetPage() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 text-center">
+        <p className="text-sm text-[var(--color-critical)]">{loadError}</p>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -199,6 +211,11 @@ export default function CareerTargetPage() {
                 </CardContent>
               </Card>
             ))}
+            {filteredCareers.length === 0 && (
+              <p className="rounded-lg border border-dashed border-[var(--color-border-primary)] p-4 text-sm text-[var(--color-text-secondary)]">
+                No career targets are currently available.
+              </p>
+            )}
           </div>
         </div>
 
@@ -263,8 +280,8 @@ export default function CareerTargetPage() {
                           <span className="font-semibold text-sm">{skill.skillName}</span>
                           <Badge variant="outline" className="text-xs">{skill.importance} Priority</Badge>
                         </div>
-                        <Badge variant={skill.status === 'ready' ? 'success' : skill.status === 'critical' ? 'critical' : 'warning'}>
-                          {skill.status === 'ready' ? 'Ready' : skill.status === 'critical' ? 'Critical Gap' : 'Needs Improvement'}
+                        <Badge variant={skill.isAssessed ? (skill.status === 'ready' ? 'success' : skill.status === 'critical' ? 'critical' : 'warning') : 'secondary'}>
+                          {!skill.isAssessed ? 'Assessment Needed' : skill.status === 'ready' ? 'Ready' : skill.status === 'critical' ? 'Critical Gap' : 'Needs Improvement'}
                         </Badge>
                       </div>
 

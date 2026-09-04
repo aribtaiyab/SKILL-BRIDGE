@@ -19,6 +19,8 @@ router.get('/skills', sc.getStudentSkills)
 router.post('/skills', sc.addStudentSkill)
 router.get('/readiness', sc.getStudentReadiness)
 router.get('/skill-gaps', sc.getStudentSkillGaps)
+router.get('/opportunities', sc.getStudentOpportunities)
+router.get('/opportunities/saved', sc.getSavedStudentOpportunities)
 
 // Assessments
 router.get('/assessments', sc.getStudentAssessments)

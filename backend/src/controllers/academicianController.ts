@@ -9,7 +9,7 @@ export async function getCohortStudents(req: AuthenticatedRequest, res: Response
 
     const { data, error } = await supabase
       .from('student_profiles')
-      .select('profile_id, education, graduation_year, profiles(full_name, email, avatar_url), career_targets(name), student_skills(current_score, verification_status, skills(name))')
+      .select('profile_id, education, graduation_year, profiles(full_name, email, avatar_url), career_targets(name), student_skills(current_level, verification_status, skills(name))')
 
     if (error) return res.status(500).json({ success: false, error: 'Could not fetch students' })
     res.status(200).json({ data: data || [] })
@@ -26,7 +26,7 @@ export async function getStudentDetail(req: AuthenticatedRequest, res: Response,
 
     const { data, error } = await supabase
       .from('student_profiles')
-      .select('profile_id, education, graduation_year, profiles(full_name, email, avatar_url), career_targets(name), student_skills(current_score, verification_status, skills(name)), student_evidence(*)')
+      .select('profile_id, education, graduation_year, profiles(full_name, email, avatar_url), career_targets(name), student_skills(current_level, verification_status, skills(name)), evidence(*)')
       .eq('profile_id', id)
       .single()
 

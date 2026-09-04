@@ -216,7 +216,7 @@ export default function OpportunitiesPage() {
     setLoading(true)
     try {
       if (activeTab === 'recommended') {
-        const json = await apiClient('/api/student/opportunities/recommended?limit=30')
+        const json = await apiClient('/api/student/opportunities?limit=30')
         if (json.success && json.data) {
           setOpportunities(json.data)
         } else {

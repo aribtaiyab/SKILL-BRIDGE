@@ -25,7 +25,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
   if (!token) {
     // If running in development / test without auth header, check demo header
-    if (req.headers['x-demo-mode'] === 'true') {
+    if (req.headers['x-demo-mode'] === 'true' && process.env.NODE_ENV !== 'production') {
       req.user = {
         id: 'demo-student-id',
         email: 'alex.chen@university.edu',
@@ -39,14 +39,8 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
   const supabase = getSupabasePublic()
   if (!supabase) {
-    // Fallback if supabase not configured locally
-    req.user = {
-      id: 'demo-user-id',
-      email: 'user@skillbridge.local',
-      role: 'student',
-    }
-    req.token = token
-    return next()
+    res.status(503).json({ success: false, error: 'Authentication service is not configured' })
+    return
   }
 
   try {

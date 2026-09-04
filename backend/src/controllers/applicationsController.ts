@@ -27,7 +27,7 @@ export async function submitApplication(req: AuthenticatedRequest, res: Response
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
-    const { opportunity_id, cover_letter, match_score_at_application } = req.body || {}
+    const { opportunity_id } = req.body || {}
     if (!opportunity_id) return res.status(422).json({ success: false, error: 'opportunity_id is required' })
 
     const supabase = getSupabaseAdmin()
@@ -38,9 +38,7 @@ export async function submitApplication(req: AuthenticatedRequest, res: Response
       .insert({
         opportunity_id,
         student_id: user.id,
-        cover_letter,
-        match_score_at_application: match_score_at_application || 80,
-        status: 'applied',
+        current_status: 'applied',
       })
       .select()
       .single()

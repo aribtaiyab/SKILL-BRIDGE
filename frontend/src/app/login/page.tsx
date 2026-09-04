@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react"
-import { signInAction } from "@/lib/auth/actions"
-import { createAuthBrowserClient } from "@/lib/supabase/client"
+import { resolveLoginRedirectAction } from "@/lib/auth/actions"
+import { supabase } from "@/lib/supabase/client"
 
 function LoginForm() {
   const router = useRouter()
@@ -29,26 +29,29 @@ function LoginForm() {
 
     startTransition(async () => {
       try {
-        // 1. Authenticate with browser Supabase client to set cookies and fire client listeners
-        const supabase = createAuthBrowserClient()
-        const { error: clientError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (clientError) {
-          setError(clientError.message || "Sign in failed. Please check your credentials.")
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+        if (authError) {
+          setError(authError.message || "Incorrect email or password.")
           return
         }
 
-        // 2. Also run server action to verify onboarding status and get dashboard URL
-        const result = await signInAction(formData)
-        const dest = redirectTo || (result.success && result.redirectTo ? result.redirectTo : '/student')
+        if (!data.session) {
+          setError("Login succeeded but your session could not be established. Please try again.")
+          return
+        }
+
+        const result = await resolveLoginRedirectAction()
+        if (!result.success) {
+          setError(result.error || "You're signed in, but we couldn't load your account. Please refresh.")
+          return
+        }
+
+        const dest = redirectTo || result.redirectTo || '/student'
         
         router.push(dest)
         router.refresh()
       } catch {
-        setError("Sign in failed. Please try again.")
+        setError("Couldn't reach the server. Please check your connection and try again.")
       }
     })
   }

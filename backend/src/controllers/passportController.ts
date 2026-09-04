@@ -7,25 +7,10 @@ export async function getPublicPassport(req: Request, res: Response, next: NextF
     const { shareToken } = req.params
     const supabase = getSupabaseAdmin()
 
-    if (!supabase) {
-      return res.status(200).json({
-        data: {
-          headline: 'Verified Full-Stack Engineer',
-          institutionName: 'State Technical University',
-          skills: [
-            { skillName: 'React', currentScore: 88, verificationStatus: 'evidence_verified', isVerified: true },
-            { skillName: 'Node.js', currentScore: 82, verificationStatus: 'assessment_verified', isVerified: true },
-          ],
-          projects: [
-            { title: 'Cloud Infrastructure Portal', description: 'Serverless orchestration dashboard', url: 'https://github.com/example/cloud-portal' },
-          ],
-          overallReadiness: 85,
-        },
-      })
-    }
+    if (!supabase) return res.status(503).json({ success: false, error: 'Passport service is unavailable' })
 
     const { data: settings, error: setErr } = await supabase
-      .from('student_passport_settings')
+      .from('passport_settings')
       .select('*')
       .eq('share_token', shareToken)
       .single()
@@ -44,18 +29,18 @@ export async function getPublicPassport(req: Request, res: Response, next: NextF
 
     const { data: skills } = await supabase
       .from('student_skills')
-      .select('current_score, verification_status, skills(name, category)')
+      .select('current_level, verification_status, skills(name, category)')
       .eq('student_id', studentId)
 
     const { data: projects } = await supabase
-      .from('student_projects')
+      .from('projects')
       .select('title, description, project_url')
       .eq('student_id', studentId)
 
     const formattedSkills = (skills || []).map((s: any) => ({
       name: s.skills?.name || 'Skill',
       category: s.skills?.category || 'Technical',
-      level: s.current_score || 50,
+      level: s.current_level || 0,
       verification_status: s.verification_status || 'self_declared',
       proof_count: 1,
     }))

@@ -12,7 +12,7 @@ export async function getIndustryOpportunities(req: AuthenticatedRequest, res: R
 
     const { data, error } = await supabase
       .from('opportunities')
-      .select('*, opportunity_skill_requirements(*, skills(id, name))')
+      .select('*, opportunity_skills(*, skills(id, name))')
       .eq('industry_id', user.id)
 
     if (error) return res.status(500).json({ success: false, error: 'Could not fetch industry opportunities' })
@@ -46,7 +46,7 @@ export async function createIndustryOpportunity(req: AuthenticatedRequest, res: 
         opportunity_type,
         location,
         deadline,
-        status: 'active',
+        status: 'published',
       })
       .select()
       .single()
@@ -58,10 +58,10 @@ export async function createIndustryOpportunity(req: AuthenticatedRequest, res: 
       const rows = required_skills.map((s: any) => ({
         opportunity_id: opp.id,
         skill_id: s.skill_id,
-        required_level: s.required_level || 70,
-        is_mandatory: s.is_mandatory ?? true,
+        minimum_level: s.required_level || s.minimum_level || 70,
+        importance: s.is_mandatory === false ? 'Preferred' : 'Required',
       }))
-      await supabase.from('opportunity_skill_requirements').insert(rows)
+      await supabase.from('opportunity_skills').insert(rows)
     }
 
     res.status(201).json({ data: opp })
@@ -77,7 +77,7 @@ export async function getIndustryCandidates(req: AuthenticatedRequest, res: Resp
 
     const { data: students, error } = await supabase
       .from('student_profiles')
-      .select('profile_id, education, graduation_year, profiles(full_name, email, avatar_url), student_skills(skill_id, current_score, verification_status, skills(name))')
+      .select('profile_id, education, graduation_year, profiles(full_name, email, avatar_url), student_skills(skill_id, current_level, verification_status, skills(name))')
 
     if (error) return res.status(500).json({ success: false, error: 'Could not fetch candidates' })
     res.status(200).json({ data: students || [] })
@@ -118,7 +118,7 @@ export async function updateApplicationStatus(req: AuthenticatedRequest, res: Re
 
     const { data, error } = await supabase
       .from('applications')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ current_status: status, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single()
