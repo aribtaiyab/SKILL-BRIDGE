@@ -59,12 +59,6 @@ export default function OnboardingPage() {
     teachingArea: '', mentorshipInterest: false
   })
 
-  // Institution form state
-  const [institutionData, setInstitutionData] = useState({
-    institutionName: '', institutionType: '',
-    location: '', website: '', description: ''
-  })
-
   useEffect(() => {
     if (!loading) {
       if (!user) {
@@ -75,7 +69,7 @@ export default function OnboardingPage() {
       if (profile?.onboarding_completed && profile.role) {
         const dashMap: Record<string, string> = {
           student: '/student', industry: '/industry',
-          academician: '/academician', institution: '/institution'
+          academician: '/academician', institution: '/academician'
         }
         router.replace(dashMap[profile.role] || '/student')
       }
@@ -112,9 +106,6 @@ export default function OnboardingPage() {
       if (role === 'academician' && !academicianData.institution.trim()) {
         setError("Institution name is required."); return
       }
-      if (role === 'institution' && !institutionData.institutionName.trim()) {
-        setError("Institution name is required."); return
-      }
       setError("")
       setStep(3)
     }
@@ -124,11 +115,10 @@ export default function OnboardingPage() {
     if (!role) return
     setError("")
 
-    const dataMap = {
+    const dataMap: Record<string, any> = {
       student: studentData,
       industry: industryData,
       academician: academicianData,
-      institution: institutionData,
     }
 
     startTransition(async () => {
@@ -155,7 +145,7 @@ export default function OnboardingPage() {
   const roles = [
     { id: "student" as Role, label: "Student", icon: <GraduationCap className="h-6 w-6" />, desc: "Assess skills and find opportunities" },
     { id: "industry" as Role, label: "Industry", icon: <Briefcase className="h-6 w-6" />, desc: "Hire verified talent and post opportunities" },
-    { id: "academician" as Role, label: "Academician", icon: <Users className="h-6 w-6" />, desc: "Mentor students and track skill gaps" },
+    { id: "academician" as Role, label: "Academia", icon: <Users className="h-6 w-6" />, desc: "Mentor students and track skill gaps" },
   ]
 
   return (
@@ -375,44 +365,6 @@ export default function OnboardingPage() {
                 </>
               )}
 
-              {role === 'institution' && (
-                <>
-                  <div className="text-center space-y-2">
-                    <h1 className="text-h2 font-semibold">Institution details</h1>
-                    <p className="text-[var(--color-text-secondary)]">Help industry partners understand your institution&apos;s focus.</p>
-                  </div>
-                  <Card>
-                    <CardContent className="p-6 space-y-4">
-                      {error && <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 text-[var(--color-critical)] text-sm border border-red-200"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Institution Name <span className="text-[var(--color-critical)]">*</span></label>
-                        <Input placeholder="e.g. Massachusetts Institute of Technology" value={institutionData.institutionName} onChange={e => setInstitutionData(d => ({ ...d, institutionName: e.target.value }))} />
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Institution Type</label>
-                          <Select value={institutionData.institutionType} onChange={e => setInstitutionData(d => ({ ...d, institutionType: e.target.value }))}>
-                            <option value="">Select type...</option>
-                            <option value="university">University</option>
-                            <option value="college">College</option>
-                            <option value="polytechnic">Polytechnic</option>
-                            <option value="bootcamp">Bootcamp / Training Center</option>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Location</label>
-                          <Input placeholder="City, Country" value={institutionData.location} onChange={e => setInstitutionData(d => ({ ...d, location: e.target.value }))} />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Website (optional)</label>
-                        <Input placeholder="https://..." value={institutionData.website} onChange={e => setInstitutionData(d => ({ ...d, website: e.target.value }))} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={() => { setStep(1); setError("") }}>← Back</Button>
                 <Button onClick={handleNext} disabled={isPending}>
@@ -440,7 +392,7 @@ export default function OnboardingPage() {
                        <Building2 className="h-5 w-5" />}
                     </div>
                     <div>
-                      <div className="font-semibold capitalize">{role} Account</div>
+                      <div className="font-semibold capitalize">{role === 'academician' ? 'Academia' : role} Account</div>
                       <div className="text-sm text-[var(--color-text-secondary)]">{user?.email}</div>
                     </div>
                   </div>
@@ -467,13 +419,6 @@ export default function OnboardingPage() {
                       <div><span className="text-[var(--color-text-secondary)]">Department:</span><br /><span className="font-medium">{academicianData.department || '—'}</span></div>
                       <div><span className="text-[var(--color-text-secondary)]">Designation:</span><br /><span className="font-medium capitalize">{academicianData.designation || '—'}</span></div>
                       <div><span className="text-[var(--color-text-secondary)]">Teaching Area:</span><br /><span className="font-medium">{academicianData.teachingArea || '—'}</span></div>
-                    </div>
-                  )}
-                  {role === 'institution' && (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div><span className="text-[var(--color-text-secondary)]">Institution:</span><br /><span className="font-medium">{institutionData.institutionName || '—'}</span></div>
-                      <div><span className="text-[var(--color-text-secondary)]">Type:</span><br /><span className="font-medium capitalize">{institutionData.institutionType || '—'}</span></div>
-                      <div><span className="text-[var(--color-text-secondary)]">Location:</span><br /><span className="font-medium">{institutionData.location || '—'}</span></div>
                     </div>
                   )}
                 </CardContent>

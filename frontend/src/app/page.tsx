@@ -130,13 +130,13 @@ export default function LandingPage() {
         <section className="border-t border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] px-6 py-24">
           <div className="mx-auto max-w-[1200px]">
             <div className="text-center mb-16">
-              <h2 className="text-h2 font-semibold mb-4">One ecosystem. Four connected experiences.</h2>
+              <h2 className="text-h2 font-semibold mb-4">One ecosystem. Three connected experiences.</h2>
               <p className="text-body text-[var(--color-text-secondary)] max-w-2xl mx-auto">
-                SkillBridge unites students, industry, academicians, and institutions with actionable intelligence.
+                SkillBridge unites students, industry, and academia with actionable intelligence.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               <Card className="hover:shadow-md transition-shadow">
                 <CardContent className="p-8">
                   <GraduationCap className="h-8 w-8 text-[var(--color-accent)] mb-6" />
@@ -166,25 +166,12 @@ export default function LandingPage() {
               <Card className="hover:shadow-md transition-shadow">
                 <CardContent className="p-8">
                   <Users className="h-8 w-8 text-[var(--color-accent)] mb-6" />
-                  <h3 className="text-h3 font-semibold mb-3">For Academicians</h3>
+                  <h3 className="text-h3 font-semibold mb-3">For Academia</h3>
                   <p className="text-body text-[var(--color-text-secondary)] mb-6 h-20">
                     View precise skill gaps in your student cohorts, identify weak areas, and conduct targeted mentorship and interventions.
                   </p>
                   <Link href="/signup?role=academician">
-                    <Button variant="outline" className="w-full">Explore Academic Portal</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-8">
-                  <Building2 className="h-8 w-8 text-[var(--color-accent)] mb-6" />
-                  <h3 className="text-h3 font-semibold mb-3">For Institutions</h3>
-                  <p className="text-body text-[var(--color-text-secondary)] mb-6 h-20">
-                    Monitor cohort readiness, track skill improvement trends, and take data-driven action to bridge the academia-industry gap.
-                  </p>
-                  <Link href="/signup?role=institution">
-                    <Button variant="outline" className="w-full">Explore Institution Portal</Button>
+                    <Button variant="outline" className="w-full">Explore Academia Portal</Button>
                   </Link>
                 </CardContent>
               </Card>

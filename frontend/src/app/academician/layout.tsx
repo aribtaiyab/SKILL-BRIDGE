@@ -33,7 +33,7 @@ export default function AcademicianLayout({ children }: { children: React.ReactN
     { href: "/academician/verification", label: "Verification Queue", icon: <Award size={20} /> },
   ]
 
-  const displayName = isDemo ? 'Dr. Sarah Mitchell (Faculty)' : (profile?.full_name || user?.email?.split('@')[0] || 'Academician')
+  const displayName = isDemo ? 'Dr. Sarah Mitchell (Faculty)' : (profile?.full_name || user?.email?.split('@')[0] || 'Academia Faculty')
   const displayEmail = isDemo ? 'faculty.cs@apex.edu' : (user?.email || '')
   const initials = isDemo ? 'SM' : (profile?.full_name || 'DR').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 
@@ -53,7 +53,7 @@ export default function AcademicianLayout({ children }: { children: React.ReactN
           <div className="h-16 flex items-center px-6 border-b border-[var(--color-border-primary)]">
             <div className="flex items-center gap-2 font-semibold">
               <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-accent)] text-white">SC</div>
-              Academician Portal
+              Academia Portal
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -81,7 +81,7 @@ export default function AcademicianLayout({ children }: { children: React.ReactN
           <header className="h-16 flex items-center justify-between px-6 border-b border-[var(--color-border-primary)] bg-white">
             <div className="md:hidden flex items-center gap-2 font-semibold">
               <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-accent)] text-white">SC</div>
-              Academician Portal
+              Academia Portal
             </div>
             <div className="ml-auto flex items-center gap-3">
               <div className="flex items-center gap-2 text-sm font-medium">

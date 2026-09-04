@@ -27,7 +27,7 @@ export function DemoBar() {
     },
     {
       role: 'academician',
-      label: 'Academician — Faculty Cohort',
+      label: 'Academia — Faculty Cohort',
       icon: <User className="h-4 w-4 text-emerald-600" />,
       desc: 'Class of 2026 Skill Gap Analytics',
     },
