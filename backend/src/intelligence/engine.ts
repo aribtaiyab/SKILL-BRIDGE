@@ -249,7 +249,10 @@ export function evaluateCareerReadiness(
   const priorityGap = evaluatedGaps.find(g => g.gap > 0) ?? null
 
   const overallReadiness = calculateOverallReadiness(requirements, studentSkills)
-  const categoryInfo = getReadinessCategory(overallReadiness)
+  const hasVerifiedSkill = studentSkills.some(skill => skill.verificationStatus && skill.verificationStatus !== 'self_declared')
+  const categoryInfo = hasVerifiedSkill
+    ? getReadinessCategory(overallReadiness)
+    : { label: 'Not Assessed', variant: 'warning' as const }
 
   const strengthsText = strengths.map(s => `${s.skillName} (${s.currentLevel}/${s.requiredLevel} req)`)
   const nearReadyText = nearReadySkills.map(s => `${s.skillName} (${s.currentLevel}/${s.requiredLevel}, ${s.gap} pts to close)`)

@@ -24,6 +24,7 @@ export async function startAssessment(
 ): Promise<{ attemptId: string; title: string; skillName: string; timeLimit: number; questions: QuestionSafeView[] }> {
   try {
     const supabase = getSupabaseAdmin()
+    if (!supabase) throw new Error('Assessment database is unavailable')
 
     // 1. Fetch assessment details
     const { data: assessmentData } = await (supabase as any)
@@ -61,7 +62,7 @@ export async function startAssessment(
         })),
       }))
     } else {
-      questions = FALLBACK_QUESTIONS
+      throw new Error('Assessment has no configured questions')
     }
 
     // 3. Create assessment_attempts row
@@ -85,14 +86,8 @@ export async function startAssessment(
       timeLimit,
       questions,
     }
-  } catch {
-    return {
-      attemptId: `attempt-${Date.now()}`,
-      title: 'Node.js Fundamentals Assessment',
-      skillName: 'Node.js',
-      timeLimit: 15,
-      questions: FALLBACK_QUESTIONS,
-    }
+  } catch (error) {
+    throw error
   }
 }
 
@@ -107,6 +102,7 @@ export async function submitAssessment(
   submittedAnswers: { questionId: string; selectedOptionId: string }[]
 ): Promise<AssessmentAttemptResult> {
   const supabase = getSupabaseAdmin()
+  if (!supabase) throw new Error('Assessment database is unavailable')
 
   // 1. Fetch real questions with is_correct from DB or fallback
   let totalQuestions = 5
@@ -129,9 +125,7 @@ export async function submitAssessment(
         }
       })
     } else {
-      Object.entries(AUTHORITATIVE_ANSWER_KEYS).forEach(([qId, optId]) => {
-        correctMap.set(qId, optId)
-      })
+      throw new Error('Assessment options are not configured')
     }
 
     totalQuestions = Math.max(submittedAnswers.length, 1)
@@ -156,13 +150,8 @@ export async function submitAssessment(
         )
       }
     }
-  } catch {
-    // Evaluation fallback
-    for (const ans of submittedAnswers) {
-      if (AUTHORITATIVE_ANSWER_KEYS[ans.questionId] === ans.selectedOptionId) {
-        correctCount++
-      }
-    }
+  } catch (error) {
+    throw error
   }
 
   // Calculate score (0 - 100)

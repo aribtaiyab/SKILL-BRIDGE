@@ -12,6 +12,17 @@ import { apiClient } from "@/lib/api-client"
 
 import { useDemo } from "@/lib/demo/demo-context"
 
+interface AssessmentSummary {
+  id: string
+  title: string
+  description?: string | null
+  time_limit: number
+  total_questions: number
+  passing_score: number
+  skills?: { id: string; name: string } | null
+  career_target_id?: string | null
+}
+
 export default function AssessmentPage() {
   const { isDemo, submitAssessment } = useDemo()
   const [isTaking, setIsTaking] = useState(false)
@@ -22,27 +33,40 @@ export default function AssessmentPage() {
   const [answers, setAnswers] = useState<{ questionId: string; selectedOptionId: string }[]>([])
   const [attemptId, setAttemptId] = useState<string>("")
   const [assessmentResult, setAssessmentResult] = useState<AssessmentAttemptResult | null>(null)
-  const [questions, setQuestions] = useState<QuestionSafeView[]>(FALLBACK_QUESTIONS)
+  const [questions, setQuestions] = useState<QuestionSafeView[]>([])
   const [timeLeft, setTimeLeft] = useState(15 * 60) // 15 mins
+  const [assessments, setAssessments] = useState<AssessmentSummary[]>([])
+  const [activeAssessment, setActiveAssessment] = useState<AssessmentSummary | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isDemo) return
+    apiClient<{ data: AssessmentSummary[] }>('/api/student/assessments')
+      .then(response => setAssessments(response.data || []))
+      .catch(() => setError("We couldn't load your assessments. Please try again."))
+  }, [isDemo])
 
   // Start Assessment Flow
-  const handleStart = async (assessmentId: string = "1") => {
+  const handleStart = async (assessmentId: string) => {
     setLoading(true)
+    setError(null)
     try {
-      const json = await apiClient(`/api/student/assessments/${assessmentId}/start`, { method: 'POST' })
+      const assessment = assessments.find(item => item.id === assessmentId) || null
+      const json = await apiClient<{ success: boolean; data: { attemptId: string; title: string; skillName: string; timeLimit: number; questions: QuestionSafeView[] } }>(`/api/student/assessments/${assessmentId}/start`, { method: 'POST' })
       if (json.success && json.data) {
         setAttemptId(json.data.attemptId)
-        setQuestions(json.data.questions || FALLBACK_QUESTIONS)
-        setTimeLeft((json.data.timeLimit || 15) * 60)
+        setQuestions(json.data.questions)
+        setTimeLeft(json.data.timeLimit * 60)
+        setActiveAssessment(assessment)
+      } else {
+        throw new Error('Assessment could not be started')
       }
       setIsTaking(true)
       setCurrentQuestion(0)
       setSelectedOption(null)
       setAnswers([])
-    } catch {
-      setAttemptId(`attempt-${Date.now()}`)
-      setQuestions(FALLBACK_QUESTIONS)
-      setIsTaking(true)
+    } catch (err: any) {
+      setError(err?.message || "We couldn't start this assessment. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -83,34 +107,15 @@ export default function AssessmentPage() {
     }
 
     try {
-      const json = await apiClient('/api/student/assessments/1/submit', {
+      const json = await apiClient<{ success: boolean; data: AssessmentAttemptResult }>(`/api/student/assessments/${activeAssessment?.id}/submit`, {
         method: 'POST',
-        body: JSON.stringify({ attemptId, answers: finalAnswers }),
+        body: JSON.stringify({ attempt_id: attemptId, answers: finalAnswers }),
       })
       if (json.success && json.data) {
         setAssessmentResult(json.data)
       }
-    } catch {
-      // Offline fallback result
-      setAssessmentResult({
-        attemptId,
-        assessmentId: "1",
-        title: "Java Fundamentals Benchmark Assessment",
-        skillName: "Java",
-        totalQuestions: 5,
-        correctCount: 4,
-        score: 80,
-        percentage: 80,
-        passed: true,
-        previousScore: 68,
-        improvement: 12,
-        explanationSummary: {
-          strengths: ["Object-Oriented Design", "Collections & Streams API"],
-          weaknesses: ["Concurrency controls & Synchronization"],
-          careerImpact: "Your verified score increased by 12 points, satisfying the Backend Developer benchmark.",
-          nextStep: "Complete a practical challenge to achieve Practical Verified status.",
-        },
-      })
+    } catch (err: any) {
+      setError(err?.message || "We couldn't submit your assessment. Please try again.")
     } finally {
       setSubmitting(false)
     }
@@ -236,8 +241,8 @@ export default function AssessmentPage() {
       <div className="max-w-3xl mx-auto mt-6 animate-in fade-in duration-300 pb-12">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-semibold">Node.js Fundamentals Assessment</h1>
-            <p className="text-sm text-[var(--color-text-secondary)]">Knowledge Verification • 5 Questions</p>
+            <h1 className="text-xl font-semibold">{activeAssessment?.title || 'Assessment'}</h1>
+            <p className="text-sm text-[var(--color-text-secondary)]">Knowledge Verification • {questions.length} Questions</p>
           </div>
           <div className="flex items-center gap-2 font-mono text-sm bg-[var(--color-surface-secondary)] px-3 py-1.5 rounded-md border border-[var(--color-border-primary)]">
             <Clock className="h-4 w-4 text-[var(--color-accent)]" />
@@ -313,8 +318,10 @@ export default function AssessmentPage() {
         <p className="text-[var(--color-text-secondary)] mt-1">Take standardized assessments to verify your skills and unlock job matches.</p>
       </div>
 
+      {error && <p className="text-sm text-[var(--color-critical)]">{error}</p>}
+
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-[var(--color-border-primary)] hover:border-[var(--color-accent)] transition-all">
+        {isDemo ? <Card className="border-[var(--color-border-primary)] hover:border-[var(--color-accent)] transition-all">
           <CardHeader>
             <div className="flex justify-between items-start">
               <Badge variant="secondary" className="bg-[var(--color-surface-secondary)]">Knowledge Assessment</Badge>
@@ -348,44 +355,42 @@ export default function AssessmentPage() {
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing...</> : "Start Assessment"}
             </Button>
           </CardFooter>
-        </Card>
-
-        <Card className="border-[var(--color-border-primary)] hover:border-[var(--color-accent)] transition-all">
+        </Card> : assessments.map(assessment => <Card key={assessment.id} className="border-[var(--color-border-primary)] hover:border-[var(--color-accent)] transition-all">
           <CardHeader>
             <div className="flex justify-between items-start">
               <Badge variant="secondary" className="bg-[var(--color-surface-secondary)]">Knowledge Assessment</Badge>
               <span className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-mono">
-                <Clock className="h-3 w-3" /> 15 mins
+                <Clock className="h-3 w-3" /> {assessment.time_limit} mins
               </span>
             </div>
-            <CardTitle className="text-xl mt-3">REST APIs & Web Services</CardTitle>
-            <CardDescription>
-              HTTP methods, response headers, RESTful resource design, and stateless JWT token authentication workflows.
-            </CardDescription>
+            <CardTitle className="text-xl mt-3">{assessment.title}</CardTitle>
+            <CardDescription>{assessment.description || 'Complete this assessment to verify the associated skill.'}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
               <div className="flex justify-between">
                 <span>Target Career</span>
-                <span className="font-medium text-[var(--color-foreground)]">Backend Developer</span>
+                <span className="font-medium text-[var(--color-foreground)]">{assessment.skills?.name || 'Target skill'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Current Verified Level</span>
-                <span className="font-medium text-[var(--color-foreground)]">72 / 100</span>
+                <span className="font-medium text-[var(--color-foreground)]">Not Assessed</span>
               </div>
               <div className="flex justify-between">
                 <span>Required Level</span>
-                <span className="font-medium text-[var(--color-foreground)]">75 / 100</span>
+                <span className="font-medium text-[var(--color-foreground)]">Passing: {assessment.passing_score} / 100</span>
               </div>
             </div>
           </CardContent>
           <CardFooter className="border-t border-[var(--color-border-primary)] pt-4">
-            <Button className="w-full" variant="outline" onClick={() => handleStart("2")} disabled={loading}>
+            <Button className="w-full" variant="outline" onClick={() => handleStart(assessment.id)} disabled={loading}>
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing...</> : "Take Reassessment"}
             </Button>
           </CardFooter>
-        </Card>
+        </Card>)}
       </div>
+
+      {!isDemo && assessments.length === 0 && !error && <p className="text-sm text-[var(--color-text-secondary)]">No assessments are currently configured for your account.</p>}
 
       <Card className="bg-[var(--color-surface-secondary)] border-[var(--color-border-primary)]">
         <CardContent className="p-6 flex items-start gap-4">

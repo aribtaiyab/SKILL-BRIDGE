@@ -1,0 +1,12 @@
+{
+  "name": "skillbridge",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint && npm --prefix backend run lint",
+    "install:all": "npm install --prefix frontend && npm install --prefix backend"
+  }
+}

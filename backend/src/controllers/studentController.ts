@@ -1,7 +1,8 @@
 import { Response, NextFunction } from 'express'
 import { AuthenticatedRequest } from '../middleware/auth.js'
 import { getSupabaseAdmin } from '../config/supabase.js'
-import { calculateOverallReadiness, calculateGap, classifyGap } from '../intelligence/engine.js'
+import { calculateOverallReadiness, calculateGap, classifyGap, evaluateCareerReadiness } from '../intelligence/engine.js'
+import { startAssessment, submitAssessment } from '../intelligence/assessment.js'
 
 export async function getStudentProfile(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
@@ -60,19 +61,43 @@ export async function getCareerTarget(req: AuthenticatedRequest, res: Response, 
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: null })
+    if (!supabase) return res.status(200).json({ success: true, data: null })
 
     const { data, error } = await supabase
       .from('student_profiles')
       .select('target_career_id, career_targets(id, name, slug, description, category)')
       .eq('profile_id', user.id)
-      .single()
+      .maybeSingle()
 
     if (error && error.code !== 'PGRST116') {
       return res.status(500).json({ success: false, error: 'Could not retrieve career target' })
     }
 
-    res.status(200).json({ data: data || null })
+    res.status(200).json({ success: true, data: data || null })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getCareerTargetsList(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const supabase = getSupabaseAdmin()
+    if (!supabase) return res.status(200).json({ success: true, data: [] })
+
+    const { data, error } = await supabase
+      .from('career_targets')
+      .select('id, name, slug, description, category')
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+
+    if (error) {
+      return res.status(500).json({ success: false, error: 'Could not retrieve careers' })
+    }
+
+    res.status(200).json({ success: true, data: data || [] })
   } catch (err) {
     next(err)
   }
@@ -84,11 +109,21 @@ export async function setCareerTarget(req: AuthenticatedRequest, res: Response, 
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const body = req.body || {}
-    const careerId = body.target_career_id || body.role_id
+    const careerId = body.target_career_id || body.career_id || body.role_id
     if (!careerId) return res.status(422).json({ success: false, error: 'target_career_id is required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { target_career_id: careerId } })
+    if (!supabase) return res.status(200).json({ success: true, data: { target_career_id: careerId } })
+
+    const { data: careerExists, error: careerCheckError } = await supabase
+      .from('career_targets')
+      .select('id')
+      .eq('id', careerId)
+      .maybeSingle()
+
+    if (careerCheckError || !careerExists) {
+      return res.status(404).json({ success: false, error: 'Invalid career target selected' })
+    }
 
     const { data, error } = await supabase
       .from('student_profiles')
@@ -97,11 +132,11 @@ export async function setCareerTarget(req: AuthenticatedRequest, res: Response, 
         target_career_id: careerId,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'profile_id' })
-      .select()
+      .select('target_career_id, career_targets(id, name, slug, description, category)')
       .single()
 
     if (error) return res.status(500).json({ success: false, error: 'Could not update career target' })
-    res.status(200).json({ data })
+    res.status(200).json({ success: true, data })
   } catch (err) {
     next(err)
   }
@@ -132,18 +167,23 @@ export async function addStudentSkill(req: AuthenticatedRequest, res: Response, 
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
-    const { skill_id, current_score = 50, verification_status = 'self_declared' } = req.body || {}
+    const { skill_id, current_level, self_declared_level, verification_status = 'self_declared' } = req.body || {}
     if (!skill_id) return res.status(422).json({ success: false, error: 'skill_id is required' })
+    const declaredLevel = Number(self_declared_level ?? current_level)
+    if (!Number.isInteger(declaredLevel) || declaredLevel < 0 || declaredLevel > 100) {
+      return res.status(422).json({ success: false, error: 'self_declared_level must be an integer from 0 to 100' })
+    }
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { skill_id, current_score, verification_status } })
+    if (!supabase) return res.status(503).json({ success: false, error: 'Skill service is unavailable' })
 
     const { data, error } = await supabase
       .from('student_skills')
       .upsert({
         student_id: user.id,
         skill_id,
-        current_score,
+        self_declared_level: declaredLevel,
+        current_level: declaredLevel,
         verification_status,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'student_id,skill_id' })
@@ -162,45 +202,78 @@ export async function getStudentReadiness(req: AuthenticatedRequest, res: Respon
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
+    const careerId = (req.query.career_id as string) || null
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { readinessScore: 0, gaps: [], verifiedCount: 0 } })
-
-    // Fetch target career requirements
-    const { data: profile } = await supabase
-      .from('student_profiles')
-      .select('target_career_id')
-      .eq('profile_id', user.id)
-      .single()
-
-    if (!profile?.target_career_id) {
-      return res.status(200).json({ data: { readinessScore: 0, gaps: [], verifiedCount: 0 } })
+    if (!supabase) {
+      return res.status(200).json({ success: true, data: { careerName: 'Career not configured', readinessPercentage: 0, readinessCategory: 'Assessment Needed', readinessVariant: 'warning', skills: [], strengths: [], nearReadySkills: [], criticalGaps: [], priorityGap: null, explanation: { strengthsText: [], nearReadyText: [], criticalText: [], recommendedAction: 'Select a career target and complete an assessment to calculate readiness.' } } })
     }
 
+    let selectedCareerId = careerId
+    if (!selectedCareerId) {
+      const { data: profile } = await supabase
+        .from('student_profiles')
+        .select('target_career_id')
+        .eq('profile_id', user.id)
+        .maybeSingle()
+      selectedCareerId = profile?.target_career_id || null
+    }
+
+    if (!selectedCareerId) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          careerName: 'No Career Selected',
+          readinessPercentage: 0,
+          readinessCategory: 'Assessment Needed',
+          readinessVariant: 'warning',
+          skills: [],
+          strengths: [],
+          nearReadySkills: [],
+          criticalGaps: [],
+          priorityGap: null,
+          explanation: {
+            strengthsText: [],
+            nearReadyText: [],
+            criticalText: [],
+            recommendedAction: 'Choose a target career to begin your readiness assessment.',
+          },
+        },
+      })
+    }
+
+    const { data: career } = await supabase
+      .from('career_targets')
+      .select('id, name, description')
+      .eq('id', selectedCareerId)
+      .maybeSingle()
+
     const { data: requirements } = await supabase
-      .from('career_skill_requirements')
-      .select('skill_id, required_level, importance, skills(name)')
-      .eq('career_id', profile.target_career_id)
+      .from('career_target_skills')
+      .select('skill_id, required_level, importance, skills(id, name, category)')
+      .eq('career_target_id', selectedCareerId)
 
     const { data: studentSkills } = await supabase
       .from('student_skills')
-      .select('skill_id, current_score, verification_status')
+      .select('skill_id, current_level, verification_status, skills(id, name, category)')
       .eq('student_id', user.id)
 
     const scoresFormatted = (studentSkills || []).map(s => ({
       skillId: s.skill_id,
-      currentLevel: s.current_score || 0,
+      skillName: (s.skills as any)?.name || 'Skill',
+      currentLevel: s.current_level || 0,
       verificationStatus: s.verification_status,
     }))
 
     const reqsFormatted = (requirements || []).map(r => ({
       skillId: r.skill_id,
-      skillName: (r.skills as any)?.name || 'Unknown Skill',
+      skillName: (r.skills as any)?.name || 'Skill',
+      category: (r.skills as any)?.category || 'Technical',
       requiredLevel: r.required_level,
       importance: (r.importance || 'High') as 'High' | 'Medium' | 'Low',
     }))
 
-    const readinessResult = calculateOverallReadiness(reqsFormatted, scoresFormatted)
-    res.status(200).json({ data: readinessResult })
+    const readinessResult = evaluateCareerReadiness(career?.name || 'Career', reqsFormatted, scoresFormatted)
+    res.status(200).json({ success: true, data: { ...readinessResult, careerId: selectedCareerId, careerName: career?.name || readinessResult.careerName || 'Career' } })
   } catch (err) {
     next(err)
   }
@@ -212,15 +285,55 @@ export async function getStudentSkillGaps(req: AuthenticatedRequest, res: Respon
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: [] })
+    if (!supabase) return res.status(503).json({ success: false, error: 'Skill intelligence is unavailable' })
 
-    const { data, error } = await supabase
-      .from('student_skill_gaps')
-      .select('*, skills(id, name, category)')
-      .eq('student_id', user.id)
+    const { data: profile, error: profileError } = await supabase
+      .from('student_profiles')
+      .select('target_career_id, career_targets(name)')
+      .eq('profile_id', user.id)
+      .maybeSingle()
 
-    if (error) return res.status(500).json({ success: false, error: 'Could not fetch skill gaps' })
-    res.status(200).json({ data: data || [] })
+    if (profileError) return res.status(500).json({ success: false, error: 'Could not load career target' })
+    if (!profile?.target_career_id) {
+      return res.status(200).json({ success: true, data: { careerName: 'No Career Selected', priorityGap: null, criticalGaps: [], nearReadySkills: [], readySkills: [], allGaps: [], summary: { strengthsText: [], nearReadyText: [], criticalText: [], recommendedAction: 'Choose a target career to calculate skill gaps.' } } })
+    }
+
+    const [{ data: requirements, error: requirementsError }, { data: studentSkills, error: skillsError }] = await Promise.all([
+      supabase.from('career_target_skills').select('skill_id, required_level, importance, skills(id, name, category)').eq('career_target_id', profile.target_career_id),
+      supabase.from('student_skills').select('skill_id, current_level, verification_status, skills(id, name, category)').eq('student_id', user.id),
+    ])
+
+    if (requirementsError || skillsError) return res.status(500).json({ success: false, error: 'Could not calculate skill gaps' })
+
+    const result = evaluateCareerReadiness(
+      (profile.career_targets as any)?.name || 'Career',
+      (requirements || []).map((requirement: any) => ({
+        skillId: requirement.skill_id,
+        skillName: requirement.skills?.name || 'Skill',
+        category: requirement.skills?.category || 'Technical',
+        requiredLevel: requirement.required_level,
+        importance: requirement.importance || 'Medium',
+      })),
+      (studentSkills || []).map((skill: any) => ({
+        skillId: skill.skill_id,
+        skillName: skill.skills?.name || 'Skill',
+        currentLevel: skill.current_level,
+        verificationStatus: skill.verification_status,
+      })),
+    )
+
+    res.status(200).json({
+      success: true,
+      data: {
+        careerName: (profile.career_targets as any)?.name || 'Career',
+        priorityGap: result.priorityGap,
+        criticalGaps: result.criticalGaps,
+        nearReadySkills: result.nearReadySkills,
+        readySkills: result.strengths,
+        allGaps: result.skills,
+        summary: result.explanation,
+      },
+    })
   } catch (err) {
     next(err)
   }
@@ -244,18 +357,24 @@ export async function getStudentAssessments(req: AuthenticatedRequest, res: Resp
 
 export async function getStudentAssessmentById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const { id } = req.params
+    const id = String(req.params.id)
     const supabase = getSupabaseAdmin()
     if (!supabase) return res.status(404).json({ success: false, error: 'Assessment not found' })
 
-    const { data, error } = await supabase
+    const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
-      .select('*, skills(id, name, category), questions(*)')
+      .select('*, skills(id, name, category)')
       .eq('id', id)
       .single()
 
-    if (error || !data) return res.status(404).json({ success: false, error: 'Assessment not found' })
-    res.status(200).json({ data })
+    const { data: questions, error: questionsError } = await supabase
+      .from('assessment_questions')
+      .select('id, question_text, question_type, points, order_index, assessment_options(id, option_text, order_index)')
+      .eq('assessment_id', id)
+      .order('order_index', { ascending: true })
+
+    if (assessmentError || questionsError || !assessment) return res.status(404).json({ success: false, error: 'Assessment not found' })
+    res.status(200).json({ success: true, data: { ...assessment, assessment_questions: questions || [] } })
   } catch (err) {
     next(err)
   }
@@ -265,24 +384,13 @@ export async function startStudentAssessment(req: AuthenticatedRequest, res: Res
   try {
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
-    const { id } = req.params
+    const id = String(req.params.id)
 
-    const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { attemptId: 'demo-attempt-id', assessmentId: id } })
-
-    const { data, error } = await supabase
-      .from('assessment_attempts')
-      .insert({
-        student_id: user.id,
-        assessment_id: id,
-        status: 'in_progress',
-        started_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) return res.status(500).json({ success: false, error: 'Could not start assessment' })
-    res.status(200).json({ data })
+    const result = await startAssessment(user.id, id)
+    if (!result.attemptId || result.attemptId.startsWith('attempt-')) {
+      return res.status(503).json({ success: false, error: 'Could not start assessment' })
+    }
+    res.status(200).json({ success: true, data: result })
   } catch (err) {
     next(err)
   }
@@ -292,49 +400,30 @@ export async function submitStudentAssessment(req: AuthenticatedRequest, res: Re
   try {
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
-    const { id } = req.params
-    const { answers, attempt_id } = req.body || {}
-
-    const score = Math.min(100, Math.max(0, parseInt(req.body.score ?? '80', 10)))
+    const id = String(req.params.id)
+    const { answers, attempt_id, attemptId } = req.body || {}
+    const resolvedAttemptId = attempt_id || attemptId
+    if (!resolvedAttemptId || !Array.isArray(answers)) {
+      return res.status(422).json({ success: false, error: 'attempt_id and answers are required' })
+    }
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) {
-      return res.status(200).json({ data: { score, passed: score >= 70, feedback: 'Assessment completed successfully.' } })
-    }
+    if (!supabase) return res.status(503).json({ success: false, error: 'Assessment service is unavailable' })
 
-    // Update attempt
-    if (attempt_id) {
-      await supabase
-        .from('assessment_attempts')
-        .update({
-          score,
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          answers,
-        })
-        .eq('id', attempt_id)
-    }
-
-    // Get skill associated with assessment
-    const { data: assessment } = await supabase
-      .from('assessments')
-      .select('skill_id')
-      .eq('id', id)
+    const { data: attempt, error: attemptError } = await supabase
+      .from('assessment_attempts')
+      .select('id, assessment_id, status')
+      .eq('id', resolvedAttemptId)
+      .eq('student_id', user.id)
+      .eq('assessment_id', id)
       .single()
 
-    if (assessment?.skill_id) {
-      await supabase
-        .from('student_skills')
-        .upsert({
-          student_id: user.id,
-          skill_id: assessment.skill_id,
-          current_score: score,
-          verification_status: score >= 70 ? 'assessment_verified' : 'self_declared',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'student_id,skill_id' })
+    if (attemptError || !attempt || attempt.status === 'completed') {
+      return res.status(409).json({ success: false, error: 'Assessment attempt is invalid or already completed' })
     }
 
-    res.status(200).json({ data: { score, passed: score >= 70, feedback: 'Assessment score recorded.' } })
+    const result = await submitAssessment(user.id, resolvedAttemptId, id, answers)
+    res.status(200).json({ success: true, data: result })
   } catch (err) {
     next(err)
   }

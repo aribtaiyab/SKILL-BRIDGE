@@ -14,10 +14,20 @@ export async function buildStudentAIContext(
 ): Promise<StudentAIContext> {
   const supabase = getSupabaseAdmin()
 
-  let studentName = 'Sarah Jenkins'
-  let targetCareerName = 'Backend Developer'
+  let studentName = 'Student'
+  let targetCareerName = 'No Career Selected'
   let targetCareerId = options?.targetCareerId || ''
-  let studentEducation = 'B.S. Computer Science'
+  let studentEducation = 'Not provided'
+
+  if (!supabase) {
+    return {
+      student: { id: studentId, name: studentName, education: studentEducation, targetCareer: targetCareerName },
+      readiness: { overallPercentage: 0, category: 'Not Assessed', priorityGapSkill: null, priorityGapPoints: 0 },
+      skills: [],
+      reassessments: [],
+      opportunity: null,
+    }
+  }
 
   // 1. Fetch Student Profile & Career Target
   try {
@@ -73,16 +83,6 @@ export async function buildStudentAIContext(
           category: cs.skills?.category || 'Technical',
         }))
       }
-    }
-
-    // If no db reqs found, provide standard fallback aligned with Phase 1-4
-    if (careerReqs.length === 0) {
-      careerReqs = [
-        { skillId: 's-node', skillName: 'Node.js', requiredLevel: 80, importance: 'High', category: 'Backend' },
-        { skillId: 's-rest', skillName: 'REST APIs', requiredLevel: 75, importance: 'High', category: 'Backend' },
-        { skillId: 's-sql', skillName: 'SQL', requiredLevel: 70, importance: 'High', category: 'Database' },
-        { skillId: 's-git', skillName: 'Git', requiredLevel: 60, importance: 'Medium', category: 'DevOps' },
-      ]
     }
 
     // Fetch student verified skills (strictly from DB)
@@ -162,13 +162,21 @@ export async function buildStudentAIContext(
           minLevel: os.minimum_level || 70,
         }))
 
+        const opportunityRequirements = requiredSkills.map((requiredSkill: { name: string; minLevel: number }) => ({
+          skillId: requiredSkill.name,
+          skillName: requiredSkill.name,
+          requiredLevel: requiredSkill.minLevel,
+          importance: 'High',
+        }))
+        const opportunityReadiness = evaluateCareerReadiness(oppData.title, opportunityRequirements, studentScores)
+
         opportunityContext = {
           id: oppData.id,
           title: oppData.title,
           company: oppData.industry_profiles?.organization_name || 'Organization',
           type: oppData.opportunity_type || 'Internship',
           requiredSkills,
-          readinessPercentage: 88,
+          readinessPercentage: opportunityReadiness.readinessPercentage,
         }
       }
     } catch {}

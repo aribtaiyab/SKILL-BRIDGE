@@ -93,7 +93,7 @@ export async function getStudentDashboardData(studentId: string = DEFAULT_STUDEN
 
       if (profile && studentProfile) {
         const priorityGapRow = gaps?.[0]
-        const careerTargetName = studentProfile.career_targets?.name || 'Backend Developer'
+        const careerTargetName = studentProfile.career_targets?.name || 'Not Set'
 
         const skillsOverview: SkillOverviewItem[] = (gaps || []).map((g) => {
           const name = g.skills?.name || 'Skill'
@@ -118,47 +118,28 @@ export async function getStudentDashboardData(studentId: string = DEFAULT_STUDEN
           currentLevel: g.current_score,
         }))
 
-        const dynamicReadiness = reqs.length > 0
-          ? calculateOverallReadiness(reqs, studentScores)
-          : 78
+        const dynamicReadiness = reqs.length > 0 ? calculateOverallReadiness(reqs, studentScores) : 0
 
-        const topMatches = (matches || []).map((m) => {
-          return {
-            role: m.opportunities?.title || 'Role',
-            company: m.opportunities?.industry_profiles?.organization_name || 'Organization',
-            match: m.match_percentage,
-            type: m.opportunities?.opportunity_type || 'Internship'
-          }
-        })
+        const topMatches = (matches || []).map((m) => ({
+          role: m.opportunities?.title || 'Role',
+          company: m.opportunities?.industry_profiles?.organization_name || 'Organization',
+          match: m.match_percentage,
+          type: m.opportunities?.opportunity_type || 'Internship'
+        }))
 
         return {
           studentName: profile.full_name,
           careerTarget: careerTargetName,
           readinessPercentage: dynamicReadiness,
           priorityGap: {
-            skillName: priorityGapRow?.skills?.name || 'Node.js',
-            currentScore: priorityGapRow?.current_score || 65,
-            targetScore: priorityGapRow?.required_score || 80,
-            description: `Your ${priorityGapRow?.skills?.name || 'Node.js'} score is ${priorityGapRow?.current_score || 65} (Target: ${priorityGapRow?.required_score || 80}). Addressing this gap will improve your overall readiness and unlock new opportunities.`
+            skillName: priorityGapRow?.skills?.name || 'None',
+            currentScore: priorityGapRow?.current_score || 0,
+            targetScore: priorityGapRow?.required_score || 0,
+            description: priorityGapRow ? `Your ${priorityGapRow.skills?.name || 'skill'} score is ${priorityGapRow.current_score} (Target: ${priorityGapRow.required_score}).` : 'Choose a target career and complete an assessment to see your skill gaps.'
           },
-          skills: skillsOverview.length > 0 ? skillsOverview : [
-            { name: 'Node.js', req: 80, val: 65, status: 'gap' },
-            { name: 'REST APIs', req: 75, val: 72, status: 'near' },
-            { name: 'SQL', req: 70, val: 82, status: 'ready' },
-            { name: 'Git', req: 60, val: 75, status: 'ready' },
-          ],
-          topMatches: topMatches.length > 0 ? topMatches : [
-            { role: 'Backend Intern', company: 'TechFlow Solutions', match: 91, type: 'Internship' },
-            { role: 'Junior Developer', company: 'DataSync Inc', match: 85, type: 'Job' },
-            { role: 'API Development', company: 'CloudCore', match: 82, type: 'Project' },
-            { role: 'Backend Mentorship', company: 'Senior Dev Network', match: 100, type: 'Mentorship' },
-          ],
-          recentActivity: [
-            { text: 'SQL Skill verified through practical assessment', time: '2 days ago', type: 'success' },
-            { text: 'Career Target updated to Backend Developer', time: '1 week ago', type: 'warning' },
-            { text: 'Improved REST APIs score from 60 to 72', time: '2 weeks ago', type: 'accent' },
-            { text: 'Completed Initial Baseline Assessment', time: '1 month ago', type: 'neutral' },
-          ]
+          skills: skillsOverview,
+          topMatches,
+          recentActivity: []
         }
       }
     } catch (err) {
@@ -166,7 +147,6 @@ export async function getStudentDashboardData(studentId: string = DEFAULT_STUDEN
     }
   }
 
-  // Return genuine empty state if no profile or career found
   return {
     studentName: 'Student',
     careerTarget: 'Not Set',
@@ -188,24 +168,18 @@ export async function getCareerTargets(): Promise<CareerTargetOption[]> {
     try {
       const { data } = await (supabase as any)
         .from('career_targets')
-        .select(`
-          id,
-          name,
-          slug,
-          description,
-          career_target_skills(count)
-        `)
+        .select('id, name, slug, description')
         .eq('is_active', true)
+        .order('name', { ascending: true })
 
-      const rows = data as unknown as (RawCareerRow & { career_target_skills: [{ count: number }] })[] | null
-
+      const rows = data as unknown as RawCareerRow[] | null
       if (rows && rows.length > 0) {
         return rows.map((c) => ({
           id: c.id,
           name: c.name,
           slug: c.slug,
-          match: 78,
-          opps: 12,
+          match: 0,
+          opps: 0,
           description: c.description || undefined,
         }))
       }
@@ -214,14 +188,7 @@ export async function getCareerTargets(): Promise<CareerTargetOption[]> {
     }
   }
 
-  // Consistent Phase 1 database-aligned fallback
-  return [
-    { id: '1', name: 'Backend Developer', slug: 'backend', match: 78, opps: 14, description: 'Server-side logic, databases, APIs, and scalable infrastructure.' },
-    { id: '2', name: 'Frontend Developer', slug: 'frontend', match: 62, opps: 9, description: 'User interfaces, responsive layouts, web performance, and client-side architecture.' },
-    { id: '3', name: 'Full Stack Engineer', slug: 'fullstack', match: 70, opps: 20, description: 'End-to-end web development spanning databases, servers, and modern UI frameworks.' },
-    { id: '4', name: 'Security Analyst', slug: 'security', match: 45, opps: 6, description: 'Threat analysis, vulnerability assessment, cryptography, and network defense.' },
-    { id: '5', name: 'DevOps Engineer', slug: 'devops', match: 58, opps: 8, description: 'CI/CD pipelines, containerization, cloud infrastructure, and monitoring.' },
-  ]
+  return []
 }
 
 export async function getStudentSkillsCategories(studentId: string = DEFAULT_STUDENT_ID): Promise<SkillCategoryGroup[]> {

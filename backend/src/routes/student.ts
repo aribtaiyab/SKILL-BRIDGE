@@ -11,6 +11,7 @@ router.use(requireAuth)
 router.get('/profile', sc.getStudentProfile)
 router.patch('/profile', sc.updateStudentProfile)
 router.get('/career-target', sc.getCareerTarget)
+router.get('/career-targets', sc.getCareerTargetsList)
 router.patch('/career-target', sc.setCareerTarget)
 
 // Skills & Readiness

@@ -25,7 +25,8 @@ INSERT INTO career_targets (id, name, slug, description, category, is_active) VA
 ('30000000-0000-0000-0000-000000000002', 'Frontend Developer', 'frontend', 'Specializes in user interfaces, client-side rendering, and web performance.', 'Engineering', true),
 ('30000000-0000-0000-0000-000000000003', 'Full Stack Developer', 'fullstack', 'Covers end-to-end web development across frontend, backend, and DevOps.', 'Engineering', true),
 ('30000000-0000-0000-0000-000000000004', 'Cybersecurity Analyst', 'security', 'Protects systems, networks, and data from cyber threats and vulnerabilities.', 'Security', true),
-('30000000-0000-0000-0000-000000000005', 'DevOps Engineer', 'devops', 'Automates infrastructure, continuous delivery pipelines, and cloud reliability.', 'Operations', true)
+('30000000-0000-0000-0000-000000000005', 'DevOps Engineer', 'devops', 'Automates infrastructure, continuous delivery pipelines, and cloud reliability.', 'Operations', true),
+('30000000-0000-0000-0000-000000000006', 'Data Analyst', 'data-analyst', 'Transforms business data into clear analysis, reporting, and decisions.', 'Data', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. Insert Skills
@@ -48,11 +49,29 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 4. Map Career Target Requirements (e.g. Backend Developer requirements)
 INSERT INTO career_target_skills (career_target_id, skill_id, required_level, importance) VALUES
-('30000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', 80, 'Critical'), -- Node.js (Req: 80)
+('30000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', 80, 'High'), -- Node.js (Req: 80)
 ('30000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002', 75, 'High'),     -- REST APIs (Req: 75)
 ('30000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', 70, 'High'),     -- SQL (Req: 70)
 ('30000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000004', 60, 'Medium'),   -- Git (Req: 60)
 ('30000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000005', 50, 'Medium')    -- Docker (Req: 50)
+ON CONFLICT (career_target_id, skill_id) DO NOTHING;
+
+-- Distinct requirements for the other supported career targets
+INSERT INTO career_target_skills (career_target_id, skill_id, required_level, importance) VALUES
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000006', 75, 'High'),
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000007', 80, 'High'),
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', 60, 'Medium'),
+('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000006', 75, 'High'),
+('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000001', 75, 'High'),
+('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000002', 75, 'High'),
+('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', 70, 'High'),
+('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000004', 60, 'Medium'),
+('30000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000013', 80, 'High'),
+('30000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000012', 70, 'High'),
+('30000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000014', 65, 'Medium'),
+('30000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000012', 80, 'High'),
+('30000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000003', 80, 'High'),
+('30000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000008', 65, 'Medium')
 ON CONFLICT (career_target_id, skill_id) DO NOTHING;
 
 -- 5. Profiles for Primary Roles
