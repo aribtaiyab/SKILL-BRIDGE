@@ -18,26 +18,24 @@ export function Navbar() {
   ]
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-[var(--color-border-primary)] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6">
+    <nav className="sticky top-0 z-50 w-full border-b border-[var(--color-border-primary)] bg-[var(--color-background)]/90 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-background)]/75">
+      <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 sm:px-8">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-accent)] text-white font-bold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-accent)] text-white text-xs font-bold shadow-sm">
               SC
             </div>
-            <span className="text-h3 font-semibold text-[var(--color-foreground)] hidden sm:inline-block">
-              SkillBridge Connect
-            </span>
+            <span className="hidden sm:inline-block text-[15px] font-bold tracking-tight text-[var(--color-foreground)]">SkillBridge <span className="font-medium text-[var(--color-text-secondary)]">Connect</span></span>
           </Link>
-          <div className="hidden md:flex gap-6">
+          <div className="hidden md:flex items-center gap-1 rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-surface-card)]/70 p-1">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "text-sm font-medium transition-colors hover:text-[var(--color-foreground)]",
+                  "rounded-full px-3 py-1.5 text-sm font-semibold transition-colors hover:text-[var(--color-foreground)]",
                   pathname === link.href
-                    ? "text-[var(--color-foreground)]"
+                    ? "bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]"
                     : "text-[var(--color-text-secondary)]"
                 )}
               >
@@ -54,10 +52,10 @@ export function Navbar() {
             </Button>
           </Link>
           <Link href="/login">
-            <Button variant="ghost">Sign In</Button>
+            <Button variant="ghost" className="font-semibold">Sign In</Button>
           </Link>
           <Link href="/signup">
-            <Button>Get Started</Button>
+            <Button className="px-5">Get Started</Button>
           </Link>
         </div>
 

@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, TrendingUp, Loader2, Sparkles } from "lucide-react"
+import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, TrendingUp, Loader2, Sparkles, Shield, Award } from "lucide-react"
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import { CareerReadinessResult } from "@/lib/intelligence/engine"
 import { apiClient } from "@/lib/api-client"
+import { ReadinessNudge } from "@/components/dashboard/readiness-nudge"
+import { LivingSkillPassportCard } from "@/components/dashboard/living-skill-passport"
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth()
@@ -68,6 +70,13 @@ export default function StudentDashboard() {
             <p className="text-[var(--color-text-secondary)] mt-1">Here is your verified skill intelligence overview for today.</p>
           </div>
         </div>
+
+        {/* Actionable Readiness Nudge Banner */}
+        <ReadinessNudge
+          pointsAway={student.priorityGap?.gap || 8}
+          activeInternshipsCount={3}
+          skillName={student.priorityGap?.skillName || "Node.js"}
+        />
 
         {/* Top Area: Readiness Overview */}
         <Card className="border-[var(--color-border-primary)] shadow-sm">
@@ -192,6 +201,18 @@ export default function StudentDashboard() {
             </Card>
           </div>
         </div>
+
+        {/* Living Skill Passport Component */}
+        <LivingSkillPassportCard
+          studentName={studentName}
+          targetRole={student.targetCareer}
+          readinessScore={student.readinessPercentage}
+          skills={student.skills.map(s => ({
+            skillName: s.name,
+            score: s.currentLevel,
+            tier: s.currentLevel >= 80 ? 'Evidence Verified' : s.currentLevel >= 70 ? 'Practical Verified' : s.isAssessed ? 'Assessment Verified' : 'Self-Declared',
+          }))}
+        />
       </div>
     )
   }
@@ -297,6 +318,13 @@ export default function StudentDashboard() {
           <p className="text-[var(--color-text-secondary)] mt-1">Here is your verified skill intelligence overview for today.</p>
         </div>
       </div>
+
+      {/* Actionable Readiness Nudge Banner */}
+      <ReadinessNudge
+        pointsAway={d.priorityGap?.gap || 8}
+        activeInternshipsCount={3}
+        skillName={d.priorityGap?.skillName || "Node.js"}
+      />
 
       {/* Top Area: Readiness Overview */}
       <Card className="border-[var(--color-border-primary)] shadow-sm">
@@ -426,6 +454,18 @@ export default function StudentDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Living Skill Passport Component */}
+      <LivingSkillPassportCard
+        studentName={studentName}
+        targetRole={d.careerName || "Career Target"}
+        readinessScore={d.readinessPercentage}
+        skills={d.skills.map(s => ({
+          skillName: s.skillName,
+          score: s.currentLevel,
+          tier: s.currentLevel >= 80 ? 'Evidence Verified' : s.currentLevel >= 70 ? 'Practical Verified' : s.isAssessed ? 'Assessment Verified' : 'Self-Declared',
+        }))}
+      />
     </div>
   )
 }

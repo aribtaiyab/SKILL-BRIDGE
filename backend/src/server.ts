@@ -18,8 +18,10 @@ app.use(
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'https://skill-bridge-nine-bice.vercel.app',
+  process.env.NEXT_PUBLIC_APP_URL,
   ...ENV.FRONTEND_URLS,
-].filter((origin, index, origins) => origins.indexOf(origin) === index)
+].filter((origin, index, origins): origin is string => Boolean(origin) && origins.indexOf(origin) === index)
 
 app.use(
   cors({

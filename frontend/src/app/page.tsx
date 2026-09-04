@@ -12,14 +12,15 @@ export default function LandingPage() {
       
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="px-6 py-24 md:py-32">
+        <section className="relative overflow-hidden px-6 py-20 md:py-28">
           <div className="mx-auto max-w-[1200px]">
-            <div className="grid gap-12 lg:grid-cols-2 lg:gap-8 items-center">
+            <div className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 items-center">
               <div className="space-y-8">
+                <div className="eyebrow">Career intelligence, made tangible</div>
                 <h1 className="text-h1 md:text-[48px] md:leading-[56px] font-semibold tracking-tight">
                   Know exactly how ready you are for your next opportunity.
                 </h1>
-                <p className="text-h3 text-[var(--color-text-secondary)] font-normal leading-relaxed max-w-[540px]">
+                <p className="max-w-[540px] text-[17px] leading-8 text-[var(--color-text-secondary)]">
                   SkillBridge measures your skills against real career and opportunity requirements, identifies the gaps holding you back, helps you improve, verifies your progress, and connects you with relevant opportunities.
                 </p>
                 
@@ -45,7 +46,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 pt-4 text-sm text-[var(--color-text-secondary)] font-medium">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-[var(--color-border-primary)] pt-5 text-sm text-[var(--color-text-secondary)] font-semibold">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-[var(--color-success)]" />
                     <span>Assess</span>
@@ -66,8 +67,9 @@ export default function LandingPage() {
               </div>
 
               {/* Core Intelligence Hero Preview */}
-              <div className="relative mx-auto w-full max-w-[500px] lg:ml-auto">
-                <Card className="border-[var(--color-border-primary)] shadow-lg overflow-hidden">
+              <div className="relative mx-auto w-full max-w-[560px] lg:ml-auto">
+                <div className="absolute -inset-5 -z-10 rounded-[28px] border border-[var(--color-accent)]/10 bg-[var(--color-accent-light)]/40" />
+                <Card className="overflow-hidden border-[var(--color-border-primary)] shadow-[var(--shadow-float)]">
                   <div className="border-b border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -112,7 +114,7 @@ export default function LandingPage() {
                       ))}
                     </div>
 
-                    <div className="rounded-lg bg-[var(--color-accent-light)] p-4 border border-[var(--color-accent)]/20">
+                    <div className="rounded-[var(--radius-control)] bg-[var(--color-accent-light)] p-4 border border-[var(--color-accent)]/20">
                       <p className="text-sm font-semibold text-[var(--color-accent-hover)] mb-1">Priority Gap: Node.js</p>
                       <p className="text-small text-[var(--color-text-secondary)]">Recommended Action: Complete targeted Node.js practical task to improve readiness by 12%.</p>
                       <Button variant="outline" size="sm" className="mt-3 w-full border-[var(--color-accent)] text-[var(--color-accent-hover)]">

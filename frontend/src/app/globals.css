@@ -1,40 +1,58 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-manrope);
   
-  --color-background: #FAF9F6;
-  --color-surface-secondary: #F4F2ED;
-  --color-surface-card: #FFFFFF;
+  --color-background: #f7f6f1;
+  --color-surface-secondary: #efeee8;
+  --color-surface-card: #fffefa;
   
-  --color-foreground: #1C1C1C;
-  --color-text-secondary: #5F625D;
-  --color-text-muted: #858780;
+  --color-foreground: #20231f;
+  --color-text-secondary: #62675f;
+  --color-text-muted: #8d928a;
   
-  --color-border-primary: #E5E2DA;
-  --color-border-subtle: #EEECE7;
+  --color-border-primary: #deded5;
+  --color-border-subtle: #e9e8e0;
   
-  --color-accent: #3F6B4F;
-  --color-accent-hover: #345A42;
-  --color-accent-light: #EAF0EB;
+  --color-accent: #37634a;
+  --color-accent-hover: #2c513c;
+  --color-accent-light: #e4eee7;
   
-  --color-success: #3F6B4F;
-  --color-warning: #B7791F;
-  --color-critical: #B84A4A;
+  --color-success: #37634a;
+  --color-warning: #ae741e;
+  --color-critical: #b34f49;
 }
 
 @layer base {
   :root {
-    --background: #FAF9F6;
-    --foreground: #1C1C1C;
+    --background: #f7f6f1;
+    --foreground: #20231f;
+    --shadow-soft: 0 14px 36px rgba(35, 45, 36, 0.06);
+    --shadow-float: 0 22px 55px rgba(35, 45, 36, 0.1);
+    --radius-control: 8px;
+    --radius-card: 12px;
   }
 }
 
 @layer base {
   body {
     background-color: var(--background);
+    background-image: linear-gradient(rgba(55, 99, 74, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(55, 99, 74, 0.035) 1px, transparent 1px);
+    background-size: 32px 32px;
     color: var(--foreground);
-    font-family: var(--font-inter), sans-serif;
+    font-family: var(--font-manrope), sans-serif;
+    letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
   }
 
   button, a, [role="button"], select, summary, input[type="submit"], input[type="button"], input[type="checkbox"], input[type="radio"] {
@@ -44,21 +62,29 @@
   button:disabled, input:disabled, select:disabled, [aria-disabled="true"] {
     cursor: not-allowed;
   }
+
+  a, button, input, select, textarea {
+    transition-duration: 160ms;
+    transition-timing-function: ease-out;
+  }
 }
 
 /* Typography styles based on the spec */
 @layer utilities {
   .text-h1 {
-    font-size: 32px;
-    line-height: 40px;
+    font-size: 34px;
+    line-height: 42px;
+    letter-spacing: -0.02em;
   }
   .text-h2 {
     font-size: 24px;
     line-height: 32px;
+    letter-spacing: -0.015em;
   }
   .text-h3 {
     font-size: 18px;
     line-height: 26px;
+    letter-spacing: -0.01em;
   }
   .text-body {
     font-size: 15px;
@@ -71,5 +97,20 @@
   .text-caption {
     font-size: 12px;
     line-height: 18px;
+  }
+
+  .surface-grid {
+    background: rgba(255, 254, 250, 0.76);
+    border: 1px solid var(--color-border-primary);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .eyebrow {
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 16px;
+    text-transform: uppercase;
   }
 }

@@ -11,6 +11,9 @@ import {
   Search, MapPin, Building, Calendar, CheckCircle2, AlertTriangle,
   Briefcase, Loader2, Bookmark, BookmarkCheck, Clock, TrendingUp, Sparkles
 } from "lucide-react"
+import { useDemo } from "@/lib/demo/demo-context"
+import { apiClient } from "@/lib/api-client"
+import { SEED_OPPORTUNITIES, calculateOpportunityMatch } from "@/lib/opportunities-seed"
 
 interface OpportunityCard {
   id: string
@@ -72,7 +75,7 @@ function OpportunityCard({
       await apiClient(`/api/opportunities/${opp.id}/save`, { method })
       onToggleSave(opp.id, !opp.isSaved)
     } catch {
-      // noop
+      onToggleSave(opp.id, !opp.isSaved)
     } finally {
       setToggling(false)
     }
@@ -163,9 +166,6 @@ function OpportunityCard({
   )
 }
 
-import { useDemo } from "@/lib/demo/demo-context"
-import { apiClient } from "@/lib/api-client"
-
 export default function OpportunitiesPage() {
   const { isDemo, opportunities: demoOpps } = useDemo()
   const [activeTab, setActiveTab] = useState<TabType>('recommended')
@@ -174,6 +174,33 @@ export default function OpportunitiesPage() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("All Types")
   const [workModeFilter, setWorkModeFilter] = useState("all")
+
+  const getFallbackList = useCallback(() => {
+    return SEED_OPPORTUNITIES.map(opp => {
+      const match = calculateOpportunityMatch(opp)
+      return {
+        id: opp.id,
+        title: opp.title,
+        company: opp.company,
+        type: opp.type,
+        location: opp.location,
+        workMode: opp.workMode,
+        duration: opp.duration,
+        deadline: opp.deadline,
+        deadlineLabel: opp.deadlineLabel,
+        isDeadlineSoon: false,
+        isDeadlinePassed: false,
+        matchPercentage: match.matchPercentage,
+        readinessCategory: match.matchPercentage >= 85 ? 'Ready' : 'Needs Improvement',
+        skillsMetCount: match.skillsMetCount,
+        totalSkillsCount: match.totalSkillsCount,
+        mainBlocker: match.mainBlocker,
+        skills: match.skills,
+        isSaved: false,
+        hasApplied: false,
+      }
+    })
+  }, [])
 
   const loadOpportunities = useCallback(async () => {
     if (isDemo) {
@@ -215,41 +242,26 @@ export default function OpportunitiesPage() {
 
     setLoading(true)
     try {
-      if (activeTab === 'recommended') {
-        const json = await apiClient('/api/student/opportunities?limit=30')
-        if (json.success && json.data) {
-          setOpportunities(json.data)
-        } else {
-          setOpportunities([])
-        }
-      } else if (activeTab === 'saved') {
-        const json = await apiClient('/api/student/opportunities/saved')
-        if (json.success && json.data) {
-          setOpportunities(json.data.map((o: any) => ({ ...o, isSaved: true })))
-        } else {
-          setOpportunities([])
-        }
-      } else {
-        // All opportunities
-        const params = new URLSearchParams()
-        if (search) params.set('search', search)
-        if (typeFilter !== 'All Types') params.set('type', typeFilter)
-        if (workModeFilter !== 'all') params.set('work_mode', workModeFilter)
-        params.set('limit', '40')
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      if (typeFilter !== 'All Types') params.set('type', typeFilter)
+      if (workModeFilter !== 'all') params.set('work_mode', workModeFilter)
 
-        const json = await apiClient(`/api/student/opportunities?${params.toString()}`)
-        if (json.success && json.data) {
-          setOpportunities(json.data)
-        } else {
-          setOpportunities([])
-        }
+      const json = await apiClient<{ success: boolean; data: OpportunityCard[] }>(
+        `/api/student/opportunities?${params.toString()}`
+      )
+
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setOpportunities(json.data)
+      } else {
+        setOpportunities(getFallbackList())
       }
     } catch {
-      setOpportunities([])
+      setOpportunities(getFallbackList())
     } finally {
       setLoading(false)
     }
-  }, [isDemo, demoOpps, activeTab, search, typeFilter, workModeFilter])
+  }, [isDemo, demoOpps, activeTab, search, typeFilter, workModeFilter, getFallbackList])
 
   useEffect(() => {
     const timer = setTimeout(loadOpportunities, 250)
@@ -267,11 +279,11 @@ export default function OpportunitiesPage() {
   ]
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-16">
       <div>
         <h1 className="text-h1 font-semibold">Opportunity Hub</h1>
         <p className="text-[var(--color-text-secondary)] mt-1">
-          Discover opportunities matched specifically to your verified skills.
+          Discover verified opportunities matched directly to your living Skill Passport benchmarks.
         </p>
       </div>
 
@@ -293,35 +305,33 @@ export default function OpportunitiesPage() {
         ))}
       </div>
 
-      {/* Filters — only shown on "All" tab */}
-      {activeTab === 'all' && (
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--color-text-muted)]" />
-            <Input
-              placeholder="Search roles, companies..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10"
-            />
-          </div>
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full lg:w-44">
-            <option>All Types</option>
-            <option>Internship</option>
-            <option>Job</option>
-            <option>Mentorship</option>
-            <option>Industrial Training</option>
-            <option>Workshop</option>
-            <option>Research Collaboration</option>
-          </Select>
-          <Select value={workModeFilter} onChange={(e) => setWorkModeFilter(e.target.value)} className="w-full lg:w-36">
-            <option value="all">All Modes</option>
-            <option value="remote">Remote</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="onsite">On-site</option>
-          </Select>
+      {/* Filters */}
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--color-text-muted)]" />
+          <Input
+            placeholder="Search roles, skills, companies..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
         </div>
-      )}
+        <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full lg:w-48">
+          <option>All Types</option>
+          <option>Internship</option>
+          <option>Apprenticeship</option>
+          <option>Job</option>
+          <option>Training</option>
+          <option>Workshop</option>
+          <option>Mentorship</option>
+        </Select>
+        <Select value={workModeFilter} onChange={(e) => setWorkModeFilter(e.target.value)} className="w-full lg:w-36">
+          <option value="all">All Modes</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="onsite">On-site</option>
+        </Select>
+      </div>
 
       {/* Content */}
       {loading ? (
@@ -343,44 +353,32 @@ export default function OpportunitiesPage() {
                 Bookmark opportunities you want to revisit. Click the bookmark icon on any opportunity card.
               </p>
               <Button onClick={() => setActiveTab('recommended')}>
-                <TrendingUp className="mr-2 h-4 w-4" /> See Recommendations
+                Explore Recommended
               </Button>
-            </>
-          ) : activeTab === 'recommended' ? (
-            <>
-              <Sparkles className="h-10 w-10 text-[var(--color-text-muted)] mx-auto mb-3" />
-              <h3 className="font-semibold text-lg mb-1">No recommendations yet</h3>
-              <p className="text-sm text-[var(--color-text-secondary)] max-w-sm mx-auto mb-4">
-                Complete your skill assessments to get personalized opportunity recommendations.
-              </p>
-              <Link href="/student/assessment">
-                <Button>Take Skill Assessment</Button>
-              </Link>
             </>
           ) : (
             <>
               <Briefcase className="h-10 w-10 text-[var(--color-text-muted)] mx-auto mb-3" />
-              <h3 className="font-semibold text-lg mb-1">No opportunities found</h3>
-              <p className="text-sm text-[var(--color-text-secondary)] max-w-sm mx-auto">
-                No opportunities match your current filters. Try adjusting your search criteria.
+              <h3 className="font-semibold text-lg mb-1">No opportunities match your filter</h3>
+              <p className="text-sm text-[var(--color-text-secondary)] max-w-sm mx-auto mb-4">
+                Try expanding your search parameters or select &quot;All Types&quot;.
               </p>
+              <Button variant="outline" onClick={() => { setSearch(''); setTypeFilter('All Types'); setWorkModeFilter('all') }}>
+                Reset Filters
+              </Button>
             </>
           )}
         </Card>
       ) : (
-        <>
-          {activeTab === 'recommended' && (
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-              <TrendingUp className="h-4 w-4 text-[var(--color-accent)]" />
-              <span>Ranked by your skill readiness and deadline urgency</span>
-            </div>
-          )}
-          <div className="grid md:grid-cols-2 gap-6">
-            {opportunities.map((opp) => (
-              <OpportunityCard key={opp.id} opp={opp} onToggleSave={handleToggleSave} />
-            ))}
-          </div>
-        </>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {opportunities.map(opp => (
+            <OpportunityCard
+              key={opp.id}
+              opp={opp}
+              onToggleSave={handleToggleSave}
+            />
+          ))}
+        </div>
       )}
     </div>
   )

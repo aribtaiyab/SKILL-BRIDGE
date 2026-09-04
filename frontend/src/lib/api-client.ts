@@ -1,14 +1,25 @@
 /**
  * SkillBridge Unified Frontend API Client
  *
- * Automatically resolves the backend API URL from NEXT_PUBLIC_API_URL,
- * attaches active Supabase auth tokens, and handles error states consistently.
+ * Automatically resolves the backend API URL. If NEXT_PUBLIC_API_URL is empty
+ * or relative, it uses relative endpoints (/api/...) directly handled by Next.js route handlers.
+ * Attaches active Supabase auth tokens and localStorage fallback tokens.
  */
 
 import { supabase } from './supabase/client'
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
-const API_BASE_URL = configuredApiUrl ? configuredApiUrl.replace(/\/$/, '') : ''
+// If configuredApiUrl points to localhost in production, or is empty, use relative base ""
+const isLocalhostInProd =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1' &&
+  configuredApiUrl?.includes('localhost')
+
+const API_BASE_URL = (configuredApiUrl && !isLocalhostInProd)
+  ? configuredApiUrl.replace(/\/$/, '')
+  : ''
+
 const REQUEST_TIMEOUT_MS = 15000
 
 export interface ApiClientOptions extends RequestInit {
@@ -21,14 +32,6 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
   // Ensure endpoint starts with /
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
 
-  if (!API_BASE_URL) {
-    throw new Error(
-      process.env.NODE_ENV === 'production'
-        ? 'The application API is not configured. Please contact support.'
-        : 'The local API is not configured. Set NEXT_PUBLIC_API_URL and restart the frontend.'
-    )
-  }
-  
   // Build URL with query params
   let url = `${API_BASE_URL}${cleanEndpoint}`
   if (params) {
@@ -44,17 +47,22 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
     }
   }
 
-  // Retrieve auth token from Supabase client if available
+  // Retrieve auth token from Supabase client or localStorage
   let authToken: string | undefined
-  let hasSession = false
   try {
     if (typeof window !== 'undefined' && supabase) {
       const { data: { session } } = await supabase.auth.getSession()
       authToken = session?.access_token
-      hasSession = Boolean(session)
+      if (authToken) {
+        localStorage.setItem('sb_access_token', authToken)
+      }
     }
   } catch {
-    // ignore session fetch errors
+    // ignore session fetch error
+  }
+
+  if (!authToken && typeof window !== 'undefined') {
+    authToken = localStorage.getItem('sb_access_token') || undefined
   }
 
   // Check demo mode cookie
@@ -63,15 +71,7 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
     isDemo = document.cookie.includes('sb_demo_mode=true')
   }
 
-  const isProtectedEndpoint = /^\/api\/(student|ai|applications|verification|passport)(\/|$)/.test(cleanEndpoint) ||
-    /^\/api\/opportunities\/[^/]+\/(readiness|proof|save)$/.test(cleanEndpoint)
-  if (typeof window !== 'undefined' && isProtectedEndpoint && !hasSession && !isDemo) {
-    const redirect = `${window.location.pathname}${window.location.search}`
-    window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
-    throw new Error('Authentication required')
-  }
-
-  let reqHeaders: Record<string, string> = {
+  const reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(isDemo ? { 'x-demo-mode': 'true' } : {}),
@@ -80,7 +80,9 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
 
   const request = async () => {
     const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    const timeout = typeof window !== 'undefined'
+      ? window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+      : undefined
     const abortHandler = () => controller.abort()
     customConfig.signal?.addEventListener('abort', abortHandler, { once: true })
 
@@ -88,11 +90,11 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
       return await fetch(url, {
         ...customConfig,
         headers: reqHeaders,
-        credentials: 'omit',
+        credentials: 'same-origin',
         signal: controller.signal,
       })
     } finally {
-      window.clearTimeout(timeout)
+      if (timeout) clearTimeout(timeout)
       customConfig.signal?.removeEventListener('abort', abortHandler)
     }
   }
@@ -105,18 +107,17 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
     throw new Error('Network error. Please check your connection and try again.')
   }
 
-  if (response.status === 401 && typeof window !== 'undefined' && !isDemo) {
-    const { data: refreshed } = await supabase.auth.refreshSession()
-    if (refreshed.session?.access_token) {
-      reqHeaders = { ...reqHeaders, Authorization: `Bearer ${refreshed.session.access_token}` }
-      response = await request()
+  if (response.status === 401 && typeof window !== 'undefined' && !isDemo && supabase) {
+    try {
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      if (refreshed.session?.access_token) {
+        reqHeaders.Authorization = `Bearer ${refreshed.session.access_token}`
+        localStorage.setItem('sb_access_token', refreshed.session.access_token)
+        response = await request()
+      }
+    } catch {
+      // ignore
     }
-  }
-
-  if (response.status === 401 && typeof window !== 'undefined' && !isDemo) {
-    const redirect = `${window.location.pathname}${window.location.search}`
-    window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
-    throw new Error('Your session expired. Please sign in again.')
   }
 
   if (!response.ok) {

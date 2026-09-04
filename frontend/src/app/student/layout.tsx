@@ -26,7 +26,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const navItems = [
     { href: "/student", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
     { href: "/student/career", label: "Career Target", icon: <Target size={20} /> },
-    { href: "/student/assessment", label: "Assessments", icon: <FileText size={20} /> },
+    { href: "/student/assessment", label: "Assignments & Assessments", icon: <FileText size={20} /> },
     { href: "/student/skills", label: "Skills", icon: <Code size={20} /> },
     { href: "/student/skill-gap", label: "Skill Gap", icon: <AlertTriangle size={20} /> },
     { href: "/student/ai-coach", label: "AI Skill Coach", icon: <Bot size={20} /> },
@@ -53,17 +53,17 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       <DemoBar />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <aside className="w-64 hidden md:flex flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-surface-card)]">
-          <div className="h-16 flex items-center px-6 border-b border-[var(--color-border-primary)]">
-            <div className="flex items-center gap-2 font-semibold">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-accent)] text-white">SC</div>
-              SkillBridge
+          <div className="h-20 flex items-center px-6 border-b border-[var(--color-border-primary)]">
+            <div className="flex items-center gap-3 font-bold tracking-tight">
+              <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-accent)] text-white text-xs shadow-sm">SC</div>
+              <div><div>SkillBridge</div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Connect</div></div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <Sidebar items={navItems} />
           </div>
           {/* User info + logout in sidebar footer */}
-          <div className="border-t border-[var(--color-border-primary)] p-4">
+          <div className="border-t border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)]/60 p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-8 w-8 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] flex items-center justify-center text-xs font-semibold">
                 {initials}
@@ -87,9 +87,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-16 flex items-center justify-between px-6 border-b border-[var(--color-border-primary)] bg-white">
+          <header className="h-20 flex items-center justify-between px-5 sm:px-8 border-b border-[var(--color-border-primary)] bg-[var(--color-surface-card)]/90 backdrop-blur">
             <div className="flex items-center gap-2 font-semibold md:hidden">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-accent)] text-white">SC</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-accent)] text-white text-xs">SC</div>
               SkillBridge
             </div>
             <div className="ml-auto flex items-center gap-3">
@@ -107,8 +107,8 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
               )}
             </div>
           </header>
-          <div className="flex-1 overflow-y-auto p-6 md:p-8">
-            <div className="mx-auto max-w-5xl">
+          <div className="flex-1 overflow-y-auto p-5 sm:p-8 lg:p-10">
+            <div className="mx-auto max-w-6xl">
               {children}
             </div>
           </div>
