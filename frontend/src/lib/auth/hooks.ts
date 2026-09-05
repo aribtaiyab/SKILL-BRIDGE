@@ -24,8 +24,8 @@ export function useRequireAuth(requiredRole?: UserRole) {
         const dashboardMap: Record<string, string> = {
           student: '/student',
           industry: '/industry',
-          academician: '/academician',
-          institution: '/institution',
+          academician: '/academia',
+          institution: '/academia',
         }
         router.replace(dashboardMap[role] || '/login')
       }

@@ -358,6 +358,114 @@ export const LEVEL_1_KNOWLEDGE_ASSESSMENTS: Level1Assessment[] = [
       },
     ],
   },
+  {
+    id: "assess-l1-react-basics",
+    title: "React Component Architecture & Hooks Benchmark",
+    skill: "React",
+    description: "Evaluates React fundamentals: JSX rendering, useState, useEffect dependencies, key prop usage, and component purity.",
+    timeLimitMinutes: 10,
+    totalQuestions: 3,
+    passingScore: 70,
+    difficulty: "Intermediate",
+    questions: [
+      {
+        id: "q-react-1",
+        questionText: "What is the primary danger of omitting the dependency array in useEffect?",
+        points: 34,
+        orderIndex: 1,
+        options: [
+          { id: "opt-react-1a", optionText: "The effect runs on every single render, potentially triggering an infinite loop if it updates state" },
+          { id: "opt-react-1b", optionText: "The effect never executes" },
+          { id: "opt-react-1c", optionText: "React throws a syntax error at build time" },
+          { id: "opt-react-1d", optionText: "The component unmounts immediately" },
+        ],
+        correctOptionId: "opt-react-1a",
+        explanation: "Without a dependency array, useEffect fires after every render cycle. If it triggers a state update, it causes an infinite re-render loop.",
+      },
+      {
+        id: "q-react-2",
+        questionText: "Why is using array index as a 'key' prop discouraged when rendering dynamic lists in React?",
+        points: 33,
+        orderIndex: 2,
+        options: [
+          { id: "opt-react-2a", optionText: "It degrades performance and causes state bugs when items are reordered, inserted, or removed" },
+          { id: "opt-react-2b", optionText: "React strictly forbids numbers as keys" },
+          { id: "opt-react-2c", optionText: "It breaks the CSS styles applied to list items" },
+          { id: "opt-react-2d", optionText: "Keys must always be strings longer than 10 characters" },
+        ],
+        correctOptionId: "opt-react-2a",
+        explanation: "Keys enable React to track item identities across renders. Using indices causes component state to attach to the wrong element upon insertion/reordering.",
+      },
+      {
+        id: "q-react-3",
+        questionText: "How should state updates that depend on the previous state value be written?",
+        points: 33,
+        orderIndex: 3,
+        options: [
+          { id: "opt-react-3a", optionText: "Using the functional updater: setCount(prev => prev + 1)" },
+          { id: "opt-react-3b", optionText: "By directly mutating the state variable: state++" },
+          { id: "opt-react-3c", optionText: "By calling forceUpdate() inside setTimeout" },
+          { id: "opt-react-3d", optionText: "By reading from document.getElementById()" },
+        ],
+        correctOptionId: "opt-react-3a",
+        explanation: "Functional state updates guarantee access to the latest state value even during batched asynchronous updates.",
+      },
+    ],
+  },
+  {
+    id: "assess-l1-javascript-core",
+    title: "JavaScript Core Language & Async Foundations",
+    skill: "JavaScript",
+    description: "Tests closures, scope chains, event bubbling, coercion, and Promise microtask scheduling.",
+    timeLimitMinutes: 10,
+    totalQuestions: 3,
+    passingScore: 70,
+    difficulty: "Intermediate",
+    questions: [
+      {
+        id: "q-js-1",
+        questionText: "In JavaScript, what is a closure?",
+        points: 34,
+        orderIndex: 1,
+        options: [
+          { id: "opt-js-1a", optionText: "A function bundled with references to its surrounding lexical environment" },
+          { id: "opt-js-1b", optionText: "A method that terminates an active loop" },
+          { id: "opt-js-1c", optionText: "A private variable that can never be garbage collected" },
+          { id: "opt-js-1d", optionText: "A way to close browser tabs programmatically" },
+        ],
+        correctOptionId: "opt-js-1a",
+        explanation: "A closure gives a function access to its outer scope variables even after the outer function has finished executing.",
+      },
+      {
+        id: "q-js-2",
+        questionText: "What is the difference between '==' and '===' in JavaScript?",
+        points: 33,
+        orderIndex: 2,
+        options: [
+          { id: "opt-js-2a", optionText: "'===' checks both value and type without type coercion; '==' coerces types before comparing" },
+          { id: "opt-js-2b", optionText: "'===' only compares strings, while '==' compares numbers" },
+          { id: "opt-js-2c", optionText: "There is no difference in modern V8" },
+          { id: "opt-js-2d", optionText: "'==' is faster because it bypasses memory checks" },
+        ],
+        correctOptionId: "opt-js-2a",
+        explanation: "Strict equality (===) performs no type conversion and returns true only if operands have identical types and values.",
+      },
+      {
+        id: "q-js-3",
+        questionText: "Which statement accurately describes Promise.all() behavior?",
+        points: 33,
+        orderIndex: 3,
+        options: [
+          { id: "opt-js-3a", optionText: "It resolves when all promises resolve, or rejects immediately when ANY promise rejects (fail-fast)" },
+          { id: "opt-js-3b", optionText: "It waits for all promises to settle regardless of rejections" },
+          { id: "opt-js-3c", optionText: "It executes promises sequentially one after another" },
+          { id: "opt-js-3d", optionText: "It only accepts synchronous functions" },
+        ],
+        correctOptionId: "opt-js-3a",
+        explanation: "Promise.all fails fast: if any promise in the array rejects, the returned promise immediately rejects with that error.",
+      },
+    ],
+  },
 ]
 
 export const LEVEL_2_PRACTICAL_CHALLENGES: Level2PracticalChallenge[] = [
@@ -482,6 +590,48 @@ FROM student_skills
         passed: false,
         score: 45,
         feedback: "Ensure you compute the elapsed seconds since lastRefillTime and increment bucket.tokens before checking if tokens >= 1.",
+      }
+    },
+  },
+  {
+    id: "prac-04-react-hook",
+    title: "Challenge 4: Build a Safe Async Fetch Custom Hook",
+    skill: "React",
+    type: "logic",
+    difficulty: "Intermediate",
+    timeLimitMinutes: 20,
+    objective: "Implement a custom hook useFetchData(url) that tracks loading, error, and data, cleaning up on unmount.",
+    instructions: `Write a React hook \`useFetchData(url)\` that initializes state for \`{ data, loading: true, error: null }\`, triggers a fetch inside \`useEffect\`, and uses an \`isMounted\` or \`AbortController\` cleanup to prevent memory leaks on unmount.`,
+    initialCode: `import { useState, useEffect } from 'react';
+
+export function useFetchData(url) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // TODO: Implement safe fetch with cleanup
+  }, [url]);
+
+  return { data, loading, error };
+}`,
+    expectedSolutionSnippet: "setData",
+    testCheck: (submission: string) => {
+      const hasFetch = /fetch\s*\(/i.test(submission) || /axios/i.test(submission)
+      const hasCleanup = /return\s*\(\)\s*=>/i.test(submission) || /abort\(\)/i.test(submission) || /mounted\s*=\s*false/i.test(submission)
+      const setsState = /setData\s*\(/i.test(submission) && /setLoading\s*\(/i.test(submission)
+
+      if (hasFetch && hasCleanup && setsState) {
+        return {
+          passed: true,
+          score: 100,
+          feedback: "Verified! Your React custom hook safely handles data fetching and includes an unmount cleanup to guard against memory leaks.",
+        }
+      }
+      return {
+        passed: false,
+        score: 40,
+        feedback: "Make sure you fetch the URL, call setData/setLoading, and return a cleanup function from useEffect to prevent memory leaks.",
       }
     },
   },

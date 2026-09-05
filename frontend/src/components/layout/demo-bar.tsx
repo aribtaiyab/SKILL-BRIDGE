@@ -15,21 +15,21 @@ export function DemoBar() {
   const roles: { role: DemoRole; label: string; icon: React.ReactNode; desc: string }[] = [
     {
       role: 'student',
-      label: 'Student — Aditi Sharma',
+      label: 'Student — Aarav Mehta',
       icon: <GraduationCap className="h-4 w-4 text-[var(--color-accent)]" />,
-      desc: 'Backend Developer Track (82% Readiness)',
-    },
-    {
-      role: 'industry',
-      label: 'Industry — TechNova Solutions',
-      icon: <Briefcase className="h-4 w-4 text-blue-600" />,
-      desc: 'Talent pipeline & matching',
+      desc: 'Full Stack Developer Track (72% Readiness)',
     },
     {
       role: 'academician',
-      label: 'Academia — Faculty Cohort',
+      label: 'Academia — Dr. Ananya Sharma',
       icon: <User className="h-4 w-4 text-emerald-600" />,
-      desc: 'Class of 2026 Skill Gap Analytics',
+      desc: 'CSE Department (48 Students, 68% Avg Readiness)',
+    },
+    {
+      role: 'industry',
+      label: 'Industry — TechNova Labs',
+      icon: <Briefcase className="h-4 w-4 text-blue-600" />,
+      desc: 'Talent pipeline & Opportunity Matching',
     },
   ]
 

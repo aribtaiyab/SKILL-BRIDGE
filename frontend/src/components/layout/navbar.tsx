@@ -14,29 +14,31 @@ export function Navbar() {
   const links = [
     { href: "/product", label: "Product" },
     { href: "/how-it-works", label: "How It Works" },
-    { href: "/academician", label: "Academia" },
+    { href: "/academia", label: "Academia" },
   ]
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-[var(--color-border-primary)] bg-[var(--color-background)]/90 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-background)]/75">
-      <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 sm:px-8">
+    <header className="sticky top-4 z-50 w-full px-4 sm:px-6 pointer-events-none">
+      <nav className="pointer-events-auto mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl border border-slate-200/80 bg-white/85 px-5 sm:px-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-accent)] text-white text-xs font-bold shadow-sm">
+          <Link href="/" className="flex items-center space-x-2.5 group">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white text-xs font-black shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
               SC
             </div>
-            <span className="hidden sm:inline-block text-[15px] font-bold tracking-tight text-[var(--color-foreground)]">SkillBridge <span className="font-medium text-[var(--color-text-secondary)]">Connect</span></span>
+            <span className="hidden sm:inline-block text-[15px] font-black tracking-tight text-slate-900">
+              SkillBridge <span className="font-semibold text-indigo-600">Connect</span>
+            </span>
           </Link>
-          <div className="hidden md:flex items-center gap-1 rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-surface-card)]/70 p-1">
+          <div className="hidden md:flex items-center gap-1 rounded-full border border-slate-200/60 bg-slate-50/80 p-1">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-sm font-semibold transition-colors hover:text-[var(--color-foreground)]",
+                  "rounded-full px-3.5 py-1 text-xs font-semibold transition-all hover:text-slate-900",
                   pathname === link.href
-                    ? "bg-[var(--color-surface-secondary)] text-[var(--color-foreground)]"
-                    : "text-[var(--color-text-secondary)]"
+                    ? "bg-white text-indigo-600 shadow-xs border border-slate-200/50"
+                    : "text-slate-600 hover:bg-white/60"
                 )}
               >
                 {link.label}
@@ -46,50 +48,50 @@ export function Navbar() {
         </div>
         
         <div className="hidden md:flex items-center space-x-3">
-          <Link href="/student?demo=true">
-            <Button variant="outline" className="border-[var(--color-accent)]/40 bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] font-medium hover:bg-[var(--color-accent)]/20 text-xs h-9">
+          <Link href="/demo">
+            <Button variant="outline" className="border-indigo-200 bg-indigo-50/50 text-indigo-700 font-semibold hover:bg-indigo-100/60 text-xs h-8.5 rounded-xl px-3.5 shadow-xs">
               Explore Demo ✨
             </Button>
           </Link>
           <Link href="/login">
-            <Button variant="ghost" className="font-semibold">Sign In</Button>
+            <Button variant="ghost" className="text-slate-700 font-semibold text-xs h-8.5 hover:bg-slate-100/70 rounded-xl">Sign In</Button>
           </Link>
           <Link href="/signup">
-            <Button className="px-5">Get Started</Button>
+            <Button className="px-4 text-xs h-8.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-md shadow-indigo-500/25">Get Started</Button>
           </Link>
         </div>
 
         <div className="md:hidden">
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setIsOpen(!isOpen)}>
+            {isOpen ? <X className="h-5 w-5 text-slate-700" /> : <Menu className="h-5 w-5 text-slate-700" />}
             <span className="sr-only">Toggle Menu</span>
           </Button>
         </div>
-      </div>
+      </nav>
 
       {isOpen && (
-        <div className="md:hidden border-t border-[var(--color-border-primary)] p-4 bg-background">
-          <div className="flex flex-col space-y-4">
+        <div className="pointer-events-auto mt-2 rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-xl backdrop-blur-xl md:hidden">
+          <div className="flex flex-col space-y-3">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)]"
+                className="text-sm font-semibold text-slate-700 hover:text-slate-900"
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
-            <div className="h-px bg-[var(--color-border-subtle)] my-2" />
+            <div className="h-px bg-slate-100 my-1" />
             <Link href="/login" onClick={() => setIsOpen(false)}>
-              <Button variant="outline" className="w-full justify-center">Sign In</Button>
+              <Button variant="outline" className="w-full justify-center text-xs h-9 rounded-xl">Sign In</Button>
             </Link>
             <Link href="/signup" onClick={() => setIsOpen(false)}>
-              <Button className="w-full justify-center">Get Started</Button>
+              <Button className="w-full justify-center text-xs h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Get Started</Button>
             </Link>
           </div>
         </div>
       )}
-    </nav>
+    </header>
   )
 }

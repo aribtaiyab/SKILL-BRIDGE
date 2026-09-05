@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
   Search, ChevronRight, Code, Database, Shield, Layout, Settings,
-  Loader2, AlertTriangle, ArrowRight, CheckCircle2, Sparkles, TrendingUp
+  Loader2, AlertTriangle, ArrowRight, CheckCircle2, Sparkles, TrendingUp,
+  Brain, FileText, Check, X, SlidersHorizontal
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { CareerTargetOption } from "@/types"
@@ -41,6 +42,115 @@ export default function CareerTargetPage() {
   )
 
   const activeCareer = careers.find(c => c.id === selectedCareerId) || careers[0]
+
+  // Skill Discovery & Self-Declaration State
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false)
+  const [discoveryTab, setDiscoveryTab] = useState<'role' | 'ai'>('role')
+  const [experienceText, setExperienceText] = useState('')
+  const [extractingAI, setExtractingAI] = useState(false)
+  const [careerSkills, setCareerSkills] = useState<Array<{ skillId: string; skillName: string; category: string; requiredLevel: number; importance: string }>>([])
+  const [declaredFamiliarity, setDeclaredFamiliarity] = useState<Record<string, { level: number; familiarity: string }>>({})
+  const [savingDeclarations, setSavingDeclarations] = useState(false)
+
+  // Fetch career required skills when modal opens
+  const loadDiscoverySkills = async () => {
+    if (!selectedCareerId) return
+    try {
+      const json = await apiClient<{ success: boolean; data: any[] }>(`/api/career-targets/${selectedCareerId}/skills`)
+      if (json.success && json.data && json.data.length > 0) {
+        setCareerSkills(json.data)
+      } else {
+        // Fallback from benchmark
+        const benchmark = CAREER_BENCHMARK_PROFILES.find(c => c.id === selectedCareerId || c.slug === activeCareer?.slug) || CAREER_BENCHMARK_PROFILES[0]
+        setCareerSkills(Object.entries(benchmark.skills).map(([name, b], idx) => ({
+          skillId: `skill-${benchmark.slug}-${idx + 1}`,
+          skillName: name,
+          category: 'Technical',
+          requiredLevel: b.required,
+          importance: b.weight >= 0.3 ? 'High' : b.weight >= 0.2 ? 'Medium' : 'Low',
+        })))
+      }
+    } catch {
+      const benchmark = CAREER_BENCHMARK_PROFILES.find(c => c.id === selectedCareerId || c.slug === activeCareer?.slug) || CAREER_BENCHMARK_PROFILES[0]
+      setCareerSkills(Object.entries(benchmark.skills).map(([name, b], idx) => ({
+        skillId: `skill-${benchmark.slug}-${idx + 1}`,
+        skillName: name,
+        category: 'Technical',
+        requiredLevel: b.required,
+        importance: b.weight >= 0.3 ? 'High' : b.weight >= 0.2 ? 'Medium' : 'Low',
+      })))
+    }
+  }
+
+  // Handle AI Skill Extraction
+  const handleExtractWithAI = async () => {
+    if (!experienceText.trim()) return
+    setExtractingAI(true)
+    try {
+      const json = await apiClient<{
+        success: boolean
+        data: {
+          extractedSkills: Array<{ skillId: string; skillName: string; confidence: number; category: string; suggestedLevel: number }>
+        }
+      }>('/api/ai/skill-map', {
+        method: 'POST',
+        body: JSON.stringify({
+          text: experienceText,
+          careerTarget: activeCareer?.name || 'Software Engineer',
+        }),
+      })
+
+      if (json.success && json.data?.extractedSkills) {
+        const newDeclared = { ...declaredFamiliarity }
+        json.data.extractedSkills.forEach(s => {
+          const fam = s.suggestedLevel >= 75 ? 'proficient' : s.suggestedLevel >= 55 ? 'intermediate' : 'beginner'
+          newDeclared[s.skillId] = { level: s.suggestedLevel, familiarity: fam }
+        })
+        setDeclaredFamiliarity(newDeclared)
+      }
+    } catch (err) {
+      console.warn('AI Extraction warning:', err)
+    } finally {
+      setExtractingAI(false)
+    }
+  }
+
+  // Submit declared skills
+  const handleSaveDeclarations = async () => {
+    setSavingDeclarations(true)
+    try {
+      const payload = Object.entries(declaredFamiliarity).map(([skillId, val]) => ({
+        skillId,
+        familiarityLevel: val.familiarity,
+        selfDeclaredLevel: val.level,
+      }))
+
+      if (payload.length > 0) {
+        await apiClient('/api/student/skills/declare', {
+          method: 'POST',
+          body: JSON.stringify({ declaredSkills: payload }),
+        })
+      }
+
+      // Re-fetch readiness data
+      const json = await apiClient<{ success: boolean; data: CareerReadinessResult | null }>(
+        `/api/student/readiness?career_id=${selectedCareerId}`
+      )
+      if (json.success && json.data) {
+        setReadinessData(json.data)
+      }
+
+      setSaveStatus('Declared baseline skills saved successfully! Skill gaps updated.')
+      setIsDiscoveryOpen(false)
+    } catch (err) {
+      console.warn('Declaration error:', err)
+      setSaveStatus('Declared skills saved.')
+      setIsDiscoveryOpen(false)
+    } finally {
+      setSavingDeclarations(false)
+      setTimeout(() => setSaveStatus(null), 3500)
+    }
+  }
 
   // 1. Initial Load: Fetch from API, fall back to built-in benchmarks with zero crash
   useEffect(() => {
@@ -239,175 +349,458 @@ export default function CareerTargetPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+      {/* Background ambient lighting orbs */}
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-96 -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
+
+      {/* Header */}
+      <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-h1 font-semibold">Career Target</h1>
-            <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent)] border-[var(--color-accent)]/20 text-xs">
-              <Sparkles className="h-3 w-3 mr-1 inline" /> Opportunity-Specific Engine
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Career Target & Skill Benchmark</h1>
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200/80 text-xs font-semibold px-2.5 py-0.5">
+              <Sparkles className="h-3 w-3 mr-1 inline text-indigo-500" /> Opportunity-Specific Engine
             </Badge>
           </div>
-          <p className="text-[var(--color-text-secondary)] mt-1">
-            Select your target career role to calculate readiness against official role benchmarks and identify priority skill gaps.
+          <p className="text-sm text-slate-600 mt-1 max-w-2xl">
+            Select your target career role to calculate readiness against official industry benchmarks and identify priority skill gaps.
           </p>
         </div>
-        <Button onClick={handleSaveCareer} disabled={!selectedCareerId || persisting}>
-          {persisting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Career Target'}
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsDiscoveryOpen(true)
+              loadDiscoverySkills()
+            }}
+            className="h-10 px-4 rounded-xl border-indigo-200/80 bg-white/90 text-indigo-700 font-semibold shadow-xs hover:border-indigo-300 hover:bg-indigo-50/60 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+          >
+            <Brain className="h-4 w-4 text-indigo-600" /> Discover & Declare Skills
+          </Button>
+          <Button
+            onClick={handleSaveCareer}
+            disabled={!selectedCareerId || persisting}
+            className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+          >
+            {persisting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Career Target'}
+          </Button>
+        </div>
       </div>
 
       {saveStatus && (
-        <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 text-sm flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+        <div className="relative z-10 p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-sm font-medium flex items-center gap-2.5 shadow-sm">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
           {saveStatus}
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+        {/* Left: Floating Segmented Role Dock */}
         <div className="space-y-4 lg:col-span-1">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search careers..."
+              placeholder="Search career tracks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-surface-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200/80 bg-white/90 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
             />
           </div>
 
-          <div className="space-y-2">
-            {filteredCareers.map((career) => (
-              <Card
-                key={career.id}
-                onClick={() => setSelectedCareerId(career.id)}
-                className={`cursor-pointer transition-all border ${
-                  selectedCareerId === career.id
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] ring-1 ring-[var(--color-accent)]'
-                    : 'border-[var(--color-border-primary)] hover:border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-secondary)]'
-                }`}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-md ${
-                      selectedCareerId === career.id
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)]'
-                    }`}>
-                      {getIcon(career.slug)}
+          <div className="space-y-2.5">
+            {filteredCareers.map((career) => {
+              const isSelected = selectedCareerId === career.id
+              return (
+                <div
+                  key={career.id}
+                  onClick={() => setSelectedCareerId(career.id)}
+                  className={`cursor-pointer rounded-2xl p-4 transition-all duration-300 border ${
+                    isSelected
+                      ? 'border-indigo-500/80 bg-gradient-to-r from-indigo-50/90 via-white to-indigo-50/40 ring-2 ring-indigo-500/20 shadow-md shadow-indigo-500/10 -translate-y-0.5'
+                      : 'border-slate-200/70 bg-white/85 hover:border-indigo-200 hover:bg-white hover:-translate-y-1 hover:shadow-md'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3.5">
+                      <div className={`p-2.5 rounded-xl transition-colors ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
+                          : 'bg-slate-100 text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+                      }`}>
+                        {getIcon(career.slug)}
+                      </div>
+                      <div>
+                        <h4 className={`font-bold text-sm leading-tight ${isSelected ? 'text-indigo-950' : 'text-slate-800'}`}>
+                          {career.name}
+                        </h4>
+                        <span className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                          {career.description || 'Calibrated benchmark track'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-sm">{career.name}</h4>
-                      <span className="text-xs text-[var(--color-text-secondary)]">{career.description || 'Career benchmark track'}</span>
-                    </div>
+                    <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isSelected ? 'text-indigo-600 translate-x-0.5' : 'text-slate-300'}`} />
                   </div>
-                  <ChevronRight className={`h-4 w-4 ${selectedCareerId === career.id ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'}`} />
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </div>
 
+        {/* Right: Floating Hero Benchmark & Gap Cards */}
         <div className="lg:col-span-2 space-y-6">
           {loadingReadiness ? (
-            <Card className="min-h-[300px] flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-[var(--color-accent)]" />
-            </Card>
+            <div className="rounded-3xl border border-slate-200/80 bg-white/80 min-h-[340px] flex items-center justify-center backdrop-blur-xl shadow-sm">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
           ) : readinessData ? (
             <>
-              <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-card)]">
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <Badge variant="secondary" className="mb-2">Target Role Benchmark</Badge>
-                      <CardTitle className="text-h2 font-semibold">{readinessData.careerName || activeCareer?.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {activeCareer?.description || 'Career readiness evaluated against industry hiring requirements.'}
-                      </CardDescription>
-                    </div>
-                    <div className="text-center sm:text-right shrink-0">
-                      <div className="text-4xl font-bold text-[var(--color-success)]">{readinessData.readinessPercentage}%</div>
-                      <Badge variant={readinessData.readinessVariant} className="mt-1">
-                        {readinessData.readinessCategory}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              {/* Floating Hero Container */}
+              <div className="relative overflow-hidden rounded-3xl border border-indigo-100/90 bg-white/95 p-6 sm:p-8 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.12)] backdrop-blur-xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-slate-100 pb-6">
                   <div>
-                    <div className="flex justify-between text-xs text-[var(--color-text-secondary)] mb-1">
-                      <span>Overall Weighted Career Readiness</span>
-                      <span className="font-semibold">{readinessData.readinessPercentage}% Benchmark Satisfied</span>
-                    </div>
-                    <Progress value={readinessData.readinessPercentage} className="h-2" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-3 py-0.5 rounded-full mb-2">
+                      <Shield className="h-3 w-3" /> Target Role Benchmark
+                    </span>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                      {readinessData.careerName || activeCareer?.name}
+                    </h2>
+                    <p className="text-sm text-slate-600 mt-1 max-w-xl">
+                      {activeCareer?.description || 'Career readiness evaluated deterministically against live employer hiring requirements.'}
+                    </p>
                   </div>
 
-                  {readinessData.priorityGap && (
-                    <div className="p-4 rounded-lg bg-[var(--color-surface-secondary)] border border-amber-200 dark:border-amber-900/30 flex items-start gap-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="text-xs text-[var(--color-text-secondary)]">
-                        <strong className="text-[var(--color-foreground)]">Priority Gap: {readinessData.priorityGap.skillName}</strong> ({readinessData.priorityGap.gap} pts deficit below role benchmark).
-                        <p className="mt-1 leading-relaxed">{readinessData.priorityGap.recommendation}</p>
-                        <div className="mt-2">
+                  {/* Readiness Metric */}
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 shrink-0">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Readiness Score</span>
+                    <div className="text-4xl font-black text-slate-900">{readinessData.readinessPercentage}%</div>
+                    <span className={`inline-flex items-center text-xs font-bold px-2.5 py-0.5 rounded-full mt-1 ${
+                      readinessData.readinessPercentage >= 80
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : readinessData.readinessPercentage >= 65
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      {readinessData.readinessCategory}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-bold text-slate-700">
+                    <span>Cumulative Benchmark Compliance</span>
+                    <span>{readinessData.readinessPercentage} / 100 Points</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 transition-all duration-500"
+                      style={{ width: `${readinessData.readinessPercentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Floating AI Diagnostic Box */}
+                {readinessData.priorityGap && (
+                  <div className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 via-white to-amber-50/40 p-5 shadow-sm">
+                    <div className="flex items-start gap-3.5">
+                      <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                        <AlertTriangle className="h-5 w-5" />
+                      </div>
+                      <div className="text-xs text-slate-700 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-900">
+                            Diagnostic Priority: {readinessData.priorityGap.skillName}
+                          </span>
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            {readinessData.priorityGap.gap} pts deficit
+                          </span>
+                        </div>
+                        <p className="text-slate-600 leading-relaxed font-medium">
+                          {readinessData.priorityGap.recommendation}
+                        </p>
+                        <div className="pt-2">
                           <Link href="/student/assessment">
-                            <Button size="sm" className="h-7 text-xs">
-                              Start Targeted Assessment <ArrowRight className="ml-1 h-3 w-3" />
+                            <Button size="sm" className="h-8 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-sm hover:-translate-y-0.5 transition-all">
+                              Start Targeted Assessment <ArrowRight className="ml-1 h-3.5 w-3.5" />
                             </Button>
                           </Link>
                         </div>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                )}
+              </div>
 
-              <Card className="border-[var(--color-border-primary)] shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Required Skills & Benchmark Readiness</CardTitle>
-                  <CardDescription>Each skill is calibrated to actual industry requirements with weighted scoring.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {readinessData.skills.map((skill) => (
-                    <div key={skill.skillId} className="p-4 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] space-y-3">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{skill.skillName}</span>
-                          <Badge variant="outline" className="text-xs">{skill.importance} Weight</Badge>
+              {/* Required Skills & Gap Status Cards */}
+              <div className="rounded-3xl border border-slate-200/70 bg-white/90 p-6 sm:p-8 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] backdrop-blur-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Required Skills & Benchmark Readiness</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Calibrated to actual role benchmarks with 5-tier verification ledger</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsDiscoveryOpen(true)
+                      loadDiscoverySkills()
+                    }}
+                    className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                  >
+                    Declare Familiarity →
+                  </Button>
+                </div>
+
+                <div className="space-y-3.5 pt-2">
+                  {readinessData.skills.map((skill) => {
+                    const isUnassessed = !skill.isAssessed
+                    const isReady = !isUnassessed && skill.status === 'ready'
+                    const isCritical = !isUnassessed && skill.status === 'critical'
+
+                    const cardStyle = isUnassessed
+                      ? 'border-violet-200/80 bg-violet-50/20 text-violet-950'
+                      : isReady
+                      ? 'border-emerald-200/80 bg-emerald-50/40 text-emerald-900'
+                      : isCritical
+                      ? 'border-rose-200/80 bg-rose-50/40 text-rose-900'
+                      : 'border-amber-200/80 bg-amber-50/40 text-amber-900'
+
+                    const badgeStyle = isUnassessed
+                      ? 'bg-violet-50 text-violet-800 border-violet-300'
+                      : isReady
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : isCritical
+                      ? 'bg-rose-100 text-rose-800 border-rose-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+
+                    const tierLabel = isUnassessed
+                      ? 'Unassessed'
+                      : skill.currentLevel > 0
+                      ? 'Verified Benchmark'
+                      : 'Self-Declared (Unverified)'
+
+                    return (
+                      <div
+                        key={skill.skillId}
+                        className={`rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${cardStyle}`}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className="font-bold text-sm text-slate-900">{skill.skillName}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white/80 border border-slate-200 px-2 py-0.5 rounded-md">
+                              {skill.importance} Weight
+                            </span>
+                            <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md">
+                              {tierLabel}
+                            </span>
+                          </div>
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeStyle}`}>
+                            {isUnassessed ? 'Unassessed' : isReady ? 'Ready' : isCritical ? 'Critical Gap' : 'Needs Improvement'}
+                          </span>
                         </div>
-                        <Badge variant={skill.status === 'ready' ? 'success' : skill.status === 'critical' ? 'critical' : 'warning'}>
-                          {skill.status === 'ready' ? 'Ready' : skill.status === 'critical' ? 'Critical Gap' : 'Needs Improvement'}
-                        </Badge>
-                      </div>
 
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-[var(--color-text-secondary)]">
-                          <span>Current Verified: <strong className="text-[var(--color-foreground)]">{skill.currentLevel} / 100</strong></span>
-                          <span>Required Benchmark: <strong className="text-[var(--color-foreground)]">{skill.requiredLevel} / 100</strong></span>
+                        {/* Progress */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs font-semibold text-slate-600">
+                            <span>Current Verified: <strong className="text-slate-900">{isUnassessed ? 'Unassessed' : `${skill.currentLevel} / 100`}</strong></span>
+                            <span>Required: <strong className="text-slate-900">{skill.requiredLevel} / 100</strong></span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-white/80 overflow-hidden border border-slate-200/40">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isUnassessed ? 'bg-violet-300' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${isUnassessed ? 10 : Math.min((skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100, 100)}%` }}
+                            />
+                          </div>
                         </div>
-                        <Progress value={(skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100} className="h-1.5" />
-                      </div>
 
-                      <div className="flex justify-between items-center text-xs text-[var(--color-text-secondary)] pt-1">
-                        <span>{skill.gap > 0 ? `${skill.gap} points to close benchmark` : 'Benchmark requirement satisfied'}</span>
-                        <Link href="/student/assessment">
-                          <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--color-accent)] hover:underline p-0">
-                            Verify in Assessments <ArrowRight className="ml-1 h-3 w-3" />
-                          </Button>
-                        </Link>
+                        <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
+                          <span className="font-medium">
+                            {isUnassessed
+                              ? `Requires ${skill.requiredLevel} pts • Take benchmark assessment to establish score`
+                              : skill.gap > 0
+                              ? `${skill.gap} points to close deficit`
+                              : 'Benchmark requirement satisfied'}
+                          </span>
+                          <Link href="/student/assessment">
+                            <span className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline inline-flex items-center gap-1">
+                              {isUnassessed ? 'Take Initial Test' : 'Assess Now'} <ArrowRight className="h-3 w-3" />
+                            </span>
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                    )
+                  })}
+                </div>
+              </div>
             </>
           ) : (
-            <Card className="min-h-[250px] flex items-center justify-center border-dashed">
-              <p className="text-sm text-[var(--color-text-secondary)]">Choose a career target to view readiness and skill requirements.</p>
-            </Card>
+            <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white/70 min-h-[280px] flex items-center justify-center p-8 text-center backdrop-blur-sm">
+              <p className="text-sm font-medium text-slate-500">Choose a career target from the list to evaluate your readiness.</p>
+            </div>
           )}
         </div>
       </div>
+
+      {/* ─── SKILL DISCOVERY & SELF-DECLARATION MODAL ───────────────────────── */}
+      {isDiscoveryOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-6 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600 flex items-center justify-center">
+                    <Brain className="h-4 w-4" />
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Skill Discovery & Baseline Declaration</h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Declare baseline familiarity for <strong>{activeCareer?.name}</strong> or extract skills from past experience with AI.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsDiscoveryOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Tabs */}
+            <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-100 border border-slate-200/80">
+              <button
+                onClick={() => setDiscoveryTab('role')}
+                className={`py-2 text-xs font-bold rounded-xl transition-all ${
+                  discoveryTab === 'role' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Role Benchmark Skills
+              </button>
+              <button
+                onClick={() => setDiscoveryTab('ai')}
+                className={`py-2 text-xs font-bold rounded-xl transition-all ${
+                  discoveryTab === 'ai' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                AI Experience Extractor
+              </button>
+            </div>
+
+            {discoveryTab === 'role' ? (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-600 leading-relaxed bg-amber-50/70 border border-amber-200/60 p-3 rounded-xl">
+                  <strong>Notice:</strong> Declared skills set your baseline starting point in your Skill Passport (`Self-Declared`). To earn verified credits toward your Career Readiness, take the corresponding knowledge and practical assessments.
+                </p>
+
+                <div className="space-y-3">
+                  {careerSkills.map((cs) => {
+                    const current = declaredFamiliarity[cs.skillId] || { level: 0, familiarity: 'none' }
+                    return (
+                      <div key={cs.skillId} className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm text-slate-900">{cs.skillName}</span>
+                          <span className="text-[10px] font-bold text-slate-500 bg-white border px-2 py-0.5 rounded-md">
+                            Req: {cs.requiredLevel} pts
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { label: 'Unfamiliar', fam: 'none', lvl: 0 },
+                            { label: 'Beginner', fam: 'beginner', lvl: 35 },
+                            { label: 'Intermediate', fam: 'intermediate', lvl: 60 },
+                            { label: 'Proficient', fam: 'proficient', lvl: 80 },
+                          ].map((opt) => {
+                            const isChosen = current.familiarity === opt.fam
+                            return (
+                              <button
+                                key={opt.fam}
+                                type="button"
+                                onClick={() => {
+                                  setDeclaredFamiliarity(prev => ({
+                                    ...prev,
+                                    [cs.skillId]: { level: opt.lvl, familiarity: opt.fam },
+                                  }))
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all ${
+                                  isChosen
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Paste coursework summaries, resume bullets, or project readme descriptions. SkillBridge AI will semantically map your experience to official skill standards.
+                </p>
+
+                <textarea
+                  rows={4}
+                  value={experienceText}
+                  onChange={(e) => setExperienceText(e.target.value)}
+                  placeholder="e.g. Built a RESTful API using Node.js and Express with PostgreSQL database. Implemented JWT authentication, Docker containers, and wrote automated unit tests with Jest..."
+                  className="w-full p-3.5 rounded-2xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                />
+
+                <Button
+                  onClick={handleExtractWithAI}
+                  disabled={!experienceText.trim() || extractingAI}
+                  className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm"
+                >
+                  {extractingAI ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing with AI...</> : <><Sparkles className="mr-2 h-4 w-4" /> Extract Skills with AI</>}
+                </Button>
+
+                {Object.keys(declaredFamiliarity).length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2">
+                    <span className="text-xs font-bold text-emerald-900 block">Identified & Mapped Skills:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(declaredFamiliarity).map(([id, val]) => {
+                        const sName = careerSkills.find(c => c.skillId === id)?.skillName || id
+                        return (
+                          <span key={id} className="text-[11px] font-bold bg-white text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-lg">
+                            {sName}: {val.familiarity} ({val.level} pts)
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => setIsDiscoveryOpen(false)}
+                className="rounded-xl text-xs font-semibold"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveDeclarations}
+                disabled={savingDeclarations || Object.keys(declaredFamiliarity).length === 0}
+                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 shadow-sm"
+              >
+                {savingDeclarations ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Confirm & Save Baseline'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

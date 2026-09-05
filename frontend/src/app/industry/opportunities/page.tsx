@@ -13,6 +13,7 @@ import {
   Clock, Archive, Globe, PauseCircle
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { useDemo } from "@/lib/demo/demo-context"
 
 interface IndustryOpportunity {
   id: string
@@ -37,6 +38,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function IndustryOpportunitiesPage() {
+  const { isDemo, opportunities: demoOpps } = useDemo()
   const [opportunities, setOpportunities] = useState<IndustryOpportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
@@ -47,6 +49,24 @@ export default function IndustryOpportunitiesPage() {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
+
+    if (isDemo) {
+      const list: IndustryOpportunity[] = demoOpps.map(o => ({
+        id: o.id,
+        title: o.title,
+        opportunity_type: o.type,
+        location: o.location,
+        status: 'published',
+        deadline: o.deadline,
+        spots_available: 5,
+        created_at: '2026-08-15',
+        _applicationCount: o.candidates ? o.candidates.length : 0,
+      }))
+      setOpportunities(list)
+      setLoading(false)
+      return
+    }
+
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
@@ -63,7 +83,7 @@ export default function IndustryOpportunitiesPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter])
+  }, [statusFilter, isDemo, demoOpps])
 
   useEffect(() => { load() }, [load])
 

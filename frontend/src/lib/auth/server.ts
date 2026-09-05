@@ -122,8 +122,8 @@ export async function requireRole(requiredRole: UserRole): Promise<{ user: AuthU
     const dashboardMap: Record<string, string> = {
       student: '/student',
       industry: '/industry',
-      academician: '/academician',
-      institution: '/institution',
+      academician: '/academia',
+      institution: '/academia',
     }
     redirect(dashboardMap[profile.role ?? 'student'] ?? '/login')
   }

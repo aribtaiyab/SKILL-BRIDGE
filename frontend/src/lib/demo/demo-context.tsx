@@ -11,6 +11,7 @@ import {
   DEMO_INSTITUTION_DATA,
   DEMO_COHORT_STUDENTS,
 } from "./demo-data"
+import { demoService } from "./demo-service"
 
 export type DemoRole = 'student' | 'industry' | 'academician' | 'institution'
 
@@ -22,6 +23,7 @@ interface DemoContextType {
   academicianData: typeof DEMO_ACADEMICIAN_DATA
   institutionData: typeof DEMO_INSTITUTION_DATA
   cohortStudents: typeof DEMO_COHORT_STUDENTS
+  demoService: typeof demoService
   enterDemo: (role?: DemoRole) => void
   exitDemo: () => void
   switchDemoRole: (role: DemoRole) => void
@@ -60,7 +62,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         setDemoRole(storedRole)
       } else if (pathname.startsWith('/industry')) {
         setDemoRole('industry')
-      } else if (pathname.startsWith('/academician')) {
+      } else if (pathname.startsWith('/academia') || pathname.startsWith('/academician')) {
         setDemoRole('academician')
       } else if (pathname.startsWith('/institution')) {
         setDemoRole('institution')
@@ -185,7 +187,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       role === 'industry'
         ? '/industry?demo=true'
         : role === 'academician'
-        ? '/academician?demo=true'
+        ? '/academia?demo=true'
         : role === 'institution'
         ? '/institution?demo=true'
         : '/student?demo=true'
@@ -211,7 +213,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       role === 'industry'
         ? '/industry?demo=true'
         : role === 'academician'
-        ? '/academician?demo=true'
+        ? '/academia?demo=true'
         : role === 'institution'
         ? '/institution?demo=true'
         : '/student?demo=true'
@@ -314,6 +316,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         academicianData: DEMO_ACADEMICIAN_DATA,
         institutionData: DEMO_INSTITUTION_DATA,
         cohortStudents: DEMO_COHORT_STUDENTS,
+        demoService,
         enterDemo,
         exitDemo,
         switchDemoRole,

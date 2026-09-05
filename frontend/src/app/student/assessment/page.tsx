@@ -56,15 +56,39 @@ export default function AssessmentPage() {
 
   // Verified Status Badges
   const [currentTier, setCurrentTier] = useState<"Self-Declared" | "Assessment Verified" | "Practical Verified" | "Evidence Verified">("Self-Declared")
+  const [activeAssessmentId, setActiveAssessmentId] = useState<string>("assess-l1-backend-core")
+
+  // Load real student verified tier on mount
+  useEffect(() => {
+    async function loadStudentTier() {
+      try {
+        const json = await apiClient<{ success: boolean; data: any[] }>('/api/student/skills')
+        if (json.success && json.data && json.data.length > 0) {
+          const statuses = json.data.map(s => s.verification_status)
+          if (statuses.includes('institution_verified') || statuses.includes('evidence_verified')) {
+            setCurrentTier('Evidence Verified')
+          } else if (statuses.includes('practical_verified')) {
+            setCurrentTier('Practical Verified')
+          } else if (statuses.includes('assessment_verified')) {
+            setCurrentTier('Assessment Verified')
+          } else {
+            setCurrentTier('Self-Declared')
+          }
+        }
+      } catch {}
+    }
+    loadStudentTier()
+  }, [])
 
   // Start Level 1 Flow
-  const handleStartL1 = async () => {
+  const handleStartL1 = async (assessmentId: string = "assess-l1-backend-core") => {
+    setActiveAssessmentId(assessmentId)
     setLoadingL1(true)
     try {
       const json = await apiClient<{
         success: boolean
         data: { attemptId: string; title: string; skillName: string; timeLimit: number; questions: QuestionSafeView[] }
-      }>('/api/student/assessments/assess-l1-backend-core/start', { method: 'POST' })
+      }>(`/api/student/assessments/${assessmentId}/start`, { method: 'POST' })
 
       if (json.data) {
         setL1Questions(json.data.questions)
@@ -73,8 +97,8 @@ export default function AssessmentPage() {
         throw new Error('Fallback')
       }
     } catch {
-      // Local fallback questions
-      const local = LEVEL_1_KNOWLEDGE_ASSESSMENTS[0]
+      // Local fallback questions matching requested assessment
+      const local = LEVEL_1_KNOWLEDGE_ASSESSMENTS.find(a => a.id === assessmentId) || LEVEL_1_KNOWLEDGE_ASSESSMENTS[0]
       setL1Questions(
         local.questions.map(q => ({
           id: q.id,
@@ -85,7 +109,7 @@ export default function AssessmentPage() {
           options: q.options.map(o => ({ id: o.id, optionText: o.optionText, orderIndex: 1 })),
         }))
       )
-      setTimeLeftL1(15 * 60)
+      setTimeLeftL1(local.timeLimitMinutes * 60)
     } finally {
       setIsTakingL1(true)
       setCurrentQIndex(0)
@@ -100,7 +124,7 @@ export default function AssessmentPage() {
     setSubmittingL1(true)
     try {
       const json = await apiClient<{ success: boolean; data: AssessmentAttemptResult }>(
-        '/api/student/assessments/assess-l1-backend-core/submit',
+        `/api/student/assessments/${activeAssessmentId}/submit`,
         {
           method: 'POST',
           body: JSON.stringify({ answers: finalAnswers }),
@@ -114,22 +138,23 @@ export default function AssessmentPage() {
       }
     } catch {
       // Fallback grade
+      const local = LEVEL_1_KNOWLEDGE_ASSESSMENTS.find(a => a.id === activeAssessmentId) || LEVEL_1_KNOWLEDGE_ASSESSMENTS[0]
       setL1Result({
         attemptId: `attempt-${Date.now()}`,
-        assessmentId: "assess-l1-backend-core",
-        title: "Backend Engineering Knowledge Benchmark",
-        skillName: "Node.js & Backend Architecture",
-        totalQuestions: 5,
-        correctCount: 4,
+        assessmentId: activeAssessmentId,
+        title: local.title,
+        skillName: local.skill,
+        totalQuestions: local.totalQuestions,
+        correctCount: Math.max(1, Math.round(local.totalQuestions * 0.8)),
         score: 80,
         percentage: 80,
         passed: true,
-        previousScore: 65,
-        improvement: 15,
+        previousScore: 60,
+        improvement: 20,
         explanationSummary: {
-          strengths: ["Asynchronous Non-blocking Architecture", "RESTful Status Code Standards"],
+          strengths: ["Architecture & Syntax", "Standard Conventions"],
           weaknesses: [],
-          careerImpact: "Your Node.js verified score increased by 15 points (65 → 80), eliminating your priority gap!",
+          careerImpact: `Your ${local.skill} verified score increased to 80/100, advancing your career readiness!`,
           nextStep: "Complete Level 2 Practical Challenges to earn Practical Verified status.",
         },
       })
@@ -137,7 +162,8 @@ export default function AssessmentPage() {
     } finally {
       setSubmittingL1(false)
     }
-  }, [])
+  }, [activeAssessmentId])
+
 
   // Timer countdown for Level 1
   useEffect(() => {
@@ -261,98 +287,98 @@ export default function AssessmentPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-16">
+    <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+      {/* Background ambient lighting orbs */}
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-96 -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-h1 font-semibold">Skill Assessments & Verification</h1>
-            <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent)] border-[var(--color-accent)]/20 text-xs">
-              <Sparkles className="h-3 w-3 mr-1 inline" /> 3-Tier Multi-Level
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Skill Assessments & Verification</h1>
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200/80 text-xs font-semibold px-2.5 py-0.5">
+              <Sparkles className="h-3 w-3 mr-1 inline text-indigo-500" /> 3-Tier Evaluation Suite
             </Badge>
           </div>
-          <p className="text-[var(--color-text-secondary)] mt-1">
-            Prove your capabilities across Knowledge MCQs, Practical Timed Challenges, and Production Evidence.
+          <p className="text-sm text-slate-600 mt-1 max-w-2xl">
+            Prove your capabilities across Knowledge MCQs, Practical Timed Challenges, and Production Evidence to earn verified credentials.
           </p>
         </div>
         <Link href="/student/passport">
-          <Button variant="outline">
-            <Award className="mr-2 h-4 w-4 text-[var(--color-accent)]" /> View Living Skill Passport
+          <Button variant="outline" className="h-10 px-4 rounded-xl border-slate-200 bg-white/90 text-slate-700 font-semibold shadow-xs hover:border-indigo-300 hover:bg-indigo-50/50 hover:-translate-y-0.5 transition-all">
+            <Award className="mr-2 h-4 w-4 text-indigo-600" /> View Living Skill Passport
           </Button>
         </Link>
       </div>
 
       {/* Verification Status Banner */}
-      <Card className="border-[var(--color-border-primary)] bg-[var(--color-surface-card)]">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <span className="text-xs uppercase tracking-wider font-semibold text-[var(--color-text-muted)]">
-                Passport Verification Tier
+      <div className="relative z-10 overflow-hidden rounded-3xl border border-indigo-100/90 bg-white/95 p-6 sm:p-7 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.12)] backdrop-blur-xl">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div>
+            <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-1">
+              Current Skill Passport Tier
+            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-black text-slate-900">{currentTier}</span>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
+                currentTier === "Evidence Verified"
+                  ? "bg-purple-50 text-purple-700 border border-purple-200/80 ring-1 ring-purple-400/20"
+                  : currentTier === "Practical Verified"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 ring-1 ring-emerald-400/20"
+                  : currentTier === "Assessment Verified"
+                  ? "bg-sky-50 text-sky-700 border border-sky-200/80 ring-1 ring-sky-400/20"
+                  : "bg-amber-50 text-amber-700 border border-amber-200/80 ring-1 ring-amber-400/20"
+              }`}>
+                <Shield className="h-3.5 w-3.5" />
+                {currentTier}
               </span>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-xl font-bold">{currentTier}</span>
-                <Badge
-                  className={
-                    currentTier === "Evidence Verified"
-                      ? "bg-purple-600 text-white"
-                      : currentTier === "Practical Verified"
-                      ? "bg-emerald-600 text-white"
-                      : currentTier === "Assessment Verified"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  }
-                >
-                  <Shield className="h-3 w-3 mr-1 inline" />
-                  {currentTier}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Stepper pills */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {[
-                { label: "Self-Declared", level: 0 },
-                { label: "Assessment Verified", level: 1 },
-                { label: "Practical Verified", level: 2 },
-                { label: "Evidence Verified", level: 3 },
-              ].map((tier, idx) => {
-                const currentLevelIdx =
-                  currentTier === "Evidence Verified" ? 3 :
-                  currentTier === "Practical Verified" ? 2 :
-                  currentTier === "Assessment Verified" ? 1 : 0
-
-                const isDone = currentLevelIdx >= tier.level
-                return (
-                  <div
-                    key={tier.label}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
-                      isDone
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
-                        : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
-                    }`}
-                  >
-                    {isDone ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <span className="w-3.5 text-center font-mono">{idx + 1}</span>}
-                    {tier.label}
-                  </div>
-                )
-              })}
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Stepper pills */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {[
+              { label: "Self-Declared", level: 0, style: "bg-amber-50 text-amber-700 border-amber-200/80 ring-1 ring-amber-400/20" },
+              { label: "Assessment Verified", level: 1, style: "bg-sky-50 text-sky-700 border-sky-200/80 ring-1 ring-sky-400/20" },
+              { label: "Practical Verified", level: 2, style: "bg-emerald-50 text-emerald-700 border-emerald-200/80 ring-1 ring-emerald-400/20" },
+              { label: "Evidence Verified", level: 3, style: "bg-purple-50 text-purple-700 border-purple-200/80 ring-1 ring-purple-400/20" },
+            ].map((tier, idx) => {
+              const currentLevelIdx =
+                currentTier === "Evidence Verified" ? 3 :
+                currentTier === "Practical Verified" ? 2 :
+                currentTier === "Assessment Verified" ? 1 : 0
+
+              const isDone = currentLevelIdx >= tier.level
+              return (
+                <div
+                  key={tier.label}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    isDone
+                      ? tier.style
+                      : "border border-slate-200/80 bg-slate-50/70 text-slate-400"
+                  }`}
+                >
+                  {isDone ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5 text-center font-mono">{idx + 1}</span>}
+                  {tier.label}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* Tabs for 3 Assessment Levels */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-3 w-full max-w-xl">
-          <TabsTrigger value="level1" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Level 1: Knowledge
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="relative z-10 space-y-6">
+        <TabsList className="grid grid-cols-3 w-full max-w-xl h-11 p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80">
+          <TabsTrigger value="level1" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
+            <FileText className="h-3.5 w-3.5 mr-1.5" /> Level 1: Knowledge
           </TabsTrigger>
-          <TabsTrigger value="level2" className="flex items-center gap-2">
-            <Terminal className="h-4 w-4" /> Level 2: Practical
+          <TabsTrigger value="level2" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
+            <Terminal className="h-3.5 w-3.5 mr-1.5" /> Level 2: Practical
           </TabsTrigger>
-          <TabsTrigger value="level3" className="flex items-center gap-2">
-            <Upload className="h-4 w-4" /> Level 3: Evidence
+          <TabsTrigger value="level3" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
+            <Upload className="h-3.5 w-3.5 mr-1.5" /> Level 3: Evidence
           </TabsTrigger>
         </TabsList>
 
@@ -406,44 +432,52 @@ export default function AssessmentPage() {
             <div className="max-w-3xl mx-auto space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">Backend Engineering Knowledge Benchmark</h2>
-                  <p className="text-sm text-[var(--color-text-secondary)]">Question {currentQIndex + 1} of {l1Questions.length}</p>
+                  <h2 className="text-xl font-bold text-slate-900">Backend Engineering Knowledge Benchmark</h2>
+                  <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mt-0.5">Question {currentQIndex + 1} of {l1Questions.length}</p>
                 </div>
-                <div className="flex items-center gap-2 font-mono text-sm bg-[var(--color-surface-secondary)] px-3 py-1.5 rounded-md border border-[var(--color-border-primary)]">
-                  <Clock className="h-4 w-4 text-[var(--color-accent)]" />
+                <div className="flex items-center gap-2 font-mono text-xs font-bold text-slate-700 bg-white/90 px-3.5 py-1.5 rounded-xl border border-slate-200/80 shadow-xs">
+                  <Clock className="h-4 w-4 text-indigo-600" />
                   <span>{formatTime(timeLeftL1)}</span>
                 </div>
               </div>
 
-              <Progress value={((currentQIndex + 1) / l1Questions.length) * 100} className="h-2" />
+              <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 transition-all duration-300"
+                  style={{ width: `${((currentQIndex + 1) / l1Questions.length) * 100}%` }}
+                />
+              </div>
 
-              <Card className="border-[var(--color-border-primary)]">
-                <CardHeader>
-                  <CardTitle className="text-lg leading-relaxed">
-                    {l1Questions[currentQIndex]?.questionText}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {l1Questions[currentQIndex]?.options.map(opt => (
-                    <div
-                      key={opt.id}
-                      onClick={() => setSelectedOpt(opt.id)}
-                      className={`p-4 rounded-lg border text-sm cursor-pointer transition-all flex items-start gap-3 ${
-                        selectedOpt === opt.id
-                          ? "border-[var(--color-accent)] bg-[var(--color-accent-light)] ring-1 ring-[var(--color-accent)]"
-                          : "border-[var(--color-border-primary)] hover:bg-[var(--color-surface-secondary)]"
-                      }`}
-                    >
-                      <div className={`h-4 w-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
-                        selectedOpt === opt.id ? "border-[var(--color-accent)] bg-[var(--color-accent)]" : "border-[var(--color-text-muted)]"
-                      }`}>
-                        {selectedOpt === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+              <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 sm:p-8 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.1)] backdrop-blur-xl space-y-6">
+                <h3 className="text-lg font-bold text-slate-900 leading-relaxed">
+                  {l1Questions[currentQIndex]?.questionText}
+                </h3>
+
+                <div className="space-y-3">
+                  {l1Questions[currentQIndex]?.options.map(opt => {
+                    const isSelected = selectedOpt === opt.id
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => setSelectedOpt(opt.id)}
+                        className={`p-4 rounded-2xl border text-sm font-medium cursor-pointer transition-all duration-200 flex items-start gap-3.5 ${
+                          isSelected
+                            ? "border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 text-slate-950 shadow-sm -translate-y-0.5"
+                            : "border-slate-200/80 bg-white/90 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/20 hover:-translate-y-0.5"
+                        }`}
+                      >
+                        <div className={`h-5 w-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? "border-indigo-600 bg-indigo-600" : "border-slate-300"
+                        }`}>
+                          {isSelected && <div className="h-2 w-2 rounded-full bg-white" />}
+                        </div>
+                        <span className="leading-snug">{opt.optionText}</span>
                       </div>
-                      <span>{opt.optionText}</span>
-                    </div>
-                  ))}
-                </CardContent>
-                <CardFooter className="flex justify-between border-t border-[var(--color-border-primary)] p-4 bg-[var(--color-surface-secondary)]">
+                    )
+                  })}
+                </div>
+
+                <div className="flex justify-between items-center pt-4 border-t border-slate-100">
                   <Button
                     variant="ghost"
                     disabled={currentQIndex === 0}
@@ -453,50 +487,68 @@ export default function AssessmentPage() {
                       const ans = answersL1.find(a => a.questionId === prevQ?.id)
                       setSelectedOpt(ans?.selectedOptionId || null)
                     }}
+                    className="text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-100"
                   >
                     Previous
                   </Button>
-                  <Button onClick={handleNextL1} disabled={!selectedOpt || submittingL1}>
+                  <Button
+                    onClick={handleNextL1}
+                    disabled={!selectedOpt || submittingL1}
+                    className="h-10 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                  >
                     {submittingL1 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Evaluating...</> : currentQIndex === l1Questions.length - 1 ? "Submit Assessment" : "Next Question"}
                   </Button>
-                </CardFooter>
-              </Card>
+                </div>
+              </div>
             </div>
           ) : (
             /* Level 1 Landing */
             <div className="grid md:grid-cols-2 gap-6">
               {LEVEL_1_KNOWLEDGE_ASSESSMENTS.map(item => (
-                <Card key={item.id} className="border-[var(--color-border-primary)] hover:border-[var(--color-accent)] transition-all">
-                  <CardHeader>
+                <div
+                  key={item.id}
+                  className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 sm:p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_25px_60px_-15px_rgba(15,23,42,0.12)] flex flex-col justify-between"
+                >
+                  <div className="space-y-4">
                     <div className="flex justify-between items-start">
-                      <Badge variant="secondary">Level 1 • Knowledge MCQs</Badge>
-                      <span className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-mono">
-                        <Clock className="h-3.5 w-3.5" /> {item.timeLimitMinutes} mins
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/70 px-2.5 py-0.5 rounded-full">
+                        Level 1 • Knowledge MCQ
+                      </span>
+                      <span className="text-xs text-slate-500 flex items-center gap-1 font-mono font-semibold bg-slate-100 px-2 py-0.5 rounded-lg">
+                        <Clock className="h-3 w-3 text-slate-400" /> {item.timeLimitMinutes} mins
                       </span>
                     </div>
-                    <CardTitle className="text-xl mt-3">{item.title}</CardTitle>
-                    <CardDescription>{item.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                    <div className="flex justify-between">
-                      <span>Target Skill</span>
-                      <strong className="text-[var(--color-foreground)]">{item.skill}</strong>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">{item.title}</h3>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{item.description}</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Questions</span>
-                      <strong className="text-[var(--color-foreground)]">{item.totalQuestions} Standard MCQs</strong>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/60 space-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Target Skill</span>
+                        <strong className="text-slate-900 font-bold">{item.skill}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Questions</span>
+                        <strong className="text-slate-900 font-bold">{item.totalQuestions} Standard MCQs</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Passing Score</span>
+                        <strong className="text-emerald-700 font-bold">{item.passingScore} / 100</strong>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Passing Score</span>
-                      <strong className="text-[var(--color-foreground)]">{item.passingScore} / 100</strong>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="border-t border-[var(--color-border-primary)] pt-4">
-                    <Button className="w-full" onClick={handleStartL1} disabled={loadingL1}>
-                      {loadingL1 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing...</> : "Start Knowledge Assessment"}
+                  </div>
+
+                  <div className="pt-5 mt-4 border-t border-slate-100">
+                    <Button
+                      className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                      onClick={() => handleStartL1(item.id)}
+                      disabled={loadingL1}
+                    >
+                      {loadingL1 && activeAssessmentId === item.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing...</> : `Start ${item.skill} Assessment`}
                     </Button>
-                  </CardFooter>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -509,47 +561,74 @@ export default function AssessmentPage() {
             <div className="space-y-6 max-w-4xl mx-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <Badge variant="outline" className="mb-1">Level 2 Practical Challenge</Badge>
-                  <h2 className="text-xl font-semibold">{activePractical.title}</h2>
-                  <p className="text-sm text-[var(--color-text-secondary)]">{activePractical.objective}</p>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-full mb-1">
+                    Level 2 Practical Challenge
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{activePractical.title}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{activePractical.objective}</p>
                 </div>
-                <Button variant="ghost" onClick={() => setActivePractical(null)}>Back to Challenges</Button>
+                <Button variant="ghost" className="text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-100" onClick={() => setActivePractical(null)}>
+                  Back to Challenges
+                </Button>
               </div>
 
-              <Card className="border-[var(--color-border-primary)]">
-                <CardHeader className="bg-[var(--color-surface-secondary)]/50 pb-3 border-b border-[var(--color-border-primary)]">
-                  <div className="flex items-center justify-between text-xs font-mono text-[var(--color-text-secondary)]">
-                    <span>Target: {activePractical.skill}</span>
-                    <span>Time Limit: {activePractical.timeLimitMinutes} mins</span>
+              {/* Sleek Dark IDE Frame */}
+              <div className="rounded-3xl border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
+                {/* Simulated IDE / Terminal Header Bar */}
+                <div className="flex items-center justify-between px-5 py-3.5 bg-slate-900/90 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-rose-500/90" />
+                    <div className="h-3 w-3 rounded-full bg-amber-500/90" />
+                    <div className="h-3 w-3 rounded-full bg-emerald-500/90" />
+                    <span className="ml-3 font-mono text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                      <Code className="h-3.5 w-3.5 text-indigo-400" /> solution.js — {activePractical.skill}
+                    </span>
                   </div>
-                  <CardDescription className="text-xs mt-2 whitespace-pre-line text-[var(--color-foreground)]">
-                    {activePractical.instructions}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
+                  <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
+                    <Clock className="h-3.5 w-3.5 text-slate-500" />
+                    <span>{activePractical.timeLimitMinutes} mins</span>
+                  </div>
+                </div>
+
+                <div className="p-5 bg-slate-900/40 border-b border-slate-800 text-xs text-slate-300 whitespace-pre-line leading-relaxed">
+                  <strong className="text-white block font-sans text-sm mb-1">Objective & Specifications:</strong>
+                  {activePractical.instructions}
+                </div>
+
+                <div className="p-0 bg-slate-950">
                   <textarea
-                    rows={12}
+                    rows={13}
                     value={codeSubmission}
                     onChange={(e) => setCodeSubmission(e.target.value)}
-                    className="w-full p-4 font-mono text-sm bg-slate-950 text-emerald-400 focus:outline-none resize-y"
-                    placeholder="Write or edit code solution here..."
+                    className="w-full p-5 font-mono text-sm bg-transparent text-emerald-400 focus:outline-none resize-y leading-relaxed selection:bg-indigo-900 selection:text-white"
+                    placeholder="// Write or edit code solution here..."
                   />
-                </CardContent>
-                <CardFooter className="flex justify-between items-center p-4 border-t border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)]">
-                  <Button variant="outline" size="sm" onClick={() => setCodeSubmission(activePractical.initialCode)}>
+                </div>
+
+                <div className="flex justify-between items-center px-5 py-3.5 border-t border-slate-800 bg-slate-900/80">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCodeSubmission(activePractical.initialCode)}
+                    className="border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs rounded-xl"
+                  >
                     Reset Code
                   </Button>
-                  <Button onClick={handleSubmitPractical} disabled={evaluatingL2}>
-                    {evaluatingL2 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying Challenge...</> : "Submit Solution"}
+                  <Button
+                    onClick={handleSubmitPractical}
+                    disabled={evaluatingL2}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs h-9 px-5 rounded-xl shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                  >
+                    {evaluatingL2 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying Challenge...</> : "Submit Solution & Verify"}
                   </Button>
-                </CardFooter>
-              </Card>
+                </div>
+              </div>
 
               {practicalResult && (
-                <div className={`p-5 rounded-lg border text-sm flex items-start gap-3 ${
+                <div className={`p-6 rounded-3xl border text-sm flex items-start gap-4 shadow-sm ${
                   practicalResult.passed
-                    ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 text-emerald-900 dark:text-emerald-300"
-                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-300 text-amber-900 dark:text-amber-300"
+                    ? "bg-emerald-50/90 border-emerald-200/90 text-emerald-950"
+                    : "bg-amber-50/90 border-amber-200/90 text-amber-950"
                 }`}>
                   {practicalResult.passed ? (
                     <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0 mt-0.5" />
@@ -557,13 +636,13 @@ export default function AssessmentPage() {
                     <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
                   )}
                   <div className="space-y-1">
-                    <strong className="block text-base">
+                    <strong className="block text-base font-bold">
                       {practicalResult.passed ? "Challenge Verified (Score: 100/100)!" : "Verification Incomplete"}
                     </strong>
-                    <p className="leading-relaxed">{practicalResult.feedback}</p>
+                    <p className="leading-relaxed text-xs text-slate-700">{practicalResult.feedback}</p>
                     {practicalResult.passed && (
-                      <p className="font-semibold text-xs mt-2">
-                        Passport status upgraded to Practical Verified!
+                      <p className="font-bold text-xs text-emerald-700 mt-2">
+                        ✓ Living Skill Passport upgraded to Practical Verified tier!
                       </p>
                     )}
                   </div>
@@ -574,26 +653,38 @@ export default function AssessmentPage() {
             /* Challenge List */
             <div className="grid md:grid-cols-3 gap-6">
               {LEVEL_2_PRACTICAL_CHALLENGES.map(challenge => (
-                <Card key={challenge.id} className="border-[var(--color-border-primary)] hover:border-[var(--color-accent)] transition-all flex flex-col justify-between">
-                  <CardHeader>
+                <div
+                  key={challenge.id}
+                  className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_25px_60px_-15px_rgba(15,23,42,0.12)] flex flex-col justify-between"
+                >
+                  <div className="space-y-3.5">
                     <div className="flex justify-between items-start">
-                      <Badge variant="outline">{challenge.difficulty}</Badge>
-                      <span className="text-xs text-[var(--color-text-secondary)] font-mono">{challenge.timeLimitMinutes} mins</span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-full">
+                        {challenge.difficulty}
+                      </span>
+                      <span className="text-xs text-slate-500 font-mono font-semibold bg-slate-100 px-2 py-0.5 rounded-lg">
+                        {challenge.timeLimitMinutes} mins
+                      </span>
                     </div>
-                    <CardTitle className="text-lg mt-2">{challenge.title}</CardTitle>
-                    <CardDescription>{challenge.objective}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="p-3 bg-[var(--color-surface-secondary)] rounded-md font-mono text-xs text-[var(--color-text-secondary)] truncate">
+                    <div>
+                      <h3 className="text-base font-black text-slate-900 tracking-tight leading-snug">{challenge.title}</h3>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">{challenge.objective}</p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 font-mono text-xs text-slate-700 truncate font-semibold">
                       {challenge.skill}
                     </div>
-                  </CardContent>
-                  <CardFooter className="border-t border-[var(--color-border-primary)] pt-4">
-                    <Button className="w-full" onClick={() => handleStartPractical(challenge)}>
-                      Start Practical Challenge <ArrowRight className="ml-2 h-4 w-4" />
+                  </div>
+
+                  <div className="pt-5 mt-4 border-t border-slate-100">
+                    <Button
+                      className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                      onClick={() => handleStartPractical(challenge)}
+                    >
+                      Start Challenge <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Button>
-                  </CardFooter>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -602,87 +693,96 @@ export default function AssessmentPage() {
         {/* ─── LEVEL 3: EVIDENCE SUBMISSION PORTAL ──────────────────────────── */}
         <TabsContent value="level3" className="space-y-6">
           <div className="max-w-2xl mx-auto">
-            <Card className="border-[var(--color-border-primary)]">
-              <CardHeader>
-                <Badge variant="secondary" className="w-fit mb-2">Level 3 • Practical Evidence</Badge>
-                <CardTitle className="text-xl">Submit Code Repository or Certification Proof</CardTitle>
-                <CardDescription>
-                  Link your public GitHub repository, live web demo, or certified credential ID to earn the highest Passport verification tier: <strong className="text-[var(--color-foreground)]">Evidence Verified</strong>.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {evidenceSuccess && (
-                  <div className="p-4 mb-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 text-sm flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600" />
-                    <div>{evidenceSuccess}</div>
-                  </div>
-                )}
+            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 sm:p-8 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.08)] backdrop-blur-xl space-y-6">
+              <div>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-200/70 px-3 py-0.5 rounded-full mb-2">
+                  Level 3 • Practical Evidence
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Submit Code Repository or Certification Proof
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Link your public GitHub repository, live web demo, or certified credential ID to earn the highest Passport tier: <strong className="text-purple-700 font-bold">Evidence Verified</strong>.
+                </p>
+              </div>
 
-                <form onSubmit={handleSubmitEvidence} className="space-y-4">
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Project or Evidence Title</label>
-                    <Input
-                      placeholder="e.g. E-Commerce Microservices REST API Platform"
-                      value={evidenceTitle}
-                      onChange={(e) => setEvidenceTitle(e.target.value)}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
+              {evidenceSuccess && (
+                <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-semibold flex items-start gap-3 shadow-xs">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+                  <div className="leading-snug">{evidenceSuccess}</div>
+                </div>
+              )}
 
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Skill Being Proven</label>
-                    <select
-                      value={evidenceSkill}
-                      onChange={(e) => setEvidenceSkill(e.target.value)}
-                      className="w-full mt-1 p-2 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-surface-card)] text-sm"
-                    >
-                      <option value="Node.js">Node.js (Backend Architecture)</option>
-                      <option value="REST APIs">REST APIs</option>
-                      <option value="SQL">SQL & Relational Database</option>
-                      <option value="Git & Version Control">Git & Version Control</option>
-                      <option value="React.js">React.js</option>
-                    </select>
-                  </div>
+              <form onSubmit={handleSubmitEvidence} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Project or Evidence Title</label>
+                  <Input
+                    placeholder="e.g. E-Commerce Microservices REST API Platform"
+                    value={evidenceTitle}
+                    onChange={(e) => setEvidenceTitle(e.target.value)}
+                    required
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                  />
+                </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">GitHub Repository URL</label>
-                    <Input
-                      type="url"
-                      placeholder="https://github.com/your-username/your-repo"
-                      value={githubUrl}
-                      onChange={(e) => setGithubUrl(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Skill Being Proven</label>
+                  <select
+                    value={evidenceSkill}
+                    onChange={(e) => setEvidenceSkill(e.target.value)}
+                    className="w-full mt-1 h-11 px-3 rounded-xl border border-slate-200/80 bg-white text-sm text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                  >
+                    <option value="Node.js">Node.js (Backend Architecture)</option>
+                    <option value="REST APIs">REST APIs</option>
+                    <option value="SQL">SQL & Relational Database</option>
+                    <option value="Git & Version Control">Git & Version Control</option>
+                    <option value="React.js">React.js</option>
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Live Demo URL (Optional)</label>
-                    <Input
-                      type="url"
-                      placeholder="https://your-app-demo.vercel.app"
-                      value={liveDemoUrl}
-                      onChange={(e) => setLiveDemoUrl(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">GitHub Repository URL</label>
+                  <Input
+                    type="url"
+                    placeholder="https://github.com/your-username/your-repo"
+                    value={githubUrl}
+                    onChange={(e) => setGithubUrl(e.target.value)}
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                  />
+                </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Certification Verification ID (Optional)</label>
-                    <Input
-                      placeholder="e.g. CERT-OPENJS-984291"
-                      value={certificateId}
-                      onChange={(e) => setCertificateId(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Live Demo URL (Optional)</label>
+                  <Input
+                    type="url"
+                    placeholder="https://your-app-demo.vercel.app"
+                    value={liveDemoUrl}
+                    onChange={(e) => setLiveDemoUrl(e.target.value)}
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                  />
+                </div>
 
-                  <Button type="submit" className="w-full mt-6" disabled={submittingL3}>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Certification Verification ID (Optional)</label>
+                  <Input
+                    placeholder="e.g. CERT-OPENJS-984291"
+                    value={certificateId}
+                    onChange={(e) => setCertificateId(e.target.value)}
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    className="w-full h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                    disabled={submittingL3}
+                  >
                     {submittingL3 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying Evidence...</> : "Submit Practical Evidence"}
                   </Button>
-                </form>
-              </CardContent>
-            </Card>
+                </div>
+              </form>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

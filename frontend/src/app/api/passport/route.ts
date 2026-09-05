@@ -1,0 +1,64 @@
+import { NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+
+export async function GET() {
+  const defaultPassportData = {
+    name: "Arib Tayab",
+    collegeName: "Delhi Technological University (DTU)",
+    department: "Computer Science & Engineering",
+    course: "B.Tech in Computer Science",
+    year: "2nd Year (4th Semester)",
+    targetRole: "Backend Developer Internship",
+    passportId: "SKILL-2026-IN-8491",
+    readinessScore: 82,
+    skills: [
+      { name: "Node.js & Express", category: "Backend", score: 82, verificationLevel: "Practical Verified", lastEvaluated: "Aug 2026" },
+      { name: "REST API Design", category: "Backend", score: 78, verificationLevel: "Practical Verified", lastEvaluated: "Aug 2026" },
+      { name: "PostgreSQL & Database Design", category: "Database", score: 85, verificationLevel: "Assessment Verified", lastEvaluated: "Jul 2026" },
+      { name: "Data Structures & Algorithms", category: "Core CS", score: 76, verificationLevel: "Assessment Verified", lastEvaluated: "Jul 2026" },
+      { name: "Git & Version Control", category: "DevOps & Tools", score: 88, verificationLevel: "Evidence Verified", lastEvaluated: "Aug 2026" },
+      { name: "React.js & Tailwind CSS", category: "Frontend", score: 70, verificationLevel: "Self-Declared", lastEvaluated: "Pending" }
+    ],
+    projects: [
+      {
+        title: "Scalable Task Automation Engine",
+        description: "Distributed job execution service with Redis background queues and role-based JWT access.",
+        tags: ["Node.js", "Redis", "PostgreSQL", "Express"],
+        githubUrl: "https://github.com",
+        liveUrl: "https://demo.vercel.app",
+        verifiedStatus: "Practical Verified"
+      },
+      {
+        title: "Campus Academic Resource Hub",
+        description: "Centralized lab and seminar hall booking platform with real-time slot conflict resolution.",
+        tags: ["TypeScript", "Next.js", "Tailwind CSS"],
+        githubUrl: "https://github.com",
+        verifiedStatus: "Repository Linked"
+      }
+    ]
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile && (profile as any).full_name) {
+        defaultPassportData.name = (profile as any).full_name
+      }
+    }
+  } catch {
+    // Graceful fallback to default passport data
+  }
+
+  return NextResponse.json({
+    success: true,
+    ...defaultPassportData,
+    data: defaultPassportData,
+  })
+}

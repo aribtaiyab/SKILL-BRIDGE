@@ -74,6 +74,19 @@ export const CAREER_BENCHMARK_PROFILES: CareerBenchmarkProfile[] = [
     },
   },
   {
+    id: "30000000-0000-0000-0000-000000000004",
+    name: "Cybersecurity Analyst",
+    slug: "security",
+    category: "Security",
+    description: "Protects systems, networks, and data from cyber threats, vulnerabilities, and unauthorized access.",
+    skills: {
+      "REST API Security": { required: 80, weight: 0.35 },
+      "Python": { required: 70, weight: 0.30 },
+      "System Design Basics": { required: 65, weight: 0.20 },
+      "Git & Version Control": { required: 60, weight: 0.15 },
+    },
+  },
+  {
     id: "30000000-0000-0000-0000-000000000005",
     name: "Cloud / DevOps Engineer",
     slug: "devops",
@@ -196,3 +209,17 @@ export function computeDeterministicReadiness(
     skills: formattedSkills,
   }
 }
+
+export const CANONICAL_SKILLS = [
+  { id: '40000000-0000-0000-0000-000000000001', name: 'Node.js', slug: 'nodejs', category: 'Backend & APIs' },
+  { id: '40000000-0000-0000-0000-000000000002', name: 'REST APIs', slug: 'rest-apis', category: 'Backend & APIs' },
+  { id: '40000000-0000-0000-0000-000000000003', name: 'SQL', slug: 'sql', category: 'Databases & Infrastructure' },
+  { id: '40000000-0000-0000-0000-000000000004', name: 'Git & Version Control', slug: 'git', category: 'Tools & DevOps' },
+  { id: '40000000-0000-0000-0000-000000000005', name: 'Docker', slug: 'docker', category: 'Tools & DevOps' },
+  { id: '40000000-0000-0000-0000-000000000006', name: 'React', slug: 'react', category: 'Frontend Basics' },
+  { id: '40000000-0000-0000-0000-000000000007', name: 'HTML/CSS', slug: 'html-css', category: 'Frontend Basics' },
+  { id: '40000000-0000-0000-0000-000000000012', name: 'Python', slug: 'python', category: 'Data & Security' },
+  { id: '40000000-0000-0000-0000-000000000013', name: 'Security Fundamentals', slug: 'security', category: 'Data & Security' },
+  { id: '40000000-0000-0000-0000-000000000014', name: 'System Design', slug: 'system-design', category: 'Backend & APIs' },
+  { id: '40000000-0000-0000-0000-000000000015', name: 'JavaScript', slug: 'javascript', category: 'Frontend Basics' },
+]

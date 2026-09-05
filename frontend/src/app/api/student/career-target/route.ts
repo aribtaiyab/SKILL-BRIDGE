@@ -14,16 +14,25 @@ export async function GET() {
         .eq('profile_id', user.id)
         .maybeSingle()
 
-      if (!error && data) {
-        return NextResponse.json({ success: true, data })
+      if (!error && data && data.target_career_id) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            target_career_id: data.target_career_id,
+            career_targets: data.career_targets || {
+              id: data.target_career_id,
+              name: 'Selected Career Target',
+            },
+          },
+        })
       }
     }
   } catch (err) {
     console.warn('Could not read student profile target, using fallback:', err)
   }
 
-  // Default to Backend Developer benchmark profile
-  const defaultProfile = CAREER_BENCHMARK_PROFILES[0]
+  // Default to Frontend Developer or Backend Developer benchmark profile
+  const defaultProfile = CAREER_BENCHMARK_PROFILES[1] || CAREER_BENCHMARK_PROFILES[0]
   return NextResponse.json({
     success: true,
     data: {
@@ -39,7 +48,7 @@ export async function GET() {
   })
 }
 
-export async function PATCH(request: NextRequest) {
+async function handleSaveTarget(request: NextRequest) {
   try {
     const body = await request.json()
     const careerId = body.target_career_id || body.career_id
@@ -63,24 +72,32 @@ export async function PATCH(request: NextRequest) {
             updated_at: new Date().toISOString(),
           }, { onConflict: 'profile_id' })
       }
-    } catch {
-      // ignore database persistence error and return success
+    } catch (dbErr) {
+      console.warn('Supabase student_profiles save error:', dbErr)
     }
 
     return NextResponse.json({
       success: true,
       data: {
         target_career_id: targetId,
-        career_targets: matchedCareer || CAREER_BENCHMARK_PROFILES[0],
+        career_targets: matchedCareer || {
+          id: targetId,
+          name: 'Career Target',
+        },
       },
     })
   } catch (err: any) {
     return NextResponse.json({
-      success: true,
-      data: {
-        target_career_id: CAREER_BENCHMARK_PROFILES[0].id,
-        career_targets: CAREER_BENCHMARK_PROFILES[0],
-      },
-    })
+      success: false,
+      error: err.message || 'Failed to save career target',
+    }, { status: 500 })
   }
+}
+
+export async function POST(request: NextRequest) {
+  return handleSaveTarget(request)
+}
+
+export async function PATCH(request: NextRequest) {
+  return handleSaveTarget(request)
 }

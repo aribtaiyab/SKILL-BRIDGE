@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, TrendingUp, Loader2, Sparkles, Shield, Award } from "lucide-react"
+import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, TrendingUp, Loader2, Sparkles, Shield, Award, Zap, ChevronRight } from "lucide-react"
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import { CareerReadinessResult } from "@/lib/intelligence/engine"
@@ -43,10 +43,10 @@ export default function StudentDashboard() {
 
   if (loading && !isDemo) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading skill intelligence...</p>
+      <div className="flex items-center justify-center min-h-[420px]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-9 w-9 animate-spin text-indigo-600" />
+          <p className="text-sm font-medium text-slate-500">Loading skill intelligence...</p>
         </div>
       </div>
     )
@@ -58,16 +58,25 @@ export default function StudentDashboard() {
   // Demo View
   if (isDemo) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+        {/* Ambient background glow orbs */}
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+        <div className="absolute top-[450px] -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
+
+        {/* Dashboard Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-h1 font-semibold">Welcome back, {studentName}</h1>
-              <Badge className="bg-amber-500/20 text-amber-600 border border-amber-500/30 text-xs px-2 py-0.5">
-                <Sparkles className="h-3 w-3 mr-1 inline text-amber-500" /> Demo Profile
-              </Badge>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Welcome back, {studentName}
+              </h1>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 ring-1 ring-amber-400/20">
+                <Sparkles className="h-3 w-3 text-amber-500" /> Demo Profile
+              </span>
             </div>
-            <p className="text-[var(--color-text-secondary)] mt-1">Here is your verified skill intelligence overview for today.</p>
+            <p className="text-sm font-medium text-slate-500 mt-1">
+              Here is your verified skill intelligence and opportunity alignment overview.
+            </p>
           </div>
         </div>
 
@@ -78,131 +87,188 @@ export default function StudentDashboard() {
           skillName={student.priorityGap?.skillName || "Node.js"}
         />
 
-        {/* Top Area: Readiness Overview */}
-        <Card className="border-[var(--color-border-primary)] shadow-sm">
-          <CardContent className="p-0">
-            <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-primary)]">
-              <div className="p-6 md:col-span-1 bg-[var(--color-surface-secondary)]">
-                <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-1">Career Target</p>
-                <h3 className="text-h3 font-semibold text-[var(--color-foreground)] mb-4">{student.targetCareer}</h3>
+        {/* Top Area: Floating Readiness Hero Card */}
+        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300 overflow-hidden">
+          <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            <div className="p-7 md:col-span-1 bg-gradient-to-br from-slate-50/90 via-indigo-50/20 to-white flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">Career Target</span>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mb-5">{student.targetCareer}</h3>
                 
-                <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-1">Career Readiness</p>
-                <div className="flex items-end gap-2 mb-2">
-                  <span className="text-4xl font-bold text-[var(--color-success)]">{student.readinessPercentage}%</span>
-                  <Badge variant={student.readinessVariant || 'success'} className="mb-1 text-xs">{student.readinessCategory}</Badge>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">Career Readiness</span>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <span className="text-4xl font-black tracking-tight text-emerald-800">{student.readinessPercentage}%</span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 ring-1 ring-emerald-400/20">
+                    {student.readinessCategory}
+                  </span>
                 </div>
-                <Progress value={student.readinessPercentage} className="h-2" />
               </div>
-
-              <div className="p-6 md:col-span-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">Priority Insight</Badge>
-                  </div>
-                  <h4 className="font-semibold text-base mb-1">
-                    {student.priorityGap ? `Top Focus: ${student.priorityGap.skillName} (${student.priorityGap.gap} pts to target)` : 'All Core Skill Benchmarks Satisfied'}
-                  </h4>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    {student.priorityGap?.recommendation || 'You are well-prepared for opportunities matching your career target.'}
-                  </p>
+              <div className="space-y-1 pt-2">
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${student.readinessPercentage}%` }}
+                  />
                 </div>
-
-                <div className="pt-4 flex flex-wrap items-center gap-3">
-                  <Link href="/student/assessment">
-                    <Button size="sm">
-                      Take Skill Assessment <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/student/career">
-                    <Button size="sm" variant="outline">
-                      Explore Career Requirements
-                    </Button>
-                  </Link>
-                </div>
+                <span className="text-[11px] text-slate-600 font-medium">Deterministic score calculation</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="p-7 md:col-span-3 flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 ring-1 ring-indigo-400/20 uppercase tracking-wider">
+                    <Zap className="h-3 w-3 text-indigo-500" /> Priority Insight
+                  </span>
+                </div>
+                <h4 className="text-lg font-bold text-slate-900 tracking-tight mb-1.5">
+                  {student.priorityGap ? `Top Focus: ${student.priorityGap.skillName} (${student.priorityGap.gap} pts to target)` : 'All Core Skill Benchmarks Satisfied'}
+                </h4>
+                <p className="text-sm text-slate-600 leading-relaxed max-w-2xl">
+                  {student.priorityGap?.recommendation || 'You are well-prepared for opportunities matching your career target.'}
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-wrap items-center gap-3">
+                <Link href="/student/assessment">
+                  <Button className="rounded-xl h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                    Take Skill Assessment <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/student/career">
+                  <Button variant="outline" className="rounded-xl h-10 px-5 border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                    Explore Career Requirements
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Main Grid: Skills Breakdown & Quick Actions */}
         <div className="grid md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
-            <Card className="border-[var(--color-border-primary)] shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 sm:p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+              <div className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 mb-5">
                 <div>
-                  <CardTitle className="text-lg">Skill Benchmark Breakdown</CardTitle>
-                  <CardDescription>Verified capability versus target career requirements</CardDescription>
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">Skill Benchmark Breakdown</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Verified capability versus target career requirements</p>
                 </div>
-                <Link href="/student/skills">
-                  <Button variant="ghost" size="sm" className="text-xs text-[var(--color-accent)]">
-                    View all skills
+                <Link href="/student/passport">
+                  <Button variant="ghost" size="sm" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg">
+                    View in Passport <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                   </Button>
                 </Link>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-2">
+              </div>
+              <div className="space-y-3.5">
                 {student.skills.map((skill) => (
-                  <div key={skill.id} className="space-y-1.5 p-3 rounded-lg bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)]">
-                    <div className="flex justify-between items-center text-sm">
+                  <div key={skill.id} className="group p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-indigo-200/80 hover:shadow-sm transition-all duration-200">
+                    <div className="flex justify-between items-center text-sm mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{skill.name}</span>
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5">{skill.verificationLabel}</Badge>
+                        <span className="font-bold text-slate-900 group-hover:text-indigo-950 transition-colors">{skill.name}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 shadow-2xs">
+                          {skill.verificationLabel}
+                        </span>
                       </div>
-                      <span className="text-xs font-semibold">{skill.currentLevel} / {skill.requiredLevel}</span>
+                      <span className="text-xs font-black text-slate-700 font-mono">
+                        {skill.currentLevel} <span className="text-slate-400 font-normal">/ {skill.requiredLevel}</span>
+                      </span>
                     </div>
-                    <Progress value={(skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100} className="h-1.5" />
-                    <div className="flex justify-between text-xs text-[var(--color-text-secondary)] pt-0.5">
-                      <span>{skill.gap > 0 ? `${skill.gap} pts below benchmark` : 'Benchmark satisfied'}</span>
-                      <span className="capitalize">{skill.status.replace('_', ' ')}</span>
+                    <div className="h-1.5 rounded-full bg-slate-200/70 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          skill.gap === 0 ? 'bg-emerald-500' : 'bg-indigo-500'
+                        }`}
+                        style={{ width: `${Math.min(100, (skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-1.5">
+                      <span className={skill.gap > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
+                        {skill.gap > 0 ? `${skill.gap} pts below benchmark` : 'Benchmark satisfied'}
+                      </span>
+                      <span className="capitalize text-slate-400">{skill.status.replace('_', ' ')}</span>
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-6">
-            <Card className="border-[var(--color-border-primary)] shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Quick Intelligence Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Link href="/student/assessment" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+            <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight pb-3 mb-4 border-b border-slate-100">
+                Quick Intelligence Links
+              </h3>
+              <div className="space-y-2.5">
+                <Link
+                  href="/student/assessment"
+                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-indigo-50/40 hover:border-indigo-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
-                    <FileText className="h-4 w-4 text-[var(--color-accent)]" />
-                    <span className="text-sm font-medium">Take Assessment</span>
+                    <div className="h-9 w-9 rounded-xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center shadow-xs">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">Take Assessment</div>
+                      <div className="text-[10px] text-slate-500">MCQ, Practical & Evidence</div>
+                    </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
                 </Link>
 
-                <Link href="/student/skill-gap" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+                <Link
+                  href="/student/skill-gap"
+                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-amber-50/40 hover:border-amber-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
-                    <AlertTriangle className="h-4 w-4 text-[var(--color-warning)]" />
-                    <span className="text-sm font-medium">Skill Gap Analysis</span>
+                    <div className="h-9 w-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shadow-xs">
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Skill Gap Engine</div>
+                      <div className="text-[10px] text-slate-500">Benchmark gap diagnostics</div>
+                    </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
                 </Link>
 
-                <Link href="/student/passport" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+                <Link
+                  href="/student/passport"
+                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-4 w-4 text-[var(--color-success)]" />
-                    <span className="text-sm font-medium">Skill Passport</span>
+                    <div className="h-9 w-9 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center shadow-xs">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">Skill Passport</div>
+                      <div className="text-[10px] text-slate-500">Verifiable credentials & ledger</div>
+                    </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
                 </Link>
 
-                <Link href="/student/ai-coach" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+                <Link
+                  href="/student/ai-coach"
+                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-sky-50/40 hover:border-sky-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
-                    <Bot className="h-4 w-4 text-[var(--color-accent)]" />
-                    <span className="text-sm font-medium">AI Skill Coach</span>
+                    <div className="h-9 w-9 rounded-xl bg-sky-100/80 text-sky-600 flex items-center justify-center shadow-xs">
+                      <Bot className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">AI Skill Coach</div>
+                      <div className="text-[10px] text-slate-500">Custom learning pathways</div>
+                    </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all" />
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Living Skill Passport Component */}
+        {/* Living Skill Passport Component: The Anchor Piece */}
         <LivingSkillPassportCard
           studentName={studentName}
           targetRole={student.targetCareer}
@@ -220,30 +286,37 @@ export default function StudentDashboard() {
   // Real User State: 1. No career target chosen
   if (!readiness || !readiness.careerName) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
         <div>
-          <h1 className="text-h1 font-semibold">Welcome, {studentName}</h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">Get started by choosing a target career to see what skills are required.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Welcome, {studentName}
+          </h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">
+            Get started by choosing a target career to see what skills are required.
+          </p>
         </div>
 
-        <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-secondary)] p-8 text-center">
-          <div className="max-w-md mx-auto space-y-4">
-            <div className="h-12 w-12 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center mx-auto">
-              <Target className="h-6 w-6" />
+        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-10 sm:p-12 text-center shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300">
+          <div className="max-w-md mx-auto space-y-5">
+            <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <Target className="h-8 w-8" />
             </div>
-            <h3 className="text-h3 font-semibold">Choose a target career to see what's required</h3>
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              SkillBridge measures your actual capabilities against industry benchmarks and maps out your exact readiness journey.
-            </p>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Choose a target career to see what's required</h3>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                SkillBridge measures your actual capabilities against industry benchmarks and maps out your exact readiness journey.
+              </p>
+            </div>
             <div className="pt-2">
               <Link href="/student/career">
-                <Button className="px-6">
+                <Button className="rounded-xl px-7 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                   Select Target Career <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     )
   }
@@ -253,56 +326,61 @@ export default function StudentDashboard() {
 
   if (!hasCompletedAnyAssessment) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-        <div>
-          <h1 className="text-h1 font-semibold">Welcome back, {studentName}</h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">Target Role: <strong className="text-[var(--color-foreground)]">{readiness.careerName}</strong></p>
+      <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Welcome back, {studentName}
+            </h1>
+            <p className="text-sm font-medium text-slate-500 mt-1">
+              Target Role: <strong className="text-slate-900 font-bold">{readiness.careerName}</strong>
+            </p>
+          </div>
         </div>
 
-        <Card className="border-[var(--color-border-primary)] shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-[var(--color-text-secondary)]">Career Target</p>
-                <h3 className="text-h3 font-semibold">{readiness.careerName}</h3>
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  Career Readiness: <strong className="text-[var(--color-text-primary)]">— Complete an assessment to calculate your readiness</strong>
-                </p>
-              </div>
-              <Link href="/student/assessment">
-                <Button size="lg" className="px-6">
-                  Start Knowledge Assessment <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-7 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Career Target</span>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">{readiness.careerName}</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Career Readiness: <span className="text-indigo-600 font-bold">Complete an assessment to calculate your verified score</span>
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <Link href="/student/assessment">
+              <Button className="rounded-xl px-6 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                Start Knowledge Assessment <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
 
         {/* Skill Benchmarks with Not Assessed status */}
-        <Card className="border-[var(--color-border-primary)] shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Required Career Benchmarks</CardTitle>
-            <CardDescription>Skills required for {readiness.careerName}. Complete assessments to verify your score.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)]">
+          <div className="pb-4 border-b border-slate-100 mb-5">
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Required Career Benchmarks</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Skills required for {readiness.careerName}. Complete assessments to verify your score.</p>
+          </div>
+          <div className="space-y-3">
             {readiness.skills.map((skill) => (
-              <div key={skill.skillId} className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)]">
+              <div key={skill.skillId} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white transition-all">
                 <div>
-                  <div className="font-medium text-sm">{skill.skillName}</div>
-                  <div className="text-xs text-[var(--color-text-secondary)]">Required Benchmark: {skill.requiredLevel} / 100</div>
+                  <div className="font-bold text-sm text-slate-900">{skill.skillName}</div>
+                  <div className="text-xs text-slate-500 font-medium">Required Benchmark: {skill.requiredLevel} / 100</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-[var(--color-text-secondary)] italic">Not assessed</span>
+                  <span className="text-xs text-slate-400 italic">Not assessed</span>
                   <Link href="/student/assessment">
-                    <Button size="sm" variant="outline" className="text-xs h-8">
+                    <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg border-slate-200 hover:bg-indigo-50 hover:text-indigo-600">
                       Assess
                     </Button>
                   </Link>
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     )
   }
@@ -311,11 +389,20 @@ export default function StudentDashboard() {
   const d = readiness
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+    <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+      {/* Ambient background glow orbs */}
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-[450px] -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
+
+      {/* Dashboard Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-h1 font-semibold">Welcome back, {studentName}</h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">Here is your verified skill intelligence overview for today.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Welcome back, {studentName}
+          </h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">
+            Here is your verified skill intelligence overview for today.
+          </p>
         </div>
       </div>
 
@@ -326,136 +413,189 @@ export default function StudentDashboard() {
         skillName={d.priorityGap?.skillName || "Node.js"}
       />
 
-      {/* Top Area: Readiness Overview */}
-      <Card className="border-[var(--color-border-primary)] shadow-sm">
-        <CardContent className="p-0">
-          <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-primary)]">
-            <div className="p-6 md:col-span-1 bg-[var(--color-surface-secondary)]">
-              <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-1">Career Target</p>
-              <h3 className="text-h3 font-semibold text-[var(--color-foreground)] mb-4">{d.careerName}</h3>
+      {/* Top Area: Floating Readiness Hero Card */}
+      <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300 overflow-hidden">
+        <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+          <div className="p-7 md:col-span-1 bg-gradient-to-br from-slate-50/90 via-indigo-50/20 to-white flex flex-col justify-between">
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Career Target</span>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight mb-5">{d.careerName}</h3>
               
-              <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-1">Career Readiness</p>
-              <div className="flex items-end gap-2 mb-2">
-                <span className="text-4xl font-bold text-[var(--color-success)]">{d.readinessPercentage}%</span>
-                <Badge variant={d.readinessVariant || 'success'} className="mb-1 text-xs">{d.readinessCategory}</Badge>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Career Readiness</span>
+              <div className="flex items-baseline gap-2 mb-3">
+                <span className="text-4xl font-black tracking-tight text-emerald-600">{d.readinessPercentage}%</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 ring-1 ring-emerald-400/20">
+                  {d.readinessCategory}
+                </span>
               </div>
-              <Progress value={d.readinessPercentage} className="h-2" />
             </div>
-
-            <div className="p-6 md:col-span-3 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline" className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">Priority Insight</Badge>
-                </div>
-                <h4 className="font-semibold text-base mb-1">
-                  {d.priorityGap ? `Top Focus: ${d.priorityGap.skillName} (${d.priorityGap.gap} pts to target)` : 'All Core Skill Benchmarks Satisfied'}
-                </h4>
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  {d.priorityGap?.recommendation || 'You are well-prepared for opportunities matching your career target.'}
-                </p>
+            <div className="space-y-1 pt-2">
+              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 rounded-full transition-all duration-500"
+                  style={{ width: `${d.readinessPercentage}%` }}
+                />
               </div>
-
-              <div className="pt-4 flex flex-wrap items-center gap-3">
-                <Link href="/student/assessment">
-                  <Button size="sm">
-                    Take Skill Assessment <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/student/career">
-                  <Button size="sm" variant="outline">
-                    Explore Career Requirements
-                  </Button>
-                </Link>
-              </div>
+              <span className="text-[11px] text-slate-400 font-medium">Deterministic score calculation</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="p-7 md:col-span-3 flex flex-col justify-between space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 ring-1 ring-indigo-400/20 uppercase tracking-wider">
+                  <Zap className="h-3 w-3 text-indigo-500" /> Priority Insight
+                </span>
+              </div>
+              <h4 className="text-lg font-bold text-slate-900 tracking-tight mb-1.5">
+                {d.priorityGap ? `Top Focus: ${d.priorityGap.skillName} (${d.priorityGap.gap} pts to target)` : 'All Core Skill Benchmarks Satisfied'}
+              </h4>
+              <p className="text-sm text-slate-500 leading-relaxed max-w-2xl">
+                {d.priorityGap?.recommendation || 'You are well-prepared for opportunities matching your career target.'}
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <Link href="/student/assessment">
+                <Button className="rounded-xl h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                  Take Skill Assessment <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </Link>
+              <Link href="/student/career">
+                <Button variant="outline" className="rounded-xl h-10 px-5 border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                  Explore Career Requirements
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Main Grid: Skills Breakdown & Quick Actions */}
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <Card className="border-[var(--color-border-primary)] shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 sm:p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+            <div className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 mb-5">
               <div>
-                <CardTitle className="text-lg">Skill Benchmark Breakdown</CardTitle>
-                <CardDescription>Verified capability versus target career requirements</CardDescription>
+                <h2 className="text-lg font-bold text-slate-900 tracking-tight">Skill Benchmark Breakdown</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Verified capability versus target career requirements</p>
               </div>
-              <Link href="/student/skills">
-                <Button variant="ghost" size="sm" className="text-xs text-[var(--color-accent)]">
-                  View all skills
+              <Link href="/student/passport">
+                <Button variant="ghost" size="sm" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg">
+                  View in Passport <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                 </Button>
               </Link>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2">
+            </div>
+            <div className="space-y-3.5">
               {d.skills.map((skill) => (
-                <div key={skill.skillId} className="space-y-1.5 p-3 rounded-lg bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)]">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium">{skill.skillName}</span>
-                    <span className="text-xs font-semibold">
+                <div key={skill.skillId} className="group p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-indigo-200/80 hover:shadow-sm transition-all duration-200">
+                  <div className="flex justify-between items-center text-sm mb-2">
+                    <span className="font-bold text-slate-900 group-hover:text-indigo-950 transition-colors">{skill.skillName}</span>
+                    <span className="text-xs font-black text-slate-700 font-mono">
                       {skill.isAssessed ? `${skill.currentLevel} / ${skill.requiredLevel}` : `Not assessed (Req: ${skill.requiredLevel})`}
                     </span>
                   </div>
                   {skill.isAssessed ? (
                     <>
-                      <Progress value={(skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100} className="h-1.5" />
-                      <div className="flex justify-between text-xs text-[var(--color-text-secondary)] pt-0.5">
-                        <span>{skill.gap > 0 ? `${skill.gap} pts below benchmark` : 'Benchmark satisfied'}</span>
-                        <span className="capitalize">{skill.status.replace('_', ' ')}</span>
+                      <div className="h-1.5 rounded-full bg-slate-200/70 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            skill.gap === 0 ? 'bg-emerald-500' : 'bg-indigo-500'
+                          }`}
+                          style={{ width: `${Math.min(100, (skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-1.5">
+                        <span className={skill.gap > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
+                          {skill.gap > 0 ? `${skill.gap} pts below benchmark` : 'Benchmark satisfied'}
+                        </span>
+                        <span className="capitalize text-slate-400">{skill.status.replace('_', ' ')}</span>
                       </div>
                     </>
                   ) : (
-                    <div className="text-xs text-[var(--color-text-secondary)] italic">Complete assessment to evaluate gap</div>
+                    <div className="text-xs text-slate-400 italic">Complete assessment to evaluate gap</div>
                   )}
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
-          <Card className="border-[var(--color-border-primary)] shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Quick Intelligence Links</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Link href="/student/assessment" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+          <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight pb-3 mb-4 border-b border-slate-100">
+              Quick Intelligence Links
+            </h3>
+            <div className="space-y-2.5">
+              <Link
+                href="/student/assessment"
+                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-indigo-50/40 hover:border-indigo-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+              >
                 <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-[var(--color-accent)]" />
-                  <span className="text-sm font-medium">Take Assessment</span>
+                  <div className="h-9 w-9 rounded-xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center shadow-xs">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">Take Assessment</div>
+                    <div className="text-[10px] text-slate-500">MCQ, Practical & Evidence</div>
+                  </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
               </Link>
 
-              <Link href="/student/skill-gap" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+              <Link
+                href="/student/skill-gap"
+                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-amber-50/40 hover:border-amber-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+              >
                 <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-4 w-4 text-[var(--color-warning)]" />
-                  <span className="text-sm font-medium">Skill Gap Analysis</span>
+                  <div className="h-9 w-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shadow-xs">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Skill Gap Engine</div>
+                    <div className="text-[10px] text-slate-500">Benchmark gap diagnostics</div>
+                  </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
               </Link>
 
-              <Link href="/student/passport" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+              <Link
+                href="/student/passport"
+                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+              >
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-4 w-4 text-[var(--color-success)]" />
-                  <span className="text-sm font-medium">Skill Passport</span>
+                  <div className="h-9 w-9 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center shadow-xs">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">Skill Passport</div>
+                    <div className="text-[10px] text-slate-500">Verifiable credentials & ledger</div>
+                  </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
               </Link>
 
-              <Link href="/student/ai-coach" className="flex items-center justify-between p-3 rounded-md hover:bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] transition-all">
+              <Link
+                href="/student/ai-coach"
+                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-sky-50/40 hover:border-sky-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+              >
                 <div className="flex items-center gap-3">
-                  <Bot className="h-4 w-4 text-[var(--color-accent)]" />
-                  <span className="text-sm font-medium">AI Skill Coach</span>
+                  <div className="h-9 w-9 rounded-xl bg-sky-100/80 text-sky-600 flex items-center justify-center shadow-xs">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">AI Skill Coach</div>
+                    <div className="text-[10px] text-slate-500">Custom learning pathways</div>
+                  </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all" />
               </Link>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Living Skill Passport Component */}
+      {/* Living Skill Passport Component: The Anchor Piece */}
       <LivingSkillPassportCard
         studentName={studentName}
         targetRole={d.careerName || "Career Target"}

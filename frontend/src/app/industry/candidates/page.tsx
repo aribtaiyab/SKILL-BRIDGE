@@ -96,28 +96,28 @@ export default function CandidatesPage() {
 
   const load = useCallback(async () => {
     if (isDemo) {
-      const topOpp = demoOpps[0]
-      if (topOpp && topOpp.candidates) {
-        const mapped: CandidateResult[] = topOpp.candidates.map((c, i) => ({
+      const selectedOpp = oppFilter ? demoOpps.find(o => o.id === oppFilter) || demoOpps[0] : demoOpps[0]
+      if (selectedOpp && selectedOpp.candidates) {
+        const mapped: CandidateResult[] = selectedOpp.candidates.map((c, i) => ({
           applicationId: `app-demo-${i}`,
-          applicationStatus: i === 0 ? 'shortlisted' : 'applied',
+          applicationStatus: c.status === 'shortlisted' ? 'shortlisted' : 'applied',
           appliedAt: new Date().toISOString(),
           candidate: {
             id: c.id,
             name: c.name,
-            institution: 'Apex Institute of Technology',
+            institution: 'Delhi Technological University (DTU)',
           },
           opportunity: {
-            id: topOpp.id,
-            title: topOpp.title,
-            type: topOpp.type,
+            id: selectedOpp.id,
+            title: selectedOpp.title,
+            type: selectedOpp.type,
           },
           readiness: {
             matchPercentage: c.matchPercentage,
             readinessCategory: c.matchPercentage >= 85 ? 'High Readiness' : c.matchPercentage >= 70 ? 'Moderate Readiness' : 'Developing',
             skillsMetCount: c.skills.filter(s => s.met).length,
             totalSkillsCount: c.skills.length,
-            mainBlocker: c.skills.find(s => !s.met)?.name || null,
+            mainBlocker: c.skills.find(s => !s.met) ? `${c.skills.find(s => !s.met)?.name} (${Math.max(0, (c.skills.find(s => !s.met)?.required || 0) - (c.skills.find(s => !s.met)?.current || 0))} pts gap)` : null,
             skills: c.skills.map(s => ({
               name: s.name,
               met: s.met,

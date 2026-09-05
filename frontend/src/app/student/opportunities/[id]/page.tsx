@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { buildMatchExplanation } from "@/lib/intelligence/matching"
 import { apiClient } from "@/lib/api-client"
+import { useDemo } from "@/lib/demo/demo-context"
 
 interface OpportunityDetail {
   id: string
@@ -56,6 +57,7 @@ function getDeadlineInfo(deadline: string | null): { label: string; isSoon: bool
 }
 
 export default function OpportunityDetailsPage() {
+  const { isDemo, opportunities: demoOpps } = useDemo()
   const params = useParams()
   const opportunityId = typeof params?.id === 'string' ? params.id : ''
 
@@ -73,6 +75,69 @@ export default function OpportunityDetailsPage() {
   useEffect(() => {
     if (!opportunityId) return
     setLoading(true)
+
+    if (isDemo) {
+      const demoMatch = demoOpps.find(o => o.id === opportunityId) || demoOpps[0]
+      const skills = demoMatch.skills.map(s => {
+        const gap = Math.max(0, s.requiredLevel - s.currentLevel)
+        return {
+          name: s.name,
+          met: s.met,
+          currentLevel: s.currentLevel,
+          requiredLevel: s.requiredLevel,
+          gap,
+          importance: 'High',
+        }
+      })
+
+      const verifiedSkills = skills.filter(s => s.met).map(s => ({
+        name: s.name,
+        score: `${s.currentLevel} / ${s.requiredLevel} Req`,
+      }))
+      const missingSkills = skills.filter(s => !s.met).map(s => ({
+        name: s.name,
+        reqLevel: s.requiredLevel,
+        gap: s.gap,
+      }))
+
+      setOpp({
+        id: demoMatch.id,
+        title: demoMatch.title,
+        company: demoMatch.company,
+        type: demoMatch.type,
+        location: demoMatch.location,
+        workMode: demoMatch.workMode,
+        duration: demoMatch.duration,
+        deadline: demoMatch.deadline,
+        deadlineLabel: demoMatch.deadlineLabel,
+        isDeadlineSoon: demoMatch.isDeadlineSoon,
+        isDeadlinePassed: demoMatch.isDeadlinePassed,
+        description:
+          demoMatch.id === 'opp-technova-fullstack'
+            ? 'Join TechNova Labs as a Full Stack Developer Intern. You will design and implement high-performance web components using Next.js and build scalable, secure RESTful APIs with Node.js. Mentorship provided by Senior Staff Engineers.'
+            : 'Explore this opportunity and prove your skills against enterprise benchmarks.',
+        matchPercentage: demoMatch.matchPercentage,
+        readinessCategory: demoMatch.readinessCategory,
+        skillsMetCount: demoMatch.skillsMetCount,
+        totalSkillsCount: demoMatch.totalSkillsCount,
+        mainBlocker: demoMatch.mainBlocker,
+        skills,
+        verifiedSkills,
+        missingSkills,
+        readinessSummary: `You are at ${demoMatch.matchPercentage}% Opportunity-Specific Readiness for this role. Primary blocker: ${demoMatch.mainBlocker}.`,
+        recommendedAction: `Focus on closing the gap in ${demoMatch.mainBlocker?.split(' ')[0] || 'core skills'} to cross the 80% readiness threshold.`,
+        nextSteps: [
+          { action: 'Take Diagnostic Assessment', href: '/student/assessments' },
+          { action: 'Attend Faculty Workshop', href: '/academia/workshops' },
+          { action: 'Submit Practical Proof in Passport', href: '/student/skill-passport' },
+        ],
+        eligibilityDescription: 'Open to graduating 2026 CS / IT undergraduates with verified fundamentals in web architecture.',
+      })
+      setIsSaved(demoMatch.isSaved)
+      setHasApplied(demoMatch.hasApplied)
+      setLoading(false)
+      return
+    }
 
     Promise.all([
       apiClient(`/api/opportunities/${opportunityId}`).catch(() => null),
@@ -176,6 +241,14 @@ export default function OpportunityDetailsPage() {
   const handleApply = async () => {
     setIsApplying(true)
     setError("")
+    if (isDemo) {
+      setTimeout(() => {
+        setHasApplied(true)
+        setIsApplying(false)
+      }, 400)
+      return
+    }
+
     try {
       const json = await apiClient('/api/applications', {
         method: 'POST',
@@ -200,6 +273,11 @@ export default function OpportunityDetailsPage() {
   }
 
   const handleSave = async () => {
+    if (isDemo) {
+      setIsSaved(!isSaved)
+      return
+    }
+
     setSavingState(true)
     try {
       const method = isSaved ? 'DELETE' : 'POST'
