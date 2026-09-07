@@ -132,7 +132,7 @@ export default function MyExperiencePage() {
     return (
       <div className="flex items-center justify-center min-h-[420px]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-9 w-9 animate-spin text-indigo-600" />
+          <Loader2 className="h-9 w-9 animate-spin text-[var(--color-accent)]" />
           <p className="text-xs font-semibold text-slate-500">Retrieving academician activity history...</p>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function MyExperiencePage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
               Contribution Ledger
             </span>
           </div>
@@ -166,7 +166,7 @@ export default function MyExperiencePage() {
 
         <div className="flex items-center gap-2.5">
           <Link href="/academia/mentorship">
-            <Button size="sm" className="rounded-xl h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">
+            <Button size="sm" className="rounded-xl h-9 px-3.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs">
               New Mentorship
             </Button>
           </Link>
@@ -181,12 +181,12 @@ export default function MyExperiencePage() {
       {/* Profile Overview Card */}
       <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 sm:p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white flex items-center justify-center text-xl font-black shadow-md shadow-indigo-500/20">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[var(--color-accent)] to-[var(--color-accent-hover)] text-white flex items-center justify-center text-xl font-black shadow-xs">
             {acad?.name?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'FA'}
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900">{acad?.name}</h2>
-            <p className="text-xs font-semibold text-indigo-600">{acad?.designation || 'Academician'} • {acad?.email}</p>
+            <p className="text-xs font-semibold text-[var(--color-accent)]">{acad?.designation || 'Academician'} • {acad?.email}</p>
             {acad?.teachingArea && (
               <p className="text-xs text-slate-500 mt-0.5 font-medium">Domain: {acad.teachingArea}</p>
             )}
@@ -249,7 +249,7 @@ export default function MyExperiencePage() {
                     <span className="text-xs font-bold text-slate-900 block">{act.title}</span>
                     <span className="text-[10px] font-mono text-slate-400">{new Date(act.timestamp).toLocaleString()}</span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 capitalize">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border border-[var(--color-border-primary)] capitalize">
                     {act.status}
                   </span>
                 </div>
@@ -266,7 +266,7 @@ export default function MyExperiencePage() {
               <p className="text-xs text-slate-500">Students receiving targeted faculty guidance</p>
             </div>
             <Link href="/academia/mentorship">
-              <Button variant="ghost" size="sm" className="text-xs font-bold text-indigo-600">
+              <Button variant="ghost" size="sm" className="text-xs font-bold text-[var(--color-accent)]">
                 Manage →
               </Button>
             </Link>
@@ -286,7 +286,7 @@ export default function MyExperiencePage() {
                       {m.status}
                     </span>
                   </div>
-                  <p className="text-xs text-indigo-600 font-medium">{m.skillName}</p>
+                  <p className="text-xs text-[var(--color-accent)] font-medium">{m.skillName}</p>
                   <p className="text-[11px] text-slate-500 italic truncate">&quot;{m.notes}&quot;</p>
                 </div>
               ))}

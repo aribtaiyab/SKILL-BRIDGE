@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import {
   DemoStudent,
@@ -306,26 +306,38 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setOpportunities(INITIAL_DEMO_OPPORTUNITIES)
   }, [])
 
+  const contextValue = useMemo(() => ({
+    isDemo,
+    demoRole,
+    student,
+    opportunities,
+    academicianData: DEMO_ACADEMICIAN_DATA,
+    institutionData: DEMO_INSTITUTION_DATA,
+    cohortStudents: DEMO_COHORT_STUDENTS,
+    demoService,
+    enterDemo,
+    exitDemo,
+    switchDemoRole,
+    submitAssessment,
+    completePracticalTask,
+    addEvidence,
+    resetDemo,
+  }), [
+    isDemo,
+    demoRole,
+    student,
+    opportunities,
+    enterDemo,
+    exitDemo,
+    switchDemoRole,
+    submitAssessment,
+    completePracticalTask,
+    addEvidence,
+    resetDemo,
+  ])
+
   return (
-    <DemoContext.Provider
-      value={{
-        isDemo,
-        demoRole,
-        student,
-        opportunities,
-        academicianData: DEMO_ACADEMICIAN_DATA,
-        institutionData: DEMO_INSTITUTION_DATA,
-        cohortStudents: DEMO_COHORT_STUDENTS,
-        demoService,
-        enterDemo,
-        exitDemo,
-        switchDemoRole,
-        submitAssessment,
-        completePracticalTask,
-        addEvidence,
-        resetDemo,
-      }}
-    >
+    <DemoContext.Provider value={contextValue}>
       {children}
     </DemoContext.Provider>
   )

@@ -105,7 +105,7 @@ export default function CandidatesPage() {
           candidate: {
             id: c.id,
             name: c.name,
-            institution: 'Delhi Technological University (DTU)',
+            institution: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
           },
           opportunity: {
             id: selectedOpp.id,

@@ -120,7 +120,7 @@ export default function AcademiaNotificationsPage() {
       case 'mentorship':
         return <BookOpen className="h-4 w-4 text-[var(--color-accent)]" />
       case 'workshop':
-        return <Presentation className="h-4 w-4 text-purple-500" />
+        return <Presentation className="h-4 w-4 text-[var(--color-accent)]" />
       case 'evidence':
         return <Award className="h-4 w-4 text-emerald-500" />
       case 'alert':

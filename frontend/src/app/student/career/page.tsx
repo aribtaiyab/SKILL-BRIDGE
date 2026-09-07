@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import {
   Search, ChevronRight, Code, Database, Shield, Layout, Settings,
   Loader2, AlertTriangle, ArrowRight, CheckCircle2, Sparkles, TrendingUp,
-  Brain, FileText, Check, X, SlidersHorizontal
+  Brain, FileText, Check, X, SlidersHorizontal, Microscope, ZapOff, Star
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { CareerTargetOption } from "@/types"
@@ -35,6 +35,61 @@ export default function CareerTargetPage() {
   const [savingSkillId, setSavingSkillId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+
+  // ─── Self-Rating state (Task 1) ────────────────────────────────────────────
+  // self_rating_label values: 'never_used' | 'basic' | 'comfortable' | 'strong'
+  // These are stored in student_self_ratings, NEVER in student_skills/skill_scores
+  const [selfRatingOpen, setSelfRatingOpen] = useState(false)
+  const selfRatingSkipped = useRef(false)
+  const [selfRatings, setSelfRatings] = useState<Record<string, string>>({})   // skill_id → label
+  const [savingSelfRatings, setSavingSelfRatings] = useState(false)
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+
+  // ─── Calibration Insight state (Task 4) ────────────────────────────────────
+  interface CalibrationPair {
+    skillId: string
+    skillName: string
+    selfRatingLabel: string      // raw label, e.g. 'comfortable'
+    selfRatingDisplay: string    // capitalised, e.g. 'Comfortable'
+    verifiedScore: number
+    requiredLevel: number
+    isOverconfident: boolean     // verified < midpoint by ≥20
+  }
+  const [calibrationPairs, setCalibrationPairs] = useState<CalibrationPair[]>([])
+
+  // Midpoints used ONLY to detect meaningful self-vs-verified mismatch — never displayed as scores
+  const RATING_MIDPOINTS: Record<string, number> = {
+    never_used:  10,
+    basic:       35,
+    comfortable: 65,
+    strong:      90,
+  }
+  const RATING_DISPLAY: Record<string, string> = {
+    never_used:  'Never used',
+    basic:       'Basic',
+    comfortable: 'Comfortable',
+    strong:      'Strong',
+  }
+
+  const getAssessmentForSkill = (skillName?: string) => {
+    const norm = (skillName || '').toLowerCase()
+    if (norm.includes('rest') || norm.includes('api')) {
+      return { id: 'assess-l1-rest-design', skill: 'REST APIs', title: 'RESTful API Standards & Status Codes' }
+    }
+    if (norm.includes('sql') || norm.includes('database') || norm.includes('query')) {
+      return { id: 'assess-l1-sql-indexing', skill: 'SQL', title: 'SQL Joins & Relational Indexing Benchmark' }
+    }
+    if (norm.includes('node')) {
+      return { id: 'assess-l1-nodejs-loop', skill: 'Node.js', title: 'Node.js Event Loop & Concurrency Benchmark' }
+    }
+    if (norm.includes('git') || norm.includes('version')) {
+      return { id: 'assess-l1-git-workflows', skill: 'Git & Version Control', title: 'Git Workflows & Version Control Mastery' }
+    }
+    if (norm.includes('react')) {
+      return { id: 'assess-l1-react-basics', skill: 'React', title: 'React Component Architecture & Hooks Benchmark' }
+    }
+    return { id: 'assess-l1-backend-core', skill: skillName || 'Core Fundamentals', title: 'Knowledge Benchmark' }
+  }
 
   const filteredCareers = useMemo(
     () => careers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())),
@@ -211,85 +266,179 @@ export default function CareerTargetPage() {
         const json = await apiClient<{ success: boolean; data: CareerReadinessResult | null }>(
           `/api/student/readiness?career_id=${selectedCareerId}`
         )
-        if (json.success && json.data) {
+        if (json.success && json.data && json.data.skills && json.data.skills.length > 0) {
           setReadinessData(json.data)
           return
         }
+
+        // API returned empty data — fall through to deterministic fallback
+        throw new Error('No readiness skills returned from API')
       } catch (err) {
-        console.warn('API readiness unavailable, using local deterministic engine:', err)
+        console.warn('API readiness unavailable or empty, using local deterministic engine:', err)
+
+        // Compute readiness deterministically if API call fails or returns empty
+        const computed = computeDeterministicReadiness(benchmarkProfile, {
+          "Node.js": { score: 65, verifiedStatus: "assessment_verified" },
+          "REST APIs": { score: 72, verifiedStatus: "practical_verified" },
+          "SQL": { score: 82, verifiedStatus: "evidence_verified" },
+          "Git & Version Control": { score: 75, verifiedStatus: "practical_verified" },
+          "React.js": { score: 60, verifiedStatus: "assessment_verified" },
+        })
+
+        const fallbackResult: CareerReadinessResult = {
+          careerId: computed.careerId,
+          careerName: computed.careerName,
+          readinessPercentage: computed.readinessPercentage,
+          readinessCategory: computed.readinessCategory,
+          readinessVariant: computed.readinessVariant,
+          skills: computed.skills.map(s => ({
+            ...s,
+            status: s.status === 'ready' ? ('ready' as const) : s.status === 'critical' ? ('critical' as const) : ('needs_improvement' as const),
+            category: 'Technical',
+            priorityScore: s.gap,
+            recommendation: s.gap > 0 ? `Close ${s.gap} point deficit.` : 'Satisfied',
+          })),
+          strengths: computed.skills.filter(s => s.status === 'ready').map(s => ({
+            ...s,
+            status: 'ready' as const,
+            category: 'Technical',
+            priorityScore: 0,
+            recommendation: 'Satisfied',
+          })),
+          nearReadySkills: computed.skills.filter(s => s.status === 'improve').map(s => ({
+            ...s,
+            status: 'needs_improvement' as const,
+            category: 'Technical',
+            priorityScore: s.gap,
+            recommendation: `Close ${s.gap} point deficit.`,
+          })),
+          criticalGaps: computed.skills.filter(s => s.status === 'critical').map(s => ({
+            ...s,
+            status: 'critical' as const,
+            category: 'Technical',
+            priorityScore: s.gap,
+            recommendation: `Close ${s.gap} point deficit.`,
+          })),
+          priorityGap: computed.priorityGap
+            ? {
+                skillId: 'priority-skill',
+                skillName: computed.priorityGap.skillName,
+                requiredLevel: computed.priorityGap.required,
+                currentLevel: computed.priorityGap.verified,
+                gap: computed.priorityGap.gap,
+                status: computed.priorityGap.category === 'Critical Gap' ? 'critical' : 'needs_improvement',
+                importance: 'High',
+                priorityScore: computed.priorityGap.gap,
+                isAssessed: true,
+                recommendation: computed.priorityGap.recommendation,
+              }
+            : null,
+          explanation: {
+            strengthsText: ["SQL competency satisfied (82/70)", "Git proficiency verified (75/60)"],
+            nearReadyText: ["REST APIs is within 3 points of target"],
+            criticalText: computed.priorityGap?.gap ? [`${computed.priorityGap.skillName} has a deficit of ${computed.priorityGap.gap} points`] : [],
+            recommendedAction: computed.priorityGap?.recommendation || "All core benchmarks satisfied.",
+          },
+        }
+
+        setReadinessData(fallbackResult)
+      } finally {
+        // ALWAYS clear loading — this is the fix for the infinite spinner
+        setLoadingReadiness(false)
       }
-
-      // Compute readiness deterministically if API call fails
-      const computed = computeDeterministicReadiness(benchmarkProfile, {
-        "Node.js": { score: 65, verifiedStatus: "assessment_verified" },
-        "REST APIs": { score: 72, verifiedStatus: "practical_verified" },
-        "SQL": { score: 82, verifiedStatus: "evidence_verified" },
-        "Git & Version Control": { score: 75, verifiedStatus: "practical_verified" },
-        "React.js": { score: 60, verifiedStatus: "assessment_verified" },
-      })
-
-      const fallbackResult: CareerReadinessResult = {
-        careerId: computed.careerId,
-        careerName: computed.careerName,
-        readinessPercentage: computed.readinessPercentage,
-        readinessCategory: computed.readinessCategory,
-        readinessVariant: computed.readinessVariant,
-        skills: computed.skills.map(s => ({
-          ...s,
-          status: s.status === 'ready' ? ('ready' as const) : s.status === 'critical' ? ('critical' as const) : ('needs_improvement' as const),
-          category: 'Technical',
-          priorityScore: s.gap,
-          recommendation: s.gap > 0 ? `Close ${s.gap} point deficit.` : 'Satisfied',
-        })),
-        strengths: computed.skills.filter(s => s.status === 'ready').map(s => ({
-          ...s,
-          status: 'ready' as const,
-          category: 'Technical',
-          priorityScore: 0,
-          recommendation: 'Satisfied',
-        })),
-        nearReadySkills: computed.skills.filter(s => s.status === 'improve').map(s => ({
-          ...s,
-          status: 'needs_improvement' as const,
-          category: 'Technical',
-          priorityScore: s.gap,
-          recommendation: `Close ${s.gap} point deficit.`,
-        })),
-        criticalGaps: computed.skills.filter(s => s.status === 'critical').map(s => ({
-          ...s,
-          status: 'critical' as const,
-          category: 'Technical',
-          priorityScore: s.gap,
-          recommendation: `Close ${s.gap} point deficit.`,
-        })),
-        priorityGap: computed.priorityGap
-          ? {
-              skillId: 'priority-skill',
-              skillName: computed.priorityGap.skillName,
-              requiredLevel: computed.priorityGap.required,
-              currentLevel: computed.priorityGap.verified,
-              gap: computed.priorityGap.gap,
-              status: computed.priorityGap.category === 'Critical Gap' ? 'critical' : 'needs_improvement',
-              importance: 'High',
-              priorityScore: computed.priorityGap.gap,
-              isAssessed: true,
-              recommendation: computed.priorityGap.recommendation,
-            }
-          : null,
-        explanation: {
-          strengthsText: ["SQL competency satisfied (82/70)", "Git proficiency verified (75/60)"],
-          nearReadyText: ["REST APIs is within 3 points of target"],
-          criticalText: computed.priorityGap?.gap ? [`${computed.priorityGap.skillName} has a deficit of ${computed.priorityGap.gap} points`] : [],
-          recommendedAction: computed.priorityGap?.recommendation || "All core benchmarks satisfied.",
-        },
-      }
-
-      setReadinessData(fallbackResult)
-      setLoadingReadiness(false)
     }
 
     loadReadiness()
   }, [selectedCareerId, activeCareer])
+
+  // ─── Load existing self-ratings when career changes (Task 1 / 2) ───────────
+  useEffect(() => {
+    if (!selectedCareerId) return
+    selfRatingSkipped.current = false  // reset skip flag on career change
+    setAiSummary(null)  // reset AI summary on career change
+
+    async function loadSelfRatings() {
+      try {
+        const json = await apiClient<{ success: boolean; data: Array<{ skill_id: string; self_rating_label: string }> }>(
+          `/api/student/self-ratings/${selectedCareerId}`
+        )
+        if (json.success && json.data && json.data.length > 0) {
+          const map: Record<string, string> = {}
+          json.data.forEach(r => { map[r.skill_id] = r.self_rating_label })
+          setSelfRatings(map)
+          // Ratings already exist — don't show modal
+        } else {
+          setSelfRatings({})
+          // No ratings yet — load skill list then open modal
+          await loadDiscoverySkills()
+          setSelfRatingOpen(true)
+        }
+      } catch {
+        // API unavailable — open modal anyway so user can rate (will save optimistically)
+        setSelfRatings({})
+        await loadDiscoverySkills()
+        setSelfRatingOpen(true)
+      }
+    }
+
+    loadSelfRatings()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCareerId])
+
+  // ─── Compute calibration pairs whenever readinessData refreshes (Task 4) ───
+  useEffect(() => {
+    if (!readinessData) return
+    const rawSelfRatings = (readinessData as any).selfRatings as Array<{
+      skill_id: string; skill_name: string; self_rating_label: string; verified_score: number; required_level: number
+    }> | undefined
+
+    if (!rawSelfRatings || rawSelfRatings.length === 0) {
+      // Fall back to client-side selfRatings map cross-referenced with readinessData.skills
+      if (Object.keys(selfRatings).length === 0) {
+        setCalibrationPairs([])
+        return
+      }
+      const pairs: CalibrationPair[] = []
+      readinessData.skills.forEach(skill => {
+        const label = selfRatings[skill.skillId]
+        if (!label || !skill.isAssessed || skill.currentLevel <= 0) return
+        const midpoint = RATING_MIDPOINTS[label] ?? -1
+        if (midpoint < 0) return
+        const diff = Math.abs(midpoint - skill.currentLevel)
+        if (diff < 20) return
+        pairs.push({
+          skillId: skill.skillId,
+          skillName: skill.skillName,
+          selfRatingLabel: label,
+          selfRatingDisplay: RATING_DISPLAY[label] || label,
+          verifiedScore: skill.currentLevel,
+          requiredLevel: skill.requiredLevel,
+          isOverconfident: midpoint > skill.currentLevel,
+        })
+      })
+      setCalibrationPairs(pairs)
+      return
+    }
+
+    const pairs: CalibrationPair[] = []
+    rawSelfRatings.forEach(sr => {
+      const midpoint = RATING_MIDPOINTS[sr.self_rating_label] ?? -1
+      if (midpoint < 0 || sr.verified_score < 0) return
+      const diff = Math.abs(midpoint - sr.verified_score)
+      if (diff < 20) return
+      pairs.push({
+        skillId: sr.skill_id,
+        skillName: sr.skill_name,
+        selfRatingLabel: sr.self_rating_label,
+        selfRatingDisplay: RATING_DISPLAY[sr.self_rating_label] || sr.self_rating_label,
+        verifiedScore: sr.verified_score,
+        requiredLevel: sr.required_level,
+        isOverconfident: midpoint > sr.verified_score,
+      })
+    })
+    setCalibrationPairs(pairs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readinessData, selfRatings])
 
   const handleSaveCareer = async () => {
     if (!selectedCareerId) return
@@ -336,6 +485,38 @@ export default function CareerTargetPage() {
     }
   }
 
+  // ─── Self-Rating modal handlers ─────────────────────────────────────────────
+  const handleSelfRatingSave = async () => {
+    const ratingEntries = Object.entries(selfRatings)
+    if (ratingEntries.length === 0) return
+    setSavingSelfRatings(true)
+    try {
+      const json = await apiClient<{ success: boolean; data: { stored: number; persisted: boolean; summary?: string } }>('/api/student/self-ratings', {
+        method: 'POST',
+        body: JSON.stringify({
+          career_target_id: selectedCareerId,
+          ratings: ratingEntries.map(([skill_id, self_rating_label]) => ({ skill_id, self_rating_label })),
+        }),
+      })
+      if (json.data?.summary) {
+        setAiSummary(json.data.summary)
+      } else {
+        setAiSummary('Insight generation temporarily unavailable')
+      }
+    } catch {
+      setAiSummary('Insight generation temporarily unavailable')
+    } finally {
+      setSavingSelfRatings(false)
+      setSelfRatingOpen(false)
+    }
+  }
+
+  const handleSelfRatingSkip = () => {
+    selfRatingSkipped.current = true
+    setSelfRatings({})
+    setSelfRatingOpen(false)
+  }
+
   const getIcon = (slug: string) => {
     switch (slug) {
       case 'backend': return <Database className="h-5 w-5" />
@@ -351,7 +532,7 @@ export default function CareerTargetPage() {
   return (
     <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
       {/* Background ambient lighting orbs */}
-      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
       <div className="absolute top-96 -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
 
       {/* Header */}
@@ -359,8 +540,8 @@ export default function CareerTargetPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Career Target & Skill Benchmark</h1>
-            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200/80 text-xs font-semibold px-2.5 py-0.5">
-              <Sparkles className="h-3 w-3 mr-1 inline text-indigo-500" /> Opportunity-Specific Engine
+            <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border-[var(--color-border-primary)] text-xs font-semibold px-2.5 py-0.5">
+              <Sparkles className="h-3 w-3 mr-1 inline text-[var(--color-accent)]" /> Opportunity-Specific Engine
             </Badge>
           </div>
           <p className="text-sm text-slate-600 mt-1 max-w-2xl">
@@ -374,14 +555,14 @@ export default function CareerTargetPage() {
               setIsDiscoveryOpen(true)
               loadDiscoverySkills()
             }}
-            className="h-10 px-4 rounded-xl border-indigo-200/80 bg-white/90 text-indigo-700 font-semibold shadow-xs hover:border-indigo-300 hover:bg-indigo-50/60 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+            className="h-10 px-4 rounded-xl border-[var(--color-border-primary)] bg-white/90 text-[var(--color-accent-hover)] font-semibold shadow-xs hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5 transition-all flex items-center gap-2"
           >
-            <Brain className="h-4 w-4 text-indigo-600" /> Discover & Declare Skills
+            <Brain className="h-4 w-4 text-[var(--color-accent)]" /> Discover & Declare Skills
           </Button>
           <Button
             onClick={handleSaveCareer}
             disabled={!selectedCareerId || persisting}
-            className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+            className="h-10 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all"
           >
             {persisting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Career Target'}
           </Button>
@@ -405,7 +586,7 @@ export default function CareerTargetPage() {
               placeholder="Search career tracks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200/80 bg-white/90 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200/80 bg-white/90 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)] transition-all"
             />
           </div>
 
@@ -418,21 +599,21 @@ export default function CareerTargetPage() {
                   onClick={() => setSelectedCareerId(career.id)}
                   className={`cursor-pointer rounded-2xl p-4 transition-all duration-300 border ${
                     isSelected
-                      ? 'border-indigo-500/80 bg-gradient-to-r from-indigo-50/90 via-white to-indigo-50/40 ring-2 ring-indigo-500/20 shadow-md shadow-indigo-500/10 -translate-y-0.5'
-                      : 'border-slate-200/70 bg-white/85 hover:border-indigo-200 hover:bg-white hover:-translate-y-1 hover:shadow-md'
+                      ? 'border-[var(--color-accent)] bg-gradient-to-r from-[var(--color-surface-secondary)]/80 via-white to-[var(--color-surface-secondary)]/40 ring-2 ring-[var(--color-accent)]/20 shadow-xs -translate-y-0.5'
+                      : 'border-slate-200/70 bg-white/85 hover:border-[var(--color-accent)]/40 hover:bg-white hover:-translate-y-1 hover:shadow-md'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3.5">
                       <div className={`p-2.5 rounded-xl transition-colors ${
                         isSelected
-                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30'
-                          : 'bg-slate-100 text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+                          ? 'bg-[var(--color-accent)] text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 group-hover:bg-[var(--color-accent-light)] group-hover:text-[var(--color-accent)]'
                       }`}>
                         {getIcon(career.slug)}
                       </div>
                       <div>
-                        <h4 className={`font-bold text-sm leading-tight ${isSelected ? 'text-indigo-950' : 'text-slate-800'}`}>
+                        <h4 className={`font-bold text-sm leading-tight ${isSelected ? 'text-[var(--color-foreground)]' : 'text-slate-800'}`}>
                           {career.name}
                         </h4>
                         <span className="text-xs text-slate-500 mt-0.5 line-clamp-1">
@@ -440,7 +621,7 @@ export default function CareerTargetPage() {
                         </span>
                       </div>
                     </div>
-                    <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isSelected ? 'text-indigo-600 translate-x-0.5' : 'text-slate-300'}`} />
+                    <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isSelected ? 'text-[var(--color-accent)] translate-x-0.5' : 'text-slate-300'}`} />
                   </div>
                 </div>
               )
@@ -452,19 +633,21 @@ export default function CareerTargetPage() {
         <div className="lg:col-span-2 space-y-6">
           {loadingReadiness ? (
             <div className="rounded-3xl border border-slate-200/80 bg-white/80 min-h-[340px] flex items-center justify-center backdrop-blur-xl shadow-sm">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
             </div>
           ) : readinessData ? (
             <>
               {/* Floating Hero Container */}
-              <div className="relative overflow-hidden rounded-3xl border border-indigo-100/90 bg-white/95 p-6 sm:p-8 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.12)] backdrop-blur-xl space-y-6">
+              <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-white/95 p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-slate-100 pb-6">
                   <div>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-3 py-0.5 rounded-full mb-2">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-3 py-0.5 rounded-full mb-2">
                       <Shield className="h-3 w-3" /> Target Role Benchmark
                     </span>
                     <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                      {readinessData.careerName || activeCareer?.name}
+                      {(readinessData.careerName && readinessData.careerName !== 'Career')
+                        ? readinessData.careerName
+                        : (activeCareer?.name || 'Career Benchmark')}
                     </h2>
                     <p className="text-sm text-slate-600 mt-1 max-w-xl">
                       {activeCareer?.description || 'Career readiness evaluated deterministically against live employer hiring requirements.'}
@@ -495,7 +678,7 @@ export default function CareerTargetPage() {
                   </div>
                   <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-success)] transition-all duration-500"
                       style={{ width: `${readinessData.readinessPercentage}%` }}
                     />
                   </div>
@@ -521,11 +704,16 @@ export default function CareerTargetPage() {
                           {readinessData.priorityGap.recommendation}
                         </p>
                         <div className="pt-2">
-                          <Link href="/student/assessment">
-                            <Button size="sm" className="h-8 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-sm hover:-translate-y-0.5 transition-all">
-                              Start Targeted Assessment <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
+                          {(() => {
+                            const targetAssessment = getAssessmentForSkill(readinessData.priorityGap.skillName)
+                            return (
+                              <Link href={`/student/assessment?skill=${encodeURIComponent(targetAssessment.skill)}&assessmentId=${targetAssessment.id}&autostart=true`}>
+                                <Button size="sm" className="h-8 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-sm hover:-translate-y-0.5 transition-all">
+                                  Start Targeted Assessment <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                            )
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -547,20 +735,25 @@ export default function CareerTargetPage() {
                       setIsDiscoveryOpen(true)
                       loadDiscoverySkills()
                     }}
-                    className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                    className="text-xs font-bold text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] rounded-xl"
                   >
                     Declare Familiarity →
                   </Button>
                 </div>
 
                 <div className="space-y-3.5 pt-2">
-                  {readinessData.skills.map((skill) => {
+                  {readinessData.skills.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
+                      <p className="text-sm font-medium text-slate-500">Benchmark data not available for this role yet</p>
+                    </div>
+                  ) : (
+                    readinessData.skills.map((skill) => {
                     const isUnassessed = !skill.isAssessed
                     const isReady = !isUnassessed && skill.status === 'ready'
                     const isCritical = !isUnassessed && skill.status === 'critical'
 
                     const cardStyle = isUnassessed
-                      ? 'border-violet-200/80 bg-violet-50/20 text-violet-950'
+                      ? 'border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)]/30 text-[var(--color-foreground)]'
                       : isReady
                       ? 'border-emerald-200/80 bg-emerald-50/40 text-emerald-900'
                       : isCritical
@@ -568,7 +761,7 @@ export default function CareerTargetPage() {
                       : 'border-amber-200/80 bg-amber-50/40 text-amber-900'
 
                     const badgeStyle = isUnassessed
-                      ? 'bg-violet-50 text-violet-800 border-violet-300'
+                      ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] border-[var(--color-border-primary)]'
                       : isReady
                       ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                       : isCritical
@@ -592,7 +785,7 @@ export default function CareerTargetPage() {
                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white/80 border border-slate-200 px-2 py-0.5 rounded-md">
                               {skill.importance} Weight
                             </span>
-                            <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md">
+                            <span className="text-[10px] font-semibold text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2 py-0.5 rounded-md">
                               {tierLabel}
                             </span>
                           </div>
@@ -610,10 +803,23 @@ export default function CareerTargetPage() {
                           <div className="h-2 w-full rounded-full bg-white/80 overflow-hidden border border-slate-200/40">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${
-                                isUnassessed ? 'bg-violet-300' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
+                                isUnassessed ? 'bg-slate-300' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
                               }`}
                               style={{ width: `${isUnassessed ? 10 : Math.min((skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100, 100)}%` }}
                             />
+                          </div>
+                          {/* Task 2 — Self-Rated label. Always shows "(unverified)". Never styled like verified data. */}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <span className="text-[11px] font-medium text-slate-500">
+                              Self-Rated <span className="font-normal text-slate-400">(unverified)</span>:
+                            </span>
+                            {selfRatings[skill.skillId] ? (
+                              <span className="text-[11px] font-semibold text-slate-600 italic">
+                                &ldquo;{RATING_DISPLAY[selfRatings[skill.skillId]] || selfRatings[skill.skillId]}&rdquo;
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">Not rated</span>
+                            )}
                           </div>
                         </div>
 
@@ -625,17 +831,100 @@ export default function CareerTargetPage() {
                               ? `${skill.gap} points to close deficit`
                               : 'Benchmark requirement satisfied'}
                           </span>
-                          <Link href="/student/assessment">
-                            <span className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline inline-flex items-center gap-1">
-                              {isUnassessed ? 'Take Initial Test' : 'Assess Now'} <ArrowRight className="h-3 w-3" />
-                            </span>
-                          </Link>
+                          {(() => {
+                            const cardTarget = getAssessmentForSkill(skill.skillName)
+                            return (
+                              <Link href={`/student/assessment?skill=${encodeURIComponent(cardTarget.skill)}&assessmentId=${cardTarget.id}&autostart=true`}>
+                                <span className="font-bold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] hover:underline inline-flex items-center gap-1">
+                                  {isUnassessed ? 'Take Initial Test' : 'Assess Now'} <ArrowRight className="h-3 w-3" />
+                                </span>
+                              </Link>
+                            )
+                          })()}
                         </div>
                       </div>
                     )
-                  })}
+                  }))}
                 </div>
               </div>
+
+              {/* Task 2 — Groq AI Narrative Calibration Insight */}
+              {aiSummary && (
+                <div className="rounded-3xl border border-[var(--color-border-primary)] bg-white/95 p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-3 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] text-[var(--color-accent)]">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Self-Declared Profile AI Insight</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Groq narrative calibration analysis • Explanatory reflection (does not modify verified readiness scores)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/70 via-slate-50 to-emerald-50/40 border border-emerald-200/70 text-xs sm:text-sm text-slate-700 leading-relaxed font-medium shadow-xs">
+                    <p>{aiSummary}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Task 4 — Calibration Insight section */}
+              {calibrationPairs.length > 0 && (
+                <div className="rounded-3xl border border-[var(--color-border-primary)] bg-white/95 p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] text-[var(--color-accent)]">
+                      <Microscope className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Calibration Insights</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Where your self-assessment differs meaningfully from your verified score
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {calibrationPairs.map(pair => (
+                      <div
+                        key={pair.skillId}
+                        className={`rounded-2xl border p-4 ${
+                          pair.isOverconfident
+                            ? 'border-amber-200/80 bg-amber-50/40'
+                            : 'border-emerald-200/80 bg-emerald-50/40'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                            pair.isOverconfident ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {pair.isOverconfident ? <ZapOff className="h-3.5 w-3.5" /> : <Star className="h-3.5 w-3.5" />}
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-slate-700">
+                              🔍 Calibration Insight — {pair.skillName}
+                            </p>
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {pair.isOverconfident ? (
+                                <>
+                                  You rated yourself &ldquo;{pair.selfRatingDisplay}&rdquo;, but your verified score is{' '}
+                                  <strong className="text-slate-800">{pair.verifiedScore}/{pair.requiredLevel}</strong>.
+                                  {' '}This is a bigger gap than expected — worth prioritizing.
+                                </>
+                              ) : (
+                                <>
+                                  You rated yourself &ldquo;{pair.selfRatingDisplay}&rdquo;, but your verified score is{' '}
+                                  <strong className="text-slate-800">{pair.verifiedScore}/{pair.requiredLevel}</strong>{' '}
+                                  — you&apos;re actually stronger here than you realized.
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white/70 min-h-[280px] flex items-center justify-center p-8 text-center backdrop-blur-sm">
@@ -645,6 +934,114 @@ export default function CareerTargetPage() {
         </div>
       </div>
 
+      {/* ─── SELF-RATING MODAL (Task 1) ─────────────────────────────────────── */}
+      {selfRatingOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-xl bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 max-h-[88vh] overflow-y-auto space-y-5 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="h-8 w-8 rounded-xl bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] text-[var(--color-accent)] flex items-center justify-center">
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Quick Self-Rating</h3>
+                </div>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  How confident are you in each skill required for{' '}
+                  <strong className="text-slate-700">{activeCareer?.name}</strong>?
+                  These are <span className="font-semibold text-[var(--color-text-secondary)]">not</span> your verified scores
+                  — they help surface useful comparisons after assessment.
+                </p>
+              </div>
+              <button
+                onClick={handleSelfRatingSkip}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                aria-label="Skip self-rating"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Notice banner — always visible */}
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/60 text-[11px] text-amber-800 leading-relaxed font-medium">
+              <strong>Note:</strong> These self-ratings are opinion-based and are{' '}
+              <strong>never</strong> used in your Career Readiness %, Priority Gap, or Opportunity Match scores.
+              They only appear alongside your verified data to help you reflect on calibration.
+            </div>
+
+            {/* Per-skill rating controls */}
+            <div className="space-y-3">
+              {careerSkills.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-[var(--color-accent)]" />
+                </div>
+              ) : (
+                careerSkills.map(cs => {
+                  const currentLabel = selfRatings[cs.skillId] || ''
+                  return (
+                    <div key={cs.skillId} className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-slate-900">{cs.skillName}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-white border px-2 py-0.5 rounded-md">
+                          Required: {cs.requiredLevel} pts
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {([
+                          { label: 'Never used', value: 'never_used' },
+                          { label: 'Basic',      value: 'basic' },
+                          { label: 'Comfortable', value: 'comfortable' },
+                          { label: 'Strong',     value: 'strong' },
+                        ] as const).map(opt => {
+                          const isChosen = currentLabel === opt.value
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                setSelfRatings(prev => ({ ...prev, [cs.skillId]: opt.value }))
+                              }
+                              className={`py-2 px-1 rounded-xl text-[11px] font-semibold border transition-all ${
+                                isChosen
+                                  ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)] shadow-sm'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)]'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <button
+                onClick={handleSelfRatingSkip}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline underline-offset-2 transition-colors"
+              >
+                Skip this step
+              </button>
+              <Button
+                onClick={handleSelfRatingSave}
+                disabled={savingSelfRatings || Object.keys(selfRatings).length === 0}
+                className="h-9 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold shadow-sm"
+              >
+                {savingSelfRatings
+                  ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Saving...</>
+                  : `Save ratings (${Object.keys(selfRatings).length}/${careerSkills.length})`
+                }
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── SKILL DISCOVERY & SELF-DECLARATION MODAL ───────────────────────── */}
       {isDiscoveryOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -653,7 +1050,7 @@ export default function CareerTargetPage() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600 flex items-center justify-center">
+                  <span className="h-8 w-8 rounded-xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent)] flex items-center justify-center">
                     <Brain className="h-4 w-4" />
                   </span>
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Skill Discovery & Baseline Declaration</h3>
@@ -675,7 +1072,7 @@ export default function CareerTargetPage() {
               <button
                 onClick={() => setDiscoveryTab('role')}
                 className={`py-2 text-xs font-bold rounded-xl transition-all ${
-                  discoveryTab === 'role' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  discoveryTab === 'role' ? 'bg-white text-[var(--color-accent)] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Role Benchmark Skills
@@ -683,7 +1080,7 @@ export default function CareerTargetPage() {
               <button
                 onClick={() => setDiscoveryTab('ai')}
                 className={`py-2 text-xs font-bold rounded-xl transition-all ${
-                  discoveryTab === 'ai' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  discoveryTab === 'ai' ? 'bg-white text-[var(--color-accent)] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 AI Experience Extractor
@@ -727,8 +1124,8 @@ export default function CareerTargetPage() {
                                 }}
                                 className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all ${
                                   isChosen
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                    : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                                    ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)] shadow-xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-[var(--color-accent)]/50'
                                 }`}
                               >
                                 {opt.label}
@@ -752,13 +1149,13 @@ export default function CareerTargetPage() {
                   value={experienceText}
                   onChange={(e) => setExperienceText(e.target.value)}
                   placeholder="e.g. Built a RESTful API using Node.js and Express with PostgreSQL database. Implemented JWT authentication, Docker containers, and wrote automated unit tests with Jest..."
-                  className="w-full p-3.5 rounded-2xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                  className="w-full p-3.5 rounded-2xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
                 />
 
                 <Button
                   onClick={handleExtractWithAI}
                   disabled={!experienceText.trim() || extractingAI}
-                  className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm"
+                  className="w-full h-10 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold shadow-sm"
                 >
                   {extractingAI ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing with AI...</> : <><Sparkles className="mr-2 h-4 w-4" /> Extract Skills with AI</>}
                 </Button>
@@ -793,7 +1190,7 @@ export default function CareerTargetPage() {
               <Button
                 onClick={handleSaveDeclarations}
                 disabled={savingDeclarations || Object.keys(declaredFamiliarity).length === 0}
-                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 shadow-sm"
+                className="rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold px-5 shadow-sm"
               >
                 {savingDeclarations ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Confirm & Save Baseline'}
               </Button>

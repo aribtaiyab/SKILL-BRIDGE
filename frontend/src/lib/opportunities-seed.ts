@@ -132,22 +132,33 @@ export const SEED_OPPORTUNITIES: OpportunityItem[] = [
   },
 ]
 
+export interface OpportunitySkillBreakdown {
+  name: string
+  requiredLevel: number
+  currentLevel: number
+  met: boolean
+  gap: number
+  status: 'met' | 'close' | 'missing'
+  statusLabel: string
+  isAssessed: boolean
+}
+
 export interface OpportunityMatchResult {
   opportunity: OpportunityItem
   matchPercentage: number
   skillsMetCount: number
   totalSkillsCount: number
   mainBlocker: string | null
-  skills: Array<{
-    name: string
-    requiredLevel: number
-    currentLevel: number
-    met: boolean
-  }>
+  skills: OpportunitySkillBreakdown[]
 }
+
+export const READY_THRESHOLD = 70
+export const ALMOST_READY_THRESHOLD = 40
+export const CLOSE_THRESHOLD = 15
 
 /**
  * Calculates match percentage comparing student verified skills against required benchmarks.
+ * Computes both overall match % and granular per-skill breakdown (✅ met, ⚠️ close, ❌ missing) in a single pass.
  */
 export function calculateOpportunityMatch(
   opportunity: OpportunityItem,
@@ -159,26 +170,51 @@ export function calculateOpportunityMatch(
   let mainBlocker: string | null = null
   let maxDeficit = -Infinity
 
-  const skills = opportunity.requiredSkills.map((req) => {
-    const studentScore = studentScores[req.name] || studentScores[req.name.toLowerCase()] || 0
-    const weight = req.importance === "Required" ? 1.5 : 1.0
-    totalPoints += req.benchmark * weight
-    earnedPoints += Math.min(studentScore, req.benchmark) * weight
+  const reqSkills = opportunity.requiredSkills ?? []
 
-    const met = studentScore >= req.benchmark
+  const skills: OpportunitySkillBreakdown[] = reqSkills.map((req: any) => {
+    const benchmark = Number(req.benchmark ?? req.minScore ?? req.min_score ?? 70)
+    const studentScore = studentScores[req.name] ?? studentScores[req.name.toLowerCase()] ?? 0
+    const weight = req.importance === "Preferred" ? 1.0 : 1.5
+    totalPoints += benchmark * weight
+    earnedPoints += Math.min(studentScore, benchmark) * weight
+
+    const met = studentScore >= benchmark
     if (met) skillsMetCount++
 
-    const deficit = req.benchmark - studentScore
-    if (deficit > 0 && deficit > maxDeficit) {
-      maxDeficit = deficit
-      mainBlocker = `${req.name} (${deficit} pts below benchmark)`
+    const gap = Math.max(0, benchmark - studentScore)
+    if (gap > 0 && gap > maxDeficit) {
+      maxDeficit = gap
+      mainBlocker = `${req.name} (${gap} pts below benchmark)`
+    }
+
+    const isAssessed = studentScore > 0
+    let status: 'met' | 'close' | 'missing' = 'missing'
+    let statusLabel = ''
+
+    if (met) {
+      status = 'met'
+      statusLabel = 'Met'
+    } else if (isAssessed && gap <= CLOSE_THRESHOLD) {
+      status = 'close'
+      statusLabel = `close — ${gap} pts short`
+    } else if (!isAssessed) {
+      status = 'missing'
+      statusLabel = 'not assessed'
+    } else {
+      status = 'missing'
+      statusLabel = `${gap} pts deficit`
     }
 
     return {
       name: req.name,
-      requiredLevel: req.benchmark,
+      requiredLevel: benchmark,
       currentLevel: studentScore,
       met,
+      gap,
+      status,
+      statusLabel,
+      isAssessed,
     }
   })
 
@@ -188,8 +224,37 @@ export function calculateOpportunityMatch(
     opportunity,
     matchPercentage,
     skillsMetCount,
-    totalSkillsCount: opportunity.requiredSkills.length,
-    mainBlocker: skillsMetCount === opportunity.requiredSkills.length ? null : mainBlocker,
+    totalSkillsCount: reqSkills.length,
+    mainBlocker: skillsMetCount === reqSkills.length ? null : mainBlocker,
     skills,
   }
+}
+
+/**
+ * Maps a skill name to its corresponding active assessment route.
+ */
+export function getAssessmentRouteForSkill(skillName: string): string {
+  const norm = (skillName || '').toLowerCase()
+  let assessmentId = 'assess-l1-backend-core'
+  let skill = skillName
+  if (norm.includes('rest') || norm.includes('api')) {
+    assessmentId = 'assess-l1-rest-design'
+    skill = 'REST APIs'
+  } else if (norm.includes('sql') || norm.includes('database') || norm.includes('query')) {
+    assessmentId = 'assess-l1-sql-indexing'
+    skill = 'SQL'
+  } else if (norm.includes('node')) {
+    assessmentId = 'assess-l1-nodejs-loop'
+    skill = 'Node.js'
+  } else if (norm.includes('git') || norm.includes('version')) {
+    assessmentId = 'assess-l1-git-workflows'
+    skill = 'Git & Version Control'
+  } else if (norm.includes('react')) {
+    assessmentId = 'assess-l1-react-basics'
+    skill = 'React'
+  } else if (norm.includes('docker') || norm.includes('linux')) {
+    assessmentId = 'assess-l1-backend-core'
+    skill = skillName
+  }
+  return `/student/assessment?skill=${encodeURIComponent(skill)}&assessmentId=${assessmentId}&autostart=true`
 }

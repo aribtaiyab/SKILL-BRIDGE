@@ -12,6 +12,8 @@ router.get('/profile', sc.getStudentProfile)
 router.patch('/profile', sc.updateStudentProfile)
 router.get('/career-target', sc.getCareerTarget)
 router.get('/career-targets', sc.getCareerTargetsList)
+router.get('/career-targets/:careerId/benchmark', sc.getCareerBenchmark)
+router.get('/careers/:careerId/benchmark', sc.getCareerBenchmark)
 router.patch('/career-target', sc.setCareerTarget)
 
 // Skills & Readiness
@@ -21,6 +23,8 @@ router.get('/readiness', sc.getStudentReadiness)
 router.get('/skill-gaps', sc.getStudentSkillGaps)
 router.get('/opportunities', sc.getStudentOpportunities)
 router.get('/opportunities/saved', sc.getSavedStudentOpportunities)
+router.get('/saved-opportunities', sc.getSavedOpportunityIds)
+router.post('/saved-opportunities', sc.toggleSavedOpportunity)
 
 // Assessments
 router.get('/assessments', sc.getStudentAssessments)
@@ -44,5 +48,9 @@ router.patch('/passport/settings', sc.updateStudentPassportSettings)
 
 // Progress
 router.get('/progress', sc.getStudentProgress)
+
+// Self-Ratings (Task 5) — stored in student_self_ratings, separate from skill_scores
+router.post('/self-ratings', sc.saveSelfRatings)
+router.get('/self-ratings/:career_target_id', sc.getSelfRatings)
 
 export default router

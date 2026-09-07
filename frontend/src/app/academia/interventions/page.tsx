@@ -202,7 +202,7 @@ export default function AcademiaInterventionsPage() {
         <div className="p-5 rounded-[var(--radius-card)] bg-[var(--color-surface-card)] border border-[var(--color-border-primary)] shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Reassessed Learners</span>
-            <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-600">
+            <div className="h-8 w-8 rounded-full bg-[#F0F6F9]0/10 flex items-center justify-center text-[var(--color-accent)]">
               <BarChart3 className="h-4 w-4" />
             </div>
           </div>

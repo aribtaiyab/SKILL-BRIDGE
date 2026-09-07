@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { User, Session } from '@supabase/supabase-js'
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Use singleton browser client instance
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string, fallbackUser?: User | null) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -53,16 +53,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!error && data) {
         setProfile(data as UserProfile)
-      } else {
-        setProfile(null)
+        return
       }
     } catch {
+      // ignore table query error
+    }
+
+    // Graceful fallback to session user metadata if profiles table is unseeded/unavailable
+    if (fallbackUser && fallbackUser.id === userId) {
+      const meta = fallbackUser.user_metadata || {}
+      setProfile({
+        id: fallbackUser.id,
+        full_name: (meta.full_name as string) || (fallbackUser.email?.split('@')[0]) || 'Student',
+        email: fallbackUser.email || '',
+        role: (meta.role as UserRole) || 'student',
+        onboarding_completed: true,
+        avatar_url: (meta.avatar_url as string) || null,
+      })
+    } else {
       setProfile(null)
     }
   }, [supabase])
 
   const refreshProfile = useCallback(async () => {
-    if (user) await fetchProfile(user.id)
+    if (user) await fetchProfile(user.id, user)
   }, [user, fetchProfile])
 
   const signOut = useCallback(async () => {
@@ -92,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        fetchProfile(session.user.id).finally(() => {
+        fetchProfile(session.user.id, session.user).finally(() => {
           if (isMounted) setLoading(false)
         })
       } else {
@@ -110,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          await fetchProfile(session.user.id)
+          await fetchProfile(session.user.id, session.user)
         } else {
           setProfile(null)
         }
@@ -123,18 +137,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false
       subscription.unsubscribe()
     }
-  }, [supabase, fetchProfile])
+  }, [supabase])
+
+  const authValue = useMemo(() => ({
+    user,
+    session,
+    profile,
+    role: profile?.role ?? null,
+    loading,
+    signOut,
+    refreshProfile,
+  }), [user, session, profile, loading, signOut, refreshProfile])
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      profile,
-      role: profile?.role ?? null,
-      loading,
-      signOut,
-      refreshProfile,
-    }}>
+    <AuthContext.Provider value={authValue}>
       {children}
     </AuthContext.Provider>
   )

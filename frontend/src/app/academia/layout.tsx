@@ -79,7 +79,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
           <p className="text-xs font-semibold text-slate-500">Verifying authorized Academia credentials...</p>
         </div>
       </div>
@@ -94,12 +94,12 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
         {/* Brand Header */}
         <div className="h-20 flex items-center px-6 border-b border-slate-100 justify-between">
           <Link href="/academia" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white font-black text-xs shadow-md shadow-indigo-500/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-accent)] text-white font-black text-xs shadow-xs">
               SC
             </div>
             <div>
               <div className="font-black text-base tracking-tight text-slate-900">SkillBridge</div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 flex items-center gap-1">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-accent)] flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3" /> Academia
               </div>
             </div>
@@ -117,7 +117,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
                 href={item.href}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                    ? 'bg-[var(--color-accent)] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                 }`}
               >
@@ -127,7 +127,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
                 </div>
                 {item.badge && item.badge > 0 ? (
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                    isActive ? 'bg-white text-indigo-600' : 'bg-indigo-50 text-indigo-600 border border-indigo-200'
+                    isActive ? 'bg-white text-[var(--color-accent)]' : 'bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-border-primary)]'
                   }`}>
                     {item.badge}
                   </span>
@@ -140,7 +140,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
         {/* User Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-8 w-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+            <div className="h-8 w-8 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] flex items-center justify-center text-xs font-bold shrink-0">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
@@ -175,7 +175,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
             </button>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 hidden sm:inline">Portal:</span>
-              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
                 Academia Ecosystem
               </span>
             </div>
@@ -185,12 +185,12 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
             <Link href="/academia/notifications" className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100">
               <Bell className="h-4 w-4" />
               {unreadNotifications > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-indigo-600 ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--color-accent)] ring-2 ring-white" />
               )}
             </Link>
 
             <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="h-7 w-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
+              <div className="h-7 w-7 rounded-lg bg-[var(--color-accent)] text-white flex items-center justify-center text-xs font-bold">
                 {initials}
               </div>
               <span className="text-xs font-bold text-slate-800 hidden md:inline">{displayName}</span>
@@ -219,7 +219,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold ${
-                        isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                        isActive ? 'bg-[var(--color-accent)] text-white' : 'text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
@@ -20,7 +21,12 @@ import {
   Level2PracticalChallenge,
 } from "@/lib/assessments-seed"
 
-export default function AssessmentPage() {
+function AssessmentContent() {
+  const searchParams = useSearchParams()
+  const paramSkill = searchParams.get('skill')
+  const paramAssessmentId = searchParams.get('assessmentId')
+  const autostart = searchParams.get('autostart') === 'true'
+
   const [activeTab, setActiveTab] = useState("level1")
 
   // Level 1 State
@@ -57,6 +63,8 @@ export default function AssessmentPage() {
   // Verified Status Badges
   const [currentTier, setCurrentTier] = useState<"Self-Declared" | "Assessment Verified" | "Practical Verified" | "Evidence Verified">("Self-Declared")
   const [activeAssessmentId, setActiveAssessmentId] = useState<string>("assess-l1-backend-core")
+  const [activeAssessmentTitle, setActiveAssessmentTitle] = useState<string>("Backend Engineering Knowledge Benchmark")
+  const [activeAssessmentSkill, setActiveAssessmentSkill] = useState<string>("Node.js & Backend Architecture")
 
   // Load real student verified tier on mount
   useEffect(() => {
@@ -81,8 +89,11 @@ export default function AssessmentPage() {
   }, [])
 
   // Start Level 1 Flow
-  const handleStartL1 = async (assessmentId: string = "assess-l1-backend-core") => {
+  const handleStartL1 = useCallback(async (assessmentId: string = "assess-l1-backend-core") => {
     setActiveAssessmentId(assessmentId)
+    const local = LEVEL_1_KNOWLEDGE_ASSESSMENTS.find(a => a.id === assessmentId) || LEVEL_1_KNOWLEDGE_ASSESSMENTS[0]
+    setActiveAssessmentTitle(local.title)
+    setActiveAssessmentSkill(local.skill)
     setLoadingL1(true)
     try {
       const json = await apiClient<{
@@ -90,15 +101,16 @@ export default function AssessmentPage() {
         data: { attemptId: string; title: string; skillName: string; timeLimit: number; questions: QuestionSafeView[] }
       }>(`/api/student/assessments/${assessmentId}/start`, { method: 'POST' })
 
-      if (json.data) {
+      if (json.data && json.data.questions && json.data.questions.length > 0) {
         setL1Questions(json.data.questions)
-        setTimeLeftL1(json.data.timeLimit * 60)
+        setTimeLeftL1((json.data.timeLimit || 15) * 60)
+        if (json.data.title) setActiveAssessmentTitle(json.data.title)
+        if (json.data.skillName) setActiveAssessmentSkill(json.data.skillName)
       } else {
         throw new Error('Fallback')
       }
     } catch {
       // Local fallback questions matching requested assessment
-      const local = LEVEL_1_KNOWLEDGE_ASSESSMENTS.find(a => a.id === assessmentId) || LEVEL_1_KNOWLEDGE_ASSESSMENTS[0]
       setL1Questions(
         local.questions.map(q => ({
           id: q.id,
@@ -110,6 +122,8 @@ export default function AssessmentPage() {
         }))
       )
       setTimeLeftL1(local.timeLimitMinutes * 60)
+      setActiveAssessmentTitle(local.title)
+      setActiveAssessmentSkill(local.skill)
     } finally {
       setIsTakingL1(true)
       setCurrentQIndex(0)
@@ -117,7 +131,24 @@ export default function AssessmentPage() {
       setAnswersL1([])
       setLoadingL1(false)
     }
-  }
+  }, [])
+
+  // Auto-start targeted assessment if provided via URL parameters
+  useEffect(() => {
+    if (paramAssessmentId) {
+      setActiveAssessmentId(paramAssessmentId)
+      const matched = LEVEL_1_KNOWLEDGE_ASSESSMENTS.find(a => a.id === paramAssessmentId)
+      if (matched) {
+        setActiveAssessmentTitle(matched.title)
+        setActiveAssessmentSkill(matched.skill)
+      } else if (paramSkill) {
+        setActiveAssessmentSkill(paramSkill)
+      }
+      if (autostart) {
+        handleStartL1(paramAssessmentId)
+      }
+    }
+  }, [paramAssessmentId, paramSkill, autostart, handleStartL1])
 
   // Submit Level 1
   const submitL1 = useCallback(async (finalAnswers: { questionId: string; selectedOptionId: string }[]) => {
@@ -289,7 +320,7 @@ export default function AssessmentPage() {
   return (
     <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
       {/* Background ambient lighting orbs */}
-      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
       <div className="absolute top-96 -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
 
       {/* Header */}
@@ -297,8 +328,8 @@ export default function AssessmentPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Skill Assessments & Verification</h1>
-            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200/80 text-xs font-semibold px-2.5 py-0.5">
-              <Sparkles className="h-3 w-3 mr-1 inline text-indigo-500" /> 3-Tier Evaluation Suite
+            <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border-[var(--color-border-primary)] text-xs font-semibold px-2.5 py-0.5">
+              <Sparkles className="h-3 w-3 mr-1 inline text-[var(--color-accent)]" /> 3-Tier Evaluation Suite
             </Badge>
           </div>
           <p className="text-sm text-slate-600 mt-1 max-w-2xl">
@@ -306,14 +337,14 @@ export default function AssessmentPage() {
           </p>
         </div>
         <Link href="/student/passport">
-          <Button variant="outline" className="h-10 px-4 rounded-xl border-slate-200 bg-white/90 text-slate-700 font-semibold shadow-xs hover:border-indigo-300 hover:bg-indigo-50/50 hover:-translate-y-0.5 transition-all">
-            <Award className="mr-2 h-4 w-4 text-indigo-600" /> View Living Skill Passport
+          <Button variant="outline" className="h-10 px-4 rounded-xl border-slate-200 bg-white/90 text-slate-700 font-semibold shadow-xs hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5 transition-all">
+            <Award className="mr-2 h-4 w-4 text-[var(--color-accent)]" /> View Living Skill Passport
           </Button>
         </Link>
       </div>
 
       {/* Verification Status Banner */}
-      <div className="relative z-10 overflow-hidden rounded-3xl border border-indigo-100/90 bg-white/95 p-6 sm:p-7 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.12)] backdrop-blur-xl">
+      <div className="relative z-10 overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-white/95 p-6 sm:p-7 shadow-[var(--shadow-soft)] backdrop-blur-xl">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           <div>
             <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-1">
@@ -323,7 +354,7 @@ export default function AssessmentPage() {
               <span className="text-2xl font-black text-slate-900">{currentTier}</span>
               <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
                 currentTier === "Evidence Verified"
-                  ? "bg-purple-50 text-purple-700 border border-purple-200/80 ring-1 ring-purple-400/20"
+                  ? "bg-[#F0F6F9] text-[var(--color-accent-hover)] border border-[#A8C9D9]/70 ring-1 ring-[#A8C9D9]/30"
                   : currentTier === "Practical Verified"
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 ring-1 ring-emerald-400/20"
                   : currentTier === "Assessment Verified"
@@ -342,7 +373,7 @@ export default function AssessmentPage() {
               { label: "Self-Declared", level: 0, style: "bg-amber-50 text-amber-700 border-amber-200/80 ring-1 ring-amber-400/20" },
               { label: "Assessment Verified", level: 1, style: "bg-sky-50 text-sky-700 border-sky-200/80 ring-1 ring-sky-400/20" },
               { label: "Practical Verified", level: 2, style: "bg-emerald-50 text-emerald-700 border-emerald-200/80 ring-1 ring-emerald-400/20" },
-              { label: "Evidence Verified", level: 3, style: "bg-purple-50 text-purple-700 border-purple-200/80 ring-1 ring-purple-400/20" },
+              { label: "Evidence Verified", level: 3, style: "bg-[#F0F6F9] text-[var(--color-accent-hover)] border-[#A8C9D9]/70 ring-1 ring-[#A8C9D9]/30" },
             ].map((tier, idx) => {
               const currentLevelIdx =
                 currentTier === "Evidence Verified" ? 3 :
@@ -371,13 +402,13 @@ export default function AssessmentPage() {
       {/* Tabs for 3 Assessment Levels */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="relative z-10 space-y-6">
         <TabsList className="grid grid-cols-3 w-full max-w-xl h-11 p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80">
-          <TabsTrigger value="level1" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
+          <TabsTrigger value="level1" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-[var(--color-accent)] data-[state=active]:shadow-sm">
             <FileText className="h-3.5 w-3.5 mr-1.5" /> Level 1: Knowledge
           </TabsTrigger>
-          <TabsTrigger value="level2" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
+          <TabsTrigger value="level2" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-[var(--color-accent)] data-[state=active]:shadow-sm">
             <Terminal className="h-3.5 w-3.5 mr-1.5" /> Level 2: Practical
           </TabsTrigger>
-          <TabsTrigger value="level3" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
+          <TabsTrigger value="level3" className="rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-[var(--color-accent)] data-[state=active]:shadow-sm">
             <Upload className="h-3.5 w-3.5 mr-1.5" /> Level 3: Evidence
           </TabsTrigger>
         </TabsList>
@@ -432,18 +463,20 @@ export default function AssessmentPage() {
             <div className="max-w-3xl mx-auto space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Backend Engineering Knowledge Benchmark</h2>
-                  <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mt-0.5">Question {currentQIndex + 1} of {l1Questions.length}</p>
+                  <h2 className="text-xl font-bold text-slate-900">{activeAssessmentTitle}</h2>
+                  <p className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wider mt-0.5">
+                    {activeAssessmentSkill} • Question {currentQIndex + 1} of {l1Questions.length}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 font-mono text-xs font-bold text-slate-700 bg-white/90 px-3.5 py-1.5 rounded-xl border border-slate-200/80 shadow-xs">
-                  <Clock className="h-4 w-4 text-indigo-600" />
+                  <Clock className="h-4 w-4 text-[var(--color-accent)]" />
                   <span>{formatTime(timeLeftL1)}</span>
                 </div>
               </div>
 
               <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 transition-all duration-300"
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-success)] transition-all duration-300"
                   style={{ width: `${((currentQIndex + 1) / l1Questions.length) * 100}%` }}
                 />
               </div>
@@ -462,12 +495,12 @@ export default function AssessmentPage() {
                         onClick={() => setSelectedOpt(opt.id)}
                         className={`p-4 rounded-2xl border text-sm font-medium cursor-pointer transition-all duration-200 flex items-start gap-3.5 ${
                           isSelected
-                            ? "border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 text-slate-950 shadow-sm -translate-y-0.5"
-                            : "border-slate-200/80 bg-white/90 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/20 hover:-translate-y-0.5"
+                            ? "border-[var(--color-accent)] bg-[var(--color-surface-secondary)]/60 ring-2 ring-[var(--color-accent)]/20 text-slate-950 shadow-sm -translate-y-0.5"
+                            : "border-slate-200/80 bg-white/90 text-slate-700 hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5"
                         }`}
                       >
                         <div className={`h-5 w-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 transition-colors ${
-                          isSelected ? "border-indigo-600 bg-indigo-600" : "border-slate-300"
+                          isSelected ? "border-[var(--color-accent)] bg-[var(--color-accent)]" : "border-slate-300"
                         }`}>
                           {isSelected && <div className="h-2 w-2 rounded-full bg-white" />}
                         </div>
@@ -494,7 +527,7 @@ export default function AssessmentPage() {
                   <Button
                     onClick={handleNextL1}
                     disabled={!selectedOpt || submittingL1}
-                    className="h-10 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                    className="h-10 px-6 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all"
                   >
                     {submittingL1 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Evaluating...</> : currentQIndex === l1Questions.length - 1 ? "Submit Assessment" : "Next Question"}
                   </Button>
@@ -511,7 +544,7 @@ export default function AssessmentPage() {
                 >
                   <div className="space-y-4">
                     <div className="flex justify-between items-start">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/70 px-2.5 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
                         Level 1 • Knowledge MCQ
                       </span>
                       <span className="text-xs text-slate-500 flex items-center gap-1 font-mono font-semibold bg-slate-100 px-2 py-0.5 rounded-lg">
@@ -541,7 +574,7 @@ export default function AssessmentPage() {
 
                   <div className="pt-5 mt-4 border-t border-slate-100">
                     <Button
-                      className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                      className="w-full h-10 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all"
                       onClick={() => handleStartL1(item.id)}
                       disabled={loadingL1}
                     >
@@ -581,7 +614,7 @@ export default function AssessmentPage() {
                     <div className="h-3 w-3 rounded-full bg-amber-500/90" />
                     <div className="h-3 w-3 rounded-full bg-emerald-500/90" />
                     <span className="ml-3 font-mono text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                      <Code className="h-3.5 w-3.5 text-indigo-400" /> solution.js — {activePractical.skill}
+                      <Code className="h-3.5 w-3.5 text-[var(--color-accent)]" /> solution.js — {activePractical.skill}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
@@ -600,7 +633,7 @@ export default function AssessmentPage() {
                     rows={13}
                     value={codeSubmission}
                     onChange={(e) => setCodeSubmission(e.target.value)}
-                    className="w-full p-5 font-mono text-sm bg-transparent text-emerald-400 focus:outline-none resize-y leading-relaxed selection:bg-indigo-900 selection:text-white"
+                    className="w-full p-5 font-mono text-sm bg-transparent text-emerald-400 focus:outline-none resize-y leading-relaxed selection:bg-[var(--color-accent-hover)] selection:text-white"
                     placeholder="// Write or edit code solution here..."
                   />
                 </div>
@@ -617,7 +650,7 @@ export default function AssessmentPage() {
                   <Button
                     onClick={handleSubmitPractical}
                     disabled={evaluatingL2}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs h-9 px-5 rounded-xl shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                    className="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs h-9 px-5 rounded-xl shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all"
                   >
                     {evaluatingL2 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying Challenge...</> : "Submit Solution & Verify"}
                   </Button>
@@ -678,7 +711,7 @@ export default function AssessmentPage() {
 
                   <div className="pt-5 mt-4 border-t border-slate-100">
                     <Button
-                      className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                      className="w-full h-10 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all"
                       onClick={() => handleStartPractical(challenge)}
                     >
                       Start Challenge <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
@@ -695,14 +728,14 @@ export default function AssessmentPage() {
           <div className="max-w-2xl mx-auto">
             <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 sm:p-8 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.08)] backdrop-blur-xl space-y-6">
               <div>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-200/70 px-3 py-0.5 rounded-full mb-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[#F0F6F9] border border-[#A8C9D9]/60 px-3 py-0.5 rounded-full mb-2">
                   Level 3 • Practical Evidence
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                   Submit Code Repository or Certification Proof
                 </h3>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  Link your public GitHub repository, live web demo, or certified credential ID to earn the highest Passport tier: <strong className="text-purple-700 font-bold">Evidence Verified</strong>.
+                  Link your public GitHub repository, live web demo, or certified credential ID to earn the highest Passport tier: <strong className="text-[var(--color-accent-hover)] font-bold">Evidence Verified</strong>.
                 </p>
               </div>
 
@@ -721,7 +754,7 @@ export default function AssessmentPage() {
                     value={evidenceTitle}
                     onChange={(e) => setEvidenceTitle(e.target.value)}
                     required
-                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
                   />
                 </div>
 
@@ -730,7 +763,7 @@ export default function AssessmentPage() {
                   <select
                     value={evidenceSkill}
                     onChange={(e) => setEvidenceSkill(e.target.value)}
-                    className="w-full mt-1 h-11 px-3 rounded-xl border border-slate-200/80 bg-white text-sm text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="w-full mt-1 h-11 px-3 rounded-xl border border-slate-200/80 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
                   >
                     <option value="Node.js">Node.js (Backend Architecture)</option>
                     <option value="REST APIs">REST APIs</option>
@@ -747,7 +780,7 @@ export default function AssessmentPage() {
                     placeholder="https://github.com/your-username/your-repo"
                     value={githubUrl}
                     onChange={(e) => setGithubUrl(e.target.value)}
-                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
                   />
                 </div>
 
@@ -758,7 +791,7 @@ export default function AssessmentPage() {
                     placeholder="https://your-app-demo.vercel.app"
                     value={liveDemoUrl}
                     onChange={(e) => setLiveDemoUrl(e.target.value)}
-                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
                   />
                 </div>
 
@@ -768,14 +801,14 @@ export default function AssessmentPage() {
                     placeholder="e.g. CERT-OPENJS-984291"
                     value={certificateId}
                     onChange={(e) => setCertificateId(e.target.value)}
-                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="mt-1 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
                   />
                 </div>
 
                 <div className="pt-2">
                   <Button
                     type="submit"
-                    className="w-full h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                    className="w-full h-11 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all"
                     disabled={submittingL3}
                   >
                     {submittingL3 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying Evidence...</> : "Submit Practical Evidence"}
@@ -787,5 +820,20 @@ export default function AssessmentPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function AssessmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center p-12 text-center text-slate-500 space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
+          <p className="text-sm font-semibold">Loading assessment console...</p>
+        </div>
+      }
+    >
+      <AssessmentContent />
+    </Suspense>
   )
 }

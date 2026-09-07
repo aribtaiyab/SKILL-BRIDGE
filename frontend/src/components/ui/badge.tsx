@@ -18,6 +18,8 @@ const badgeVariants = cva(
         outline: "text-[var(--color-foreground)] border-[var(--color-border-primary)]",
         success: "border-transparent bg-[var(--color-success)] text-white",
         warning: "border-transparent bg-[var(--color-warning)] text-white",
+        pink: "border-[var(--color-accent-pink)] bg-[#FAF0F1] text-[#8C3A44]",
+        sky: "border-[var(--color-accent-sky)] bg-[#F0F6F9] text-[#24546D]",
       },
     },
     defaultVariants: {

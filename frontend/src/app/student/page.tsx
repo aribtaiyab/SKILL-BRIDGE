@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, TrendingUp, Loader2, Sparkles, Shield, Award, Zap, ChevronRight } from "lucide-react"
+import { ArrowRight, Bot, Target, AlertTriangle, FileText, CheckCircle2, TrendingUp, Loader2, Sparkles, Shield, Award, Zap, ChevronRight, Compass } from "lucide-react"
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import { CareerReadinessResult } from "@/lib/intelligence/engine"
@@ -45,7 +45,7 @@ export default function StudentDashboard() {
     return (
       <div className="flex items-center justify-center min-h-[420px]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-9 w-9 animate-spin text-indigo-600" />
+          <Loader2 className="h-9 w-9 animate-spin text-[var(--color-accent)]" />
           <p className="text-sm font-medium text-slate-500">Loading skill intelligence...</p>
         </div>
       </div>
@@ -58,9 +58,9 @@ export default function StudentDashboard() {
   // Demo View
   if (isDemo) {
     return (
-      <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+      <div className="relative space-y-5 animate-in fade-in duration-500 pb-8">
         {/* Ambient background glow orbs */}
-        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
         <div className="absolute top-[450px] -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
 
         {/* Dashboard Header */}
@@ -88,9 +88,9 @@ export default function StudentDashboard() {
         />
 
         {/* Top Area: Floating Readiness Hero Card */}
-        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300 overflow-hidden">
+        <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-hover)] transition-all duration-200 overflow-hidden">
           <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            <div className="p-7 md:col-span-1 bg-gradient-to-br from-slate-50/90 via-indigo-50/20 to-white flex flex-col justify-between">
+            <div className="p-5 md:col-span-1 bg-gradient-to-br from-[#FAF8F3] via-white to-[#F2F7F9] flex flex-col justify-between border-b md:border-b-0 md:border-r border-[var(--color-border-primary)]">
               <div>
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">Career Target</span>
                 <h3 className="text-xl font-black text-slate-900 tracking-tight mb-5">{student.targetCareer}</h3>
@@ -106,7 +106,7 @@ export default function StudentDashboard() {
               <div className="space-y-1 pt-2">
                 <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-success)] rounded-full transition-all duration-500"
                     style={{ width: `${student.readinessPercentage}%` }}
                   />
                 </div>
@@ -114,11 +114,11 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            <div className="p-7 md:col-span-3 flex flex-col justify-between space-y-4">
+            <div className="p-5 md:col-span-3 flex flex-col justify-between space-y-3.5">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 ring-1 ring-indigo-400/20 uppercase tracking-wider">
-                    <Zap className="h-3 w-3 text-indigo-500" /> Priority Insight
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border border-[var(--color-border-primary)] ring-1 ring-[var(--color-accent)]/20 uppercase tracking-wider">
+                    <Zap className="h-3 w-3 text-[var(--color-accent)]" /> Priority Insight
                   </span>
                 </div>
                 <h4 className="text-lg font-bold text-slate-900 tracking-tight mb-1.5">
@@ -131,7 +131,7 @@ export default function StudentDashboard() {
 
               <div className="pt-2 flex flex-wrap items-center gap-3">
                 <Link href="/student/assessment">
-                  <Button className="rounded-xl h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                  <Button className="rounded-xl h-10 px-5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                     Take Skill Assessment <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                   </Button>
                 </Link>
@@ -146,26 +146,26 @@ export default function StudentDashboard() {
         </div>
 
         {/* Main Grid: Skills Breakdown & Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 sm:p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+        <div className="grid md:grid-cols-3 gap-5">
+          <div className="md:col-span-2 space-y-5">
+            <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] p-5 shadow-[var(--shadow-soft)] transition-all duration-200">
               <div className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 mb-5">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 tracking-tight">Skill Benchmark Breakdown</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Verified capability versus target career requirements</p>
                 </div>
                 <Link href="/student/passport">
-                  <Button variant="ghost" size="sm" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg">
+                  <Button variant="ghost" size="sm" className="text-xs font-semibold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)] rounded-lg">
                     View in Passport <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                   </Button>
                 </Link>
               </div>
               <div className="space-y-3.5">
                 {student.skills.map((skill) => (
-                  <div key={skill.id} className="group p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-indigo-200/80 hover:shadow-sm transition-all duration-200">
+                  <div key={skill.id} className="group p-3.5 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-white hover:border-[var(--color-accent)]/40 transition-all duration-150">
                     <div className="flex justify-between items-center text-sm mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 group-hover:text-indigo-950 transition-colors">{skill.name}</span>
+                        <span className="font-bold text-slate-900 group-hover:text-[var(--color-foreground)] transition-colors">{skill.name}</span>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 shadow-2xs">
                           {skill.verificationLabel}
                         </span>
@@ -177,7 +177,7 @@ export default function StudentDashboard() {
                     <div className="h-1.5 rounded-full bg-slate-200/70 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          skill.gap === 0 ? 'bg-emerald-500' : 'bg-indigo-500'
+                          skill.gap === 0 ? 'bg-emerald-500' : 'bg-[var(--color-accent)]'
                         }`}
                         style={{ width: `${Math.min(100, (skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100)}%` }}
                       />
@@ -194,31 +194,31 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+          <div className="space-y-5">
+            <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] p-5 shadow-[var(--shadow-soft)] transition-all duration-200">
               <h3 className="text-base font-bold text-slate-900 tracking-tight pb-3 mb-4 border-b border-slate-100">
                 Quick Intelligence Links
               </h3>
               <div className="space-y-2.5">
                 <Link
                   href="/student/assessment"
-                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-indigo-50/40 hover:border-indigo-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                  className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-[var(--color-surface-secondary)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center shadow-xs">
+                    <div className="h-9 w-9 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center shadow-xs">
                       <FileText className="h-4 w-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">Take Assessment</div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-[var(--color-accent)] transition-colors">Take Assessment</div>
                       <div className="text-[10px] text-slate-500">MCQ, Practical & Evidence</div>
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-[var(--color-accent)] group-hover:translate-x-0.5 transition-all" />
                 </Link>
 
                 <Link
                   href="/student/skill-gap"
-                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-amber-50/40 hover:border-amber-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                  className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-amber-50/40 hover:border-amber-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shadow-xs">
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
 
                 <Link
                   href="/student/passport"
-                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                  className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center shadow-xs">
@@ -249,20 +249,21 @@ export default function StudentDashboard() {
                 </Link>
 
                 <Link
-                  href="/student/ai-coach"
-                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-sky-50/40 hover:border-sky-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                  href="/student/career-navigator"
+                  className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-[var(--color-surface-secondary)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-sky-100/80 text-sky-600 flex items-center justify-center shadow-xs">
-                      <Bot className="h-4 w-4" />
+                    <div className="h-9 w-9 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center shadow-xs">
+                      <Compass className="h-4 w-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">AI Skill Coach</div>
-                      <div className="text-[10px] text-slate-500">Custom learning pathways</div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-[var(--color-accent)] transition-colors">Career Navigator</div>
+                      <div className="text-[10px] text-slate-500">Compare paths & market demand</div>
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-[var(--color-accent)] group-hover:translate-x-0.5 transition-all" />
                 </Link>
+
               </div>
             </div>
           </div>
@@ -286,8 +287,8 @@ export default function StudentDashboard() {
   // Real User State: 1. No career target chosen
   if (!readiness || !readiness.careerName) {
     return (
-      <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
-        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="relative space-y-5 animate-in fade-in duration-500 pb-8">
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Welcome, {studentName}
@@ -299,7 +300,7 @@ export default function StudentDashboard() {
 
         <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-10 sm:p-12 text-center shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300">
           <div className="max-w-md mx-auto space-y-5">
-            <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+            <div className="h-16 w-16 rounded-2xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent)] flex items-center justify-center mx-auto shadow-sm">
               <Target className="h-8 w-8" />
             </div>
             <div>
@@ -310,7 +311,7 @@ export default function StudentDashboard() {
             </div>
             <div className="pt-2">
               <Link href="/student/career">
-                <Button className="rounded-xl px-7 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                <Button className="rounded-xl px-7 h-11 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                   Select Target Career <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -326,8 +327,8 @@ export default function StudentDashboard() {
 
   if (!hasCompletedAnyAssessment) {
     return (
-      <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
-        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="relative space-y-5 animate-in fade-in duration-500 pb-8">
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -339,17 +340,17 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-7 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] p-5 shadow-[var(--shadow-soft)] transition-all duration-200">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
             <div className="space-y-1.5">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Career Target</span>
               <h3 className="text-xl font-black text-slate-900 tracking-tight">{readiness.careerName}</h3>
               <p className="text-xs text-slate-500 font-medium">
-                Career Readiness: <span className="text-indigo-600 font-bold">Complete an assessment to calculate your verified score</span>
+                Career Readiness: <span className="text-[var(--color-accent)] font-bold">Complete an assessment to calculate your verified score</span>
               </p>
             </div>
             <Link href="/student/assessment">
-              <Button className="rounded-xl px-6 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+              <Button className="rounded-xl px-6 h-11 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                 Start Knowledge Assessment <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -357,7 +358,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Skill Benchmarks with Not Assessed status */}
-        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)]">
+        <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] p-5 shadow-[var(--shadow-soft)]">
           <div className="pb-4 border-b border-slate-100 mb-5">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Required Career Benchmarks</h2>
             <p className="text-xs text-slate-500 mt-0.5">Skills required for {readiness.careerName}. Complete assessments to verify your score.</p>
@@ -372,7 +373,7 @@ export default function StudentDashboard() {
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-400 italic">Not assessed</span>
                   <Link href="/student/assessment">
-                    <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg border-slate-200 hover:bg-indigo-50 hover:text-indigo-600">
+                    <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg border-slate-200 hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)]">
                       Assess
                     </Button>
                   </Link>
@@ -389,9 +390,9 @@ export default function StudentDashboard() {
   const d = readiness
 
   return (
-    <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
+    <div className="relative space-y-5 animate-in fade-in duration-500 pb-8">
       {/* Ambient background glow orbs */}
-      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
       <div className="absolute top-[450px] -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
 
       {/* Dashboard Header */}
@@ -414,9 +415,9 @@ export default function StudentDashboard() {
       />
 
       {/* Top Area: Floating Readiness Hero Card */}
-      <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_-10px_rgba(15,23,42,0.1)] transition-all duration-300 overflow-hidden">
+      <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-hover)] transition-all duration-200 overflow-hidden">
         <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-          <div className="p-7 md:col-span-1 bg-gradient-to-br from-slate-50/90 via-indigo-50/20 to-white flex flex-col justify-between">
+          <div className="p-5 md:col-span-1 bg-gradient-to-br from-[#FAF8F3] via-white to-[#F2F7F9] flex flex-col justify-between border-b md:border-b-0 md:border-r border-[var(--color-border-primary)]">
             <div>
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Career Target</span>
               <h3 className="text-xl font-black text-slate-900 tracking-tight mb-5">{d.careerName}</h3>
@@ -432,7 +433,7 @@ export default function StudentDashboard() {
             <div className="space-y-1 pt-2">
               <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-success)] rounded-full transition-all duration-500"
                   style={{ width: `${d.readinessPercentage}%` }}
                 />
               </div>
@@ -440,11 +441,11 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="p-7 md:col-span-3 flex flex-col justify-between space-y-4">
+          <div className="p-5 md:col-span-3 flex flex-col justify-between space-y-3.5">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 ring-1 ring-indigo-400/20 uppercase tracking-wider">
-                  <Zap className="h-3 w-3 text-indigo-500" /> Priority Insight
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border border-[var(--color-border-primary)] ring-1 ring-[var(--color-accent)]/20 uppercase tracking-wider">
+                  <Zap className="h-3 w-3 text-[var(--color-accent)]" /> Priority Insight
                 </span>
               </div>
               <h4 className="text-lg font-bold text-slate-900 tracking-tight mb-1.5">
@@ -457,7 +458,7 @@ export default function StudentDashboard() {
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <Link href="/student/assessment">
-                <Button className="rounded-xl h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                <Button className="rounded-xl h-10 px-5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                   Take Skill Assessment <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                 </Button>
               </Link>
@@ -472,25 +473,25 @@ export default function StudentDashboard() {
       </div>
 
       {/* Main Grid: Skills Breakdown & Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 sm:p-7 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+      <div className="grid md:grid-cols-3 gap-5">
+        <div className="md:col-span-2 space-y-5">
+          <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] p-5 shadow-[var(--shadow-soft)] transition-all duration-200">
             <div className="flex flex-row items-center justify-between pb-4 border-b border-slate-100 mb-5">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 tracking-tight">Skill Benchmark Breakdown</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Verified capability versus target career requirements</p>
               </div>
               <Link href="/student/passport">
-                <Button variant="ghost" size="sm" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg">
+                <Button variant="ghost" size="sm" className="text-xs font-semibold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)] rounded-lg">
                   View in Passport <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                 </Button>
               </Link>
             </div>
             <div className="space-y-3.5">
               {d.skills.map((skill) => (
-                <div key={skill.skillId} className="group p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-indigo-200/80 hover:shadow-sm transition-all duration-200">
+                <div key={skill.skillId} className="group p-3.5 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-white hover:border-[var(--color-accent)]/40 transition-all duration-150">
                   <div className="flex justify-between items-center text-sm mb-2">
-                    <span className="font-bold text-slate-900 group-hover:text-indigo-950 transition-colors">{skill.skillName}</span>
+                    <span className="font-bold text-slate-900 group-hover:text-[var(--color-foreground)] transition-colors">{skill.skillName}</span>
                     <span className="text-xs font-black text-slate-700 font-mono">
                       {skill.isAssessed ? `${skill.currentLevel} / ${skill.requiredLevel}` : `Not assessed (Req: ${skill.requiredLevel})`}
                     </span>
@@ -500,7 +501,7 @@ export default function StudentDashboard() {
                       <div className="h-1.5 rounded-full bg-slate-200/70 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            skill.gap === 0 ? 'bg-emerald-500' : 'bg-indigo-500'
+                            skill.gap === 0 ? 'bg-emerald-500' : 'bg-[var(--color-accent)]'
                           }`}
                           style={{ width: `${Math.min(100, (skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100)}%` }}
                         />
@@ -521,31 +522,31 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:shadow-[0_15px_35px_-10px_rgba(15,23,42,0.09)] transition-all duration-300">
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-white border border-[var(--color-border-primary)] p-5 shadow-[var(--shadow-soft)] transition-all duration-200">
             <h3 className="text-base font-bold text-slate-900 tracking-tight pb-3 mb-4 border-b border-slate-100">
               Quick Intelligence Links
             </h3>
             <div className="space-y-2.5">
               <Link
                 href="/student/assessment"
-                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-indigo-50/40 hover:border-indigo-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-[var(--color-surface-secondary)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center shadow-xs">
+                  <div className="h-9 w-9 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center shadow-xs">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">Take Assessment</div>
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-[var(--color-accent)] transition-colors">Take Assessment</div>
                     <div className="text-[10px] text-slate-500">MCQ, Practical & Evidence</div>
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-[var(--color-accent)] group-hover:translate-x-0.5 transition-all" />
               </Link>
 
               <Link
                 href="/student/skill-gap"
-                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-amber-50/40 hover:border-amber-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-amber-50/40 hover:border-amber-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shadow-xs">
@@ -561,7 +562,7 @@ export default function StudentDashboard() {
 
               <Link
                 href="/student/passport"
-                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center shadow-xs">
@@ -576,20 +577,21 @@ export default function StudentDashboard() {
               </Link>
 
               <Link
-                href="/student/ai-coach"
-                className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:bg-sky-50/40 hover:border-sky-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                href="/student/career-navigator"
+                className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-[var(--color-surface-secondary)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-sky-100/80 text-sky-600 flex items-center justify-center shadow-xs">
-                    <Bot className="h-4 w-4" />
+                  <div className="h-9 w-9 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center shadow-xs">
+                    <Compass className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">AI Skill Coach</div>
-                    <div className="text-[10px] text-slate-500">Custom learning pathways</div>
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-[var(--color-accent)] transition-colors">Career Navigator</div>
+                    <div className="text-[10px] text-slate-500">Compare paths & market demand</div>
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-[var(--color-accent)] group-hover:translate-x-0.5 transition-all" />
               </Link>
+
             </div>
           </div>
         </div>

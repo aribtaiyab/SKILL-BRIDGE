@@ -99,7 +99,21 @@ export const CAREER_BENCHMARK_PROFILES: CareerBenchmarkProfile[] = [
       "CI/CD": { required: 65, weight: 0.20 },
     },
   },
+  {
+    id: "30000000-0000-0000-0000-000000000007",
+    name: "AI / Machine Learning Engineer",
+    slug: "ai-ml",
+    category: "Artificial Intelligence",
+    description: "Designs, trains, and deploys machine learning models, neural networks, and generative AI systems.",
+    skills: {
+      "Python": { required: 85, weight: 0.30 },
+      "Machine Learning Fundamentals": { required: 80, weight: 0.30 },
+      "Statistics & Mathematics": { required: 75, weight: 0.25 },
+      "Model Evaluation & Deployment": { required: 70, weight: 0.15 },
+    },
+  },
 ]
+
 
 export interface ComputedReadiness {
   careerId: string
@@ -222,4 +236,7 @@ export const CANONICAL_SKILLS = [
   { id: '40000000-0000-0000-0000-000000000013', name: 'Security Fundamentals', slug: 'security', category: 'Data & Security' },
   { id: '40000000-0000-0000-0000-000000000014', name: 'System Design', slug: 'system-design', category: 'Backend & APIs' },
   { id: '40000000-0000-0000-0000-000000000015', name: 'JavaScript', slug: 'javascript', category: 'Frontend Basics' },
+  { id: '40000000-0000-0000-0000-000000000016', name: 'Machine Learning Fundamentals', slug: 'machine-learning', category: 'Artificial Intelligence' },
+  { id: '40000000-0000-0000-0000-000000000017', name: 'Statistics & Mathematics', slug: 'statistics-math', category: 'Artificial Intelligence' },
 ]
+

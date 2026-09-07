@@ -223,8 +223,9 @@ export function buildMatchExplanation(
 
   if (result.mainBlocker) {
     nextSteps.push({ action: `Improve ${result.mainBlocker}`, href: '/student/skills' })
-    nextSteps.push({ action: 'Get AI coaching for this opportunity', href: `/student/ai-coach?opportunity=${opportunityId}` })
+    nextSteps.push({ action: 'Compare career readiness with Career Navigator', href: `/student/career-navigator?opportunity=${opportunityId}` })
   }
+
 
   if (pct >= 65) {
     nextSteps.push({ action: 'View Skill Passport', href: '/student/passport' })

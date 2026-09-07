@@ -17,7 +17,7 @@ export async function GET() {
       .eq('id', user.id)
       .single()
 
-    let institutionName = 'Delhi Technological University (DTU)'
+    let institutionName = 'Dr. Akhilesh Das Gupta Institute of Professional Studies'
     let departmentName = 'Computer Science & Engineering'
 
     if (academicianProfile?.institution_id) {

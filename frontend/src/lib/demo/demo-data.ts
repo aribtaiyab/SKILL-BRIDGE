@@ -110,7 +110,7 @@ export const INITIAL_DEMO_STUDENT: DemoStudent = {
   email: 'aarav.mehta@dtu.ac.in',
   avatarInitials: 'AM',
   targetCareer: 'Full Stack Developer',
-  institution: 'Delhi Technological University (DTU)',
+  institution: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
   department: 'Computer Science & Engineering',
   graduationYear: 2026,
   experienceLevel: 'Undergraduate',
@@ -469,7 +469,7 @@ export const INITIAL_DEMO_OPPORTUNITIES: DemoOpportunity[] = [
 // ─── 4. Academician Persona: Faculty Overview ────────────────────────────────
 export const DEMO_ACADEMICIAN_DATA = {
   facultyName: 'Dr. Ananya Sharma',
-  institution: 'Delhi Technological University (DTU)',
+  institution: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
   department: 'Computer Science & Engineering',
   cohortName: 'Class of 2026 — Engineering Cohort',
   totalStudents: 48,
@@ -503,7 +503,7 @@ export const DEMO_ACADEMICIAN_DATA = {
 
 // ─── 5. Institution Persona: Institution Analytics ───────────────────────────
 export const DEMO_INSTITUTION_DATA = {
-  institutionName: 'Delhi Technological University (DTU)',
+  institutionName: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
   totalStudentsEnrolled: 48,
   cohortEvaluated: 41,
   overallReadiness: 68,

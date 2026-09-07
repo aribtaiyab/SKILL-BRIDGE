@@ -215,12 +215,13 @@ export default function ApplicationsPage() {
                             </Link>
                           )}
                           {isActive && opp?.id && (
-                            <Link href={`/student/ai-coach?opportunity=${opp.id}`}>
+                            <Link href={`/student/career-navigator?opportunity=${opp.id}`}>
                               <Button variant="outline" size="sm" className="w-full justify-between text-xs">
                                 <TrendingUp className="mr-1.5 h-3.5 w-3.5" /> Improve Readiness
                               </Button>
                             </Link>
                           )}
+
                         </div>
                       </div>
 

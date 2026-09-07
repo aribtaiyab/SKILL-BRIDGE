@@ -20,8 +20,8 @@ export function Sidebar({ items, basePath = "" }: SidebarProps) {
   const pathname = usePathname()
   const groups = [
     { label: "Overview", items: items.filter(item => item.label === "Dashboard") },
-    { label: "Career", items: items.filter(item => ["Career Target", "Skill Gap", "Opportunities", "Applications"].includes(item.label)) },
-    { label: "Development", items: items.filter(item => ["Assessments", "Skills", "AI Skill Coach", "Progress"].includes(item.label)) },
+    { label: "Career", items: items.filter(item => ["Career Target", "Career Navigator", "Skill Gap", "Opportunities", "Applications"].includes(item.label)) },
+    { label: "Development", items: items.filter(item => ["Assessments", "Assignments & Assessments", "Skills", "Progress"].includes(item.label)) },
     { label: "Profile", items: items.filter(item => item.label === "Skill Passport") },
   ].filter(group => group.items.length > 0)
 
@@ -30,14 +30,14 @@ export function Sidebar({ items, basePath = "" }: SidebarProps) {
       <div className="flex-1 overflow-y-auto px-3 py-5">
         {groups.map((group) => (
           <div key={group.label} className="mb-6 last:mb-0">
-            <p className="eyebrow px-3 pb-2 text-[10px]">{group.label}</p>
+            <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-secondary)]">{group.label}</p>
             <div className="space-y-1">
         {group.items.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link key={item.href} href={item.href} className={cn(
-              "group flex h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-sm font-semibold transition-all",
-              isActive ? "bg-[var(--color-accent-light)] text-[var(--color-accent-hover)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
+              "group flex h-9 w-full items-center rounded-[var(--radius-control)] px-3 text-sm font-semibold transition-all",
+              isActive ? "bg-[var(--color-accent-light)] text-[var(--color-accent)] shadow-xs" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)]"
             )}>
                 {item.icon && <span className="mr-3 text-current">{item.icon}</span>}
                 {item.label}

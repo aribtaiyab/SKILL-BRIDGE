@@ -26,10 +26,19 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   if (!token) {
     // If running in development / test without auth header, check demo header
     if (req.headers['x-demo-mode'] === 'true' && process.env.NODE_ENV !== 'production') {
+      const demoRole = ((req.headers['x-demo-role'] as string) ||
+        (req.baseUrl.includes('academician') || req.baseUrl.includes('academia') ? 'academician' :
+         req.baseUrl.includes('industry') ? 'industry' :
+         req.baseUrl.includes('institution') ? 'institution' : 'student')).toLowerCase()
+
       req.user = {
-        id: 'demo-student-id',
-        email: 'alex.chen@university.edu',
-        role: 'student',
+        id: `demo-${demoRole}-id`,
+        email: `${demoRole}.demo@skillbridge.edu`,
+        role: demoRole,
+        user_metadata: {
+          full_name: demoRole === 'student' ? 'Alex Chen' : demoRole === 'academician' ? 'Dr. Sarah Jenkins' : 'TechCorp Partner',
+          role: demoRole,
+        },
       }
       return next()
     }
@@ -72,6 +81,15 @@ export async function optionalAuth(req: AuthenticatedRequest, res: Response, nex
   }
 
   if (!token) {
+    if (req.headers['x-demo-mode'] === 'true') {
+      const demoRole = ((req.headers['x-demo-role'] as string) || 'student').toLowerCase()
+      req.user = {
+        id: `demo-${demoRole}-id`,
+        email: `${demoRole}.demo@skillbridge.edu`,
+        role: demoRole,
+        user_metadata: { role: demoRole },
+      }
+    }
     return next()
   }
 
@@ -104,8 +122,18 @@ export function requireRole(...allowedRoles: string[]) {
       return
     }
 
-    const userRole = req.user.role || req.user.user_metadata?.role
-    if (userRole && !allowedRoles.includes(userRole) && userRole !== 'admin') {
+    const userRole = (req.user.role || req.user.user_metadata?.role || 'student').toLowerCase()
+    
+    // Check direct match, admin bypass, or aliases (academician <-> faculty, industry <-> recruiter)
+    const normalizedAllowed = allowedRoles.map(r => r.toLowerCase())
+    const isAllowed =
+      userRole === 'admin' ||
+      normalizedAllowed.includes(userRole) ||
+      (normalizedAllowed.includes('academician') && (userRole === 'faculty' || userRole === 'professor' || userRole === 'institution')) ||
+      (normalizedAllowed.includes('industry') && (userRole === 'recruiter' || userRole === 'partner' || userRole === 'employer')) ||
+      (normalizedAllowed.includes('student') && userRole === 'learner')
+
+    if (!isAllowed) {
       res.status(403).json({ success: false, error: `Forbidden: requires ${allowedRoles.join(' or ')} role` })
       return
     }

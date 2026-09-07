@@ -110,7 +110,7 @@ export default function SkillGapPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-9 w-9 animate-spin text-indigo-600" />
+          <Loader2 className="h-9 w-9 animate-spin text-[var(--color-accent)]" />
           <p className="text-sm font-medium text-slate-500">Analyzing skill gap intelligence...</p>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function SkillGapPage() {
   if (!isDemo && (!data || data.allGaps.length === 0)) {
     return (
       <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
-        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Skill Gap Analysis</h1>
           <p className="text-sm font-medium text-slate-500 mt-1">
@@ -140,7 +140,7 @@ export default function SkillGapPage() {
             </p>
             <div className="pt-2">
               <Link href="/student/career">
-                <Button className="rounded-xl px-7 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+                <Button className="rounded-xl px-7 h-11 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all">
                   Choose Career Target <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -158,7 +158,7 @@ export default function SkillGapPage() {
   return (
     <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
       {/* Ambient background glow orbs */}
-      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl pointer-events-none" />
+      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
       <div className="absolute top-[480px] -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
 
       {/* Header */}
@@ -200,9 +200,9 @@ export default function SkillGapPage() {
 
       {/* Floating AI Diagnostic Box */}
       {d?.summary && (
-        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-indigo-100/80 p-6 shadow-[0_10px_30px_-10px_rgba(99,102,241,0.08)] space-y-4">
+        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-[var(--color-border-primary)] p-6 shadow-[0_10px_30px_-10px_rgba(99,102,241,0.08)] space-y-4">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-200/60 text-indigo-600 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent)] flex items-center justify-center">
               <Bot className="h-4 w-4" />
             </div>
             <div>
@@ -210,9 +210,9 @@ export default function SkillGapPage() {
               <p className="text-xs text-slate-500">Benchmark synthesis & prioritized roadmap</p>
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/60">
-            <p className="text-xs text-indigo-950 font-medium leading-relaxed">
-              <strong className="font-bold text-indigo-900">Recommended Action:</strong> {d.summary.recommendedAction}
+          <div className="p-4 rounded-2xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)]">
+            <p className="text-xs text-[var(--color-foreground)] font-medium leading-relaxed">
+              <strong className="font-bold text-[var(--color-foreground)]">Recommended Action:</strong> {d.summary.recommendedAction}
             </p>
           </div>
         </div>
@@ -228,7 +228,7 @@ export default function SkillGapPage() {
           const isCritical = !isUnassessed && gap.status === 'critical'
 
           const cardStyle = isUnassessed
-            ? 'border-violet-200/70 bg-violet-50/20'
+            ? 'border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)]/30'
             : isCritical
             ? 'border-rose-200/70 bg-rose-50/30'
             : isReady
@@ -236,7 +236,7 @@ export default function SkillGapPage() {
             : 'border-amber-200/70 bg-amber-50/30'
 
           const badgeStyle = isUnassessed
-            ? 'bg-violet-50 text-violet-800 border-violet-200/80 ring-1 ring-violet-400/20'
+            ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] border-[var(--color-border-primary)] ring-1 ring-slate-200'
             : isCritical
             ? 'bg-rose-50 text-rose-800 border-rose-200/80 ring-1 ring-rose-400/20'
             : isReady
@@ -254,7 +254,7 @@ export default function SkillGapPage() {
                     <h3 className="font-bold text-base text-slate-900">{gap.skillName}</h3>
                     <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeStyle}`}>
                       {isUnassessed ? (
-                        <Target className="h-3 w-3 text-violet-600" />
+                        <Target className="h-3 w-3 text-[var(--color-accent)]" />
                       ) : isReady ? (
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                       ) : isCritical ? (
@@ -272,12 +272,12 @@ export default function SkillGapPage() {
                 <div className="text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-center">
                   <div className="text-sm font-black text-slate-900 font-mono">
                     {isUnassessed ? (
-                      <span className="text-violet-700 font-semibold">Unassessed</span>
+                      <span className="text-[var(--color-text-secondary)] font-semibold">Unassessed</span>
                     ) : (
                       <>{gap.currentLevel} <span className="text-slate-400 font-normal">/ {gap.requiredLevel}</span></>
                     )}
                   </div>
-                  <span className={`text-xs font-semibold ${isUnassessed ? 'text-violet-600' : gap.gap > 0 ? (isCritical ? 'text-rose-600' : 'text-amber-600') : 'text-emerald-600'}`}>
+                  <span className={`text-xs font-semibold ${isUnassessed ? 'text-[var(--color-accent)]' : gap.gap > 0 ? (isCritical ? 'text-rose-600' : 'text-amber-600') : 'text-emerald-600'}`}>
                     {isUnassessed ? `Target: ${gap.requiredLevel} pts required` : gap.gap > 0 ? `${gap.gap} pts below benchmark` : 'Benchmark satisfied'}
                   </span>
                 </div>
@@ -287,7 +287,7 @@ export default function SkillGapPage() {
                 <div className="h-2 rounded-full bg-slate-200/70 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      isUnassessed ? 'bg-violet-300' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
+                      isUnassessed ? 'bg-slate-300' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
                     }`}
                     style={{ width: `${isUnassessed ? 15 : Math.min(100, (gap.currentLevel / Math.max(gap.requiredLevel, 1)) * 100)}%` }}
                   />
@@ -295,7 +295,7 @@ export default function SkillGapPage() {
                 <div className="flex items-center justify-between text-xs text-slate-600 font-medium pt-1">
                   <span>Recommendation: {gap.recommendation}</span>
                   <Link href="/student/assessment">
-                    <Button size="sm" variant="ghost" className="h-7 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg px-2">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs font-bold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)] rounded-lg px-2">
                       {isUnassessed ? 'Start Initial Assessment →' : 'Verify Skill →'}
                     </Button>
                   </Link>

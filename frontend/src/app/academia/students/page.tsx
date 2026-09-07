@@ -102,7 +102,7 @@ export default function AcademiaStudentsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
               Authorized Directory
             </span>
           </div>
@@ -116,7 +116,7 @@ export default function AcademiaStudentsPage() {
 
         <div className="flex items-center gap-2">
           <Link href="/academia/mentorship">
-            <Button size="sm" className="rounded-xl h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20">
+            <Button size="sm" className="rounded-xl h-9 px-3.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-xs">
               Schedule Mentorship
             </Button>
           </Link>
@@ -163,7 +163,7 @@ export default function AcademiaStudentsPage() {
       {loading ? (
         <div className="flex items-center justify-center min-h-[300px]">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
             <p className="text-xs font-semibold text-slate-500">Filtering authorized students...</p>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function AcademiaStudentsPage() {
                   <tr key={std.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-4 px-5">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="h-9 w-9 rounded-xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent-hover)] flex items-center justify-center font-bold text-xs shrink-0">
                           {std.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                         </div>
                         <div>
@@ -268,7 +268,7 @@ export default function AcademiaStudentsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 rounded-xl text-xs font-bold border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                          className="h-8 rounded-xl text-xs font-bold border-slate-200 hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)]"
                         >
                           View Student Detail <ArrowRight className="ml-1 h-3 w-3" />
                         </Button>

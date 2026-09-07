@@ -534,16 +534,17 @@ export default function OpportunityDetailsPage() {
                   <Bot className="h-5 w-5 text-[var(--color-accent)]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">Ask the AI Coach</p>
+                  <p className="text-sm font-semibold">Ask Career Navigator</p>
                   <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                    Get a personalized preparation plan for this specific opportunity.
+                    Compare your skill fit and get a personalized preparation strategy for this opportunity.
                   </p>
-                  <Link href={`/student/ai-coach?opportunity=${opp.id}`} className="mt-3 block">
+                  <Link href={`/student/career-navigator?opportunity=${opp.id}`} className="mt-3 block">
                     <Button variant="outline" size="sm" className="w-full text-xs">
-                      <TrendingUp className="mr-1.5 h-3.5 w-3.5" /> Get Coaching Plan
+                      <TrendingUp className="mr-1.5 h-3.5 w-3.5" /> Compare Career Fit
                     </Button>
                   </Link>
                 </div>
+
               </div>
             </CardContent>
           </Card>

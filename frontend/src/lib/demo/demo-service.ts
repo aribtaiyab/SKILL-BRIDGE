@@ -181,7 +181,7 @@ export const DEMO_ACADEMICIAN = {
   role: 'academician',
   designation: 'Associate Professor & Faculty Mentor',
   teachingArea: 'Full Stack Development, Web Technologies & Database Systems',
-  institution: 'Delhi Technological University (DTU)',
+  institution: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
   department: 'Computer Science & Engineering',
   experience: '8 Years',
   bio: 'Specializing in distributed web architectures, high-concurrency databases, and curriculum-industry alignment. Actively guiding the Class of 2026.',
@@ -729,7 +729,7 @@ const RAW_SEEDS: RawStudentSeed[] = [
 // ─── 4. Pre-calculated Full Student Profiles ──────────────────────────────────
 export const DEMO_STUDENTS: DemoStudentProfile[] = RAW_SEEDS.map((seed, idx) => {
   const reqs = CAREER_REQUIREMENTS[seed.careerKey] || []
-  
+
   const skills: DemoSkillItem[] = reqs.map(r => {
     const currentLevel = seed.isAssessed ? (seed.scores[r.skillId] || 0) : 0
     const gap = Math.max(0, r.requiredLevel - currentLevel)
@@ -764,10 +764,10 @@ export const DEMO_STUDENTS: DemoStudentProfile[] = RAW_SEEDS.map((seed, idx) => 
 
   const readinessCategory: DemoStudentProfile['readinessCategory'] =
     readiness >= 90 ? 'Highly Ready'
-    : readiness >= 75 ? 'Ready'
-    : readiness >= 60 ? 'Developing'
-    : readiness >= 40 ? 'Early Progress'
-    : 'Not Ready'
+      : readiness >= 75 ? 'Ready'
+        : readiness >= 60 ? 'Developing'
+          : readiness >= 40 ? 'Early Progress'
+            : 'Not Ready'
 
   // Priority Gap
   const criticalGaps = skills.filter(s => s.severity === 'critical')
@@ -789,7 +789,7 @@ export const DEMO_STUDENTS: DemoStudentProfile[] = RAW_SEEDS.map((seed, idx) => 
     location: 'Delhi NCR, India',
     education: 'B.Tech in Computer Science & Engineering',
     graduationYear: 2026,
-    institution: 'Delhi Technological University (DTU)',
+    institution: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
     department: 'Computer Science & Engineering',
     targetCareerId: seed.careerKey,
     targetCareerName: seed.careerTitle,
@@ -1055,7 +1055,7 @@ export const DEMO_WORKSHOPS: DemoWorkshop[] = [
     capacity: 40,
     enrolledCount: 27,
     status: 'scheduled',
-    institutionName: 'Delhi Technological University (DTU)',
+    institutionName: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
     isOwnWorkshop: true,
     createdAt: '2026-08-20T10:00:00Z',
     participantIds: ['demo-std-001', 'demo-std-005', 'demo-std-010', 'demo-std-011', 'demo-std-014', 'demo-std-020'],
@@ -1073,7 +1073,7 @@ export const DEMO_WORKSHOPS: DemoWorkshop[] = [
     capacity: 35,
     enrolledCount: 24,
     status: 'scheduled',
-    institutionName: 'Delhi Technological University (DTU)',
+    institutionName: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
     isOwnWorkshop: true,
     createdAt: '2026-08-22T14:00:00Z',
     participantIds: ['demo-std-003', 'demo-std-008', 'demo-std-015', 'demo-std-019', 'demo-std-024'],
@@ -1091,7 +1091,7 @@ export const DEMO_WORKSHOPS: DemoWorkshop[] = [
     capacity: 45,
     enrolledCount: 38,
     status: 'scheduled',
-    institutionName: 'Delhi Technological University (DTU)',
+    institutionName: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
     isOwnWorkshop: true,
     createdAt: '2026-08-24T12:00:00Z',
     participantIds: ['demo-std-001', 'demo-std-002', 'demo-std-006', 'demo-std-009', 'demo-std-013'],
@@ -1109,7 +1109,7 @@ export const DEMO_WORKSHOPS: DemoWorkshop[] = [
     capacity: 50,
     enrolledCount: 31,
     status: 'scheduled',
-    institutionName: 'Delhi Technological University (DTU)',
+    institutionName: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
     isOwnWorkshop: true,
     createdAt: '2026-08-26T09:30:00Z',
     participantIds: ['demo-std-005', 'demo-std-014', 'demo-std-016', 'demo-std-020', 'demo-std-025'],
@@ -1127,7 +1127,7 @@ export const DEMO_WORKSHOPS: DemoWorkshop[] = [
     capacity: 35,
     enrolledCount: 32,
     status: 'completed',
-    institutionName: 'Delhi Technological University (DTU)',
+    institutionName: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
     isOwnWorkshop: true,
     createdAt: '2026-07-28T10:00:00Z',
     participantIds: ['demo-std-002', 'demo-std-006', 'demo-std-009', 'demo-std-012', 'demo-std-022'],
@@ -1394,7 +1394,7 @@ export const DEMO_NOTIFICATIONS = [
 export const DEMO_MY_EXPERIENCE = {
   facultyName: 'Dr. Ananya Sharma',
   designation: 'Associate Professor & Faculty Mentor',
-  institution: 'Delhi Technological University (DTU)',
+  institution: 'Dr. Akhilesh Das Gupta Institute of Professional Studies',
   department: 'Computer Science & Engineering',
   metrics: {
     studentsMentoredCount: 18,
@@ -1459,7 +1459,7 @@ class DemoDataService {
     const totalStudents = this.students.length // 48
     const assessedStudents = this.students.filter(s => s.isAssessed) // 41
     const studentsAssessed = assessedStudents.length // 41
-    
+
     // Average Cohort Readiness
     const avgCohortReadiness = Math.round(
       assessedStudents.reduce((sum, s) => sum + s.readiness, 0) / Math.max(1, studentsAssessed)
@@ -1691,8 +1691,8 @@ class DemoDataService {
         suggestedAction: avgGap >= 15
           ? `High deficit detected across ${stat.affectedStudentsCount} students. Recommended: Schedule Intensive Workshop.`
           : avgGap > 0
-          ? `Moderate deficit. Recommended: Assign targeted mentorship & practice modules.`
-          : `Benchmark satisfied across cohort.`,
+            ? `Moderate deficit. Recommended: Assign targeted mentorship & practice modules.`
+            : `Benchmark satisfied across cohort.`,
       }
     })
 

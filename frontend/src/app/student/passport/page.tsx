@@ -36,7 +36,7 @@ interface PassportProfile {
 
 const defaultProfile: PassportProfile = {
   name: "Arib Tayab",
-  collegeName: "Delhi Technological University (DTU)",
+  collegeName: "Dr. Akhilesh Das Gupta Institute of Professional Studies",
   department: "Computer Science & Engineering",
   course: "B.Tech in Computer Science",
   year: "2nd Year (4th Semester)",
@@ -134,14 +134,14 @@ export default function SkillPassportView() {
   }, []);
 
   const categories = ['All', 'Backend', 'Database', 'Core CS', 'DevOps & Tools', 'Frontend'];
-  const filteredSkills = activeCategory === 'All' 
-    ? profile.skills 
+  const filteredSkills = activeCategory === 'All'
+    ? profile.skills
     : profile.skills.filter(s => s.category === activeCategory);
 
   const getTierStyle = (tier: SkillItem['verificationLevel']) => {
     switch (tier) {
       case 'Evidence Verified':
-        return 'bg-purple-50 text-purple-700 border-purple-200/80 ring-1 ring-purple-400/20';
+        return 'bg-[#F0F6F9] text-[var(--color-accent-hover)] border-[#A8C9D9]/70 ring-1 ring-[#A8C9D9]/30';
       case 'Practical Verified':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200/80 ring-1 ring-emerald-400/20';
       case 'Assessment Verified':
@@ -153,23 +153,23 @@ export default function SkillPassportView() {
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-      
+
       {/* 1. ANTI-GRAVITY PASSPORT HERO FRAME */}
       <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white/90 backdrop-blur-xl p-6 md:p-8 shadow-[0_15px_35px_-10px_rgba(15,23,42,0.06)]">
-        <div className="absolute top-0 right-0 h-64 w-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 h-64 w-64 bg-[var(--color-accent)]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 h-64 w-64 bg-sky-500/5 rounded-full blur-3xl pointer-events-none" />
 
         {/* Passport Identity Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-6">
           <div className="flex items-center space-x-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-accent)] text-white shadow-xs">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold tracking-widest uppercase text-indigo-600">Official Living Credential</span>
+                <span className="text-[11px] font-bold tracking-widest uppercase text-[var(--color-accent)]">Official Living Credential</span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                   Verified & Active
                 </span>
@@ -186,12 +186,12 @@ export default function SkillPassportView() {
 
         {/* Identity & Metadata Balanced Grid */}
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-          
+
           <div className="lg:col-span-2 space-y-4">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Student Profile</p>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">{profile.name}</h2>
-              <p className="text-sm font-semibold text-indigo-600 mt-0.5">
+              <p className="text-sm font-semibold text-[var(--color-accent)] mt-0.5">
                 {profile.course} • {profile.department}
               </p>
             </div>
@@ -226,8 +226,8 @@ export default function SkillPassportView() {
               <span className="block text-[10px] font-bold tracking-widest uppercase text-emerald-600 mt-0.5">Internship Qualified</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-700"
+              <div
+                className="bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-success)] h-full rounded-full transition-all duration-700"
                 style={{ width: `${profile.readinessScore}%` }}
               />
             </div>
@@ -246,7 +246,7 @@ export default function SkillPassportView() {
             <span className="text-slate-300">→</span>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-semibold">3. Practical Verified</span>
             <span className="text-slate-300">→</span>
-            <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/80 font-semibold">4. Evidence Verified</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#F0F6F9] text-[var(--color-accent-hover)] border border-[#A8C9D9]/70 font-semibold">4. Evidence Verified</span>
           </div>
         </div>
       </div>
@@ -265,11 +265,10 @@ export default function SkillPassportView() {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  activeCategory === cat 
-                    ? 'bg-white text-slate-900 shadow-xs' 
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${activeCategory === cat
+                    ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-500 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 {cat}
               </button>
@@ -279,7 +278,7 @@ export default function SkillPassportView() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredSkills.map((skill, index) => (
-            <div 
+            <div
               key={index}
               className="p-5 rounded-2xl border border-slate-200/70 bg-white hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between"
             >
@@ -300,10 +299,9 @@ export default function SkillPassportView() {
                     <span className="font-mono font-bold text-slate-900">{skill.score} / 100</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        skill.score >= 80 ? 'bg-emerald-500' : skill.score >= 70 ? 'bg-indigo-500' : 'bg-amber-500'
-                      }`}
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${skill.score >= 80 ? 'bg-emerald-500' : skill.score >= 70 ? 'bg-[var(--color-accent)]' : 'bg-amber-500'
+                        }`}
                       style={{ width: `${skill.score}%` }}
                     />
                   </div>
@@ -312,7 +310,7 @@ export default function SkillPassportView() {
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[11px] text-slate-400">
                 <span>Evaluated: {skill.lastEvaluated}</span>
-                <span className="font-bold text-indigo-600 cursor-pointer hover:underline">View Evidence →</span>
+                <span className="font-bold text-[var(--color-accent)] cursor-pointer hover:underline">View Evidence →</span>
               </div>
             </div>
           ))}
@@ -328,7 +326,7 @@ export default function SkillPassportView() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {profile.projects.map((proj, idx) => (
-            <div 
+            <div
               key={idx}
               className="p-5 rounded-2xl border border-slate-200/70 bg-white hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between"
             >
@@ -351,12 +349,12 @@ export default function SkillPassportView() {
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4">
                 {proj.githubUrl && (
-                  <a href={proj.githubUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-700 hover:text-indigo-600 transition">
+                  <a href={proj.githubUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-700 hover:text-[var(--color-accent)] transition">
                     GitHub Code ↗
                   </a>
                 )}
                 {proj.liveUrl && (
-                  <a href={proj.liveUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition">
+                  <a href={proj.liveUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition">
                     Live Demo ↗
                   </a>
                 )}

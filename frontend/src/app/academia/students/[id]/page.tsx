@@ -418,7 +418,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Priority Action</span>
-              <Sparkles className="h-4 w-4 text-purple-500" />
+              <Sparkles className="h-4 w-4 text-[var(--color-accent)]" />
             </div>
             {priorityGap ? (
               <div className="space-y-2">

@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export async function GET() {
   const defaultPassportData = {
     name: "Arib Tayab",
-    collegeName: "Delhi Technological University (DTU)",
+    collegeName: "Dr. Akhilesh Das Gupta Institute of Professional Studies",
     department: "Computer Science & Engineering",
     course: "B.Tech in Computer Science",
     year: "2nd Year (4th Semester)",

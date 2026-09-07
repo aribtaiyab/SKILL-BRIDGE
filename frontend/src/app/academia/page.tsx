@@ -82,7 +82,7 @@ export default function AcademiaDashboardPage() {
     return (
       <div className="flex items-center justify-center min-h-[420px]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-9 w-9 animate-spin text-indigo-600" />
+          <Loader2 className="h-9 w-9 animate-spin text-[var(--color-accent)]" />
           <p className="text-xs font-semibold text-slate-500">Synthesizing cohort skill intelligence...</p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function AcademiaDashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
               Institutional Intelligence
             </span>
             {isDemo && (
@@ -123,7 +123,7 @@ export default function AcademiaDashboardPage() {
 
         <div className="flex items-center gap-2.5">
           <Link href="/academia/workshops">
-            <Button size="sm" className="rounded-xl h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20">
+            <Button size="sm" className="rounded-xl h-9 px-3.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-xs">
               <Plus className="h-3.5 w-3.5 mr-1" /> New Workshop
             </Button>
           </Link>
@@ -142,7 +142,7 @@ export default function AcademiaDashboardPage() {
         <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:-translate-y-1 transition-all">
           <div className="flex justify-between items-center">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Cohort Coverage</span>
-            <div className="h-8 w-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)] flex items-center justify-center">
               <Users className="h-4 w-4" />
             </div>
           </div>
@@ -256,10 +256,10 @@ export default function AcademiaDashboardPage() {
               <p className="text-[11px] text-emerald-600 font-medium">Meets corporate bar</p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-200/60">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">Highly Ready (85%+)</span>
-              <p className="text-2xl font-black text-purple-800 mt-1">{distribution?.highlyReady || 0}</p>
-              <p className="text-[11px] text-purple-600 font-medium">Exceeds benchmarks</p>
+            <div className="p-3.5 rounded-2xl bg-[#F0F6F9] border border-[#A8C9D9]/50">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)]">Highly Ready (85%+)</span>
+              <p className="text-2xl font-black text-[var(--color-foreground)] mt-1">{distribution?.highlyReady || 0}</p>
+              <p className="text-[11px] text-[var(--color-accent)] font-medium">Exceeds benchmarks</p>
             </div>
           </div>
         )}
@@ -267,26 +267,26 @@ export default function AcademiaDashboardPage() {
 
       {/* 4. QUESTION 3: WHAT ACTION SHOULD I TAKE? (PRIORITY ACTION CARD) */}
       {priorityAction && (
-        <div className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white p-7 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 h-48 w-48 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="rounded-3xl bg-gradient-to-br from-[#203629] via-[#1A2D22] to-[#141F1A] text-white p-7 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 h-48 w-48 bg-[var(--color-accent)]/20 rounded-full blur-2xl pointer-events-none" />
           <div className="relative z-10 space-y-2 max-w-2xl">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
                 Automated Priority Diagnosis
               </span>
-              <span className="text-xs text-indigo-300">Highest Cohort Impact</span>
+              <span className="text-xs text-[#D4E8DC]">Highest Cohort Impact</span>
             </div>
             <h3 className="text-xl font-bold tracking-tight text-white">
               {priorityAction.recommendation}
             </h3>
-            <p className="text-xs text-indigo-200 leading-relaxed font-medium">
+            <p className="text-xs text-[#B8DEC7] leading-relaxed font-medium">
               SkillBridge gap engine identified {priorityAction.affectedCount} students bottlenecked by {priorityAction.skillName}. Resolving this deficit unlocks immediate placement eligibility.
             </p>
           </div>
 
           <div className="relative z-10 flex items-center gap-3 shrink-0">
             <Link href="/academia/workshops">
-              <Button className="rounded-xl h-10 px-5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-500/30">
+              <Button className="rounded-xl h-10 px-5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs shadow-sm">
                 Create {priorityAction.skillName} Workshop →
               </Button>
             </Link>
@@ -310,7 +310,7 @@ export default function AcademiaDashboardPage() {
               <p className="text-xs text-slate-500">Skills with largest measured deficit across authorized students</p>
             </div>
             <Link href="/academia/skill-gaps">
-              <Button variant="ghost" size="sm" className="text-xs font-bold text-indigo-600 hover:bg-indigo-50">
+              <Button variant="ghost" size="sm" className="text-xs font-bold text-[var(--color-accent)] hover:bg-[var(--color-accent-light)]">
                 Full Gap Engine →
               </Button>
             </Link>

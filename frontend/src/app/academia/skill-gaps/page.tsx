@@ -184,7 +184,7 @@ export default function AcademiaSkillGapsPage() {
           </Link>
           <Link href="/academia/interventions">
             <Button variant="outline" className="text-xs flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+              <Sparkles className="h-3.5 w-3.5 text-[var(--color-accent)]" />
               Intervention Hub
             </Button>
           </Link>

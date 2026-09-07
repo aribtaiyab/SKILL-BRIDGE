@@ -27,7 +27,7 @@ export default function DemoLandingPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)]">
       {/* Background radial glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-[var(--color-accent)]/10 via-[var(--color-accent-pink)]/5 to-transparent blur-3xl pointer-events-none" />
 
       <main className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 space-y-16">
         {/* Hero Section */}
@@ -39,7 +39,7 @@ export default function DemoLandingPage() {
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
             Explore SkillBridge Connect <br />
-            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[var(--color-accent)] via-[#4A7C59] to-[#E8B4B8] bg-clip-text text-transparent">
               In Full Interactive Demo Mode
             </span>
           </h1>
@@ -141,20 +141,20 @@ export default function DemoLandingPage() {
             </div>
 
             {/* Persona 2: Student */}
-            <div className="rounded-[var(--radius-card)] bg-[var(--color-surface-card)] border border-[var(--color-border-primary)] hover:border-indigo-500/50 shadow-sm p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
+            <div className="rounded-[var(--radius-card)] bg-[var(--color-surface-card)] border border-[var(--color-border-primary)] hover:border-[var(--color-accent)]/50 shadow-sm p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold">
+                  <div className="h-10 w-10 rounded-xl bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center font-bold">
                     <GraduationCap className="h-5 w-5" />
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/20">
                     Student Persona
                   </span>
                 </div>
 
                 <div>
                   <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Student Skill Passport</h3>
-                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                  <p className="text-xs font-semibold text-[var(--color-accent)] mt-0.5">
                     Aarav Mehta &bull; Full Stack Developer Track
                   </p>
                 </div>
@@ -170,7 +170,7 @@ export default function DemoLandingPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Overall Readiness:</span>
-                    <strong className="text-indigo-600 font-mono">72% (Developing)</strong>
+                    <strong className="text-[var(--color-accent)] font-mono">72% (Developing)</strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Priority Blocker:</span>
@@ -186,7 +186,7 @@ export default function DemoLandingPage() {
               <div className="pt-6">
                 <Button
                   onClick={() => enterDemo('student')}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
+                  className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
                 >
                   Launch Student Demo
                   <ArrowRight className="h-3.5 w-3.5" />
