@@ -5,6 +5,8 @@ import { calculateOverallReadiness, calculateGap, classifyGap, evaluateCareerRea
 import { startAssessment, submitAssessment, FALLBACK_QUESTIONS } from '../intelligence/assessment.js'
 import { CAREER_BENCHMARK_PROFILES, findCareerBenchmark } from '../intelligence/benchmarks.js'
 import { ENV } from '../config/env.js'
+import { AI_CONFIG } from '../ai/config.js'
+import { GeminiService } from '../services/ai/gemini.service.js'
 
 export async function getStudentProfile(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
@@ -460,7 +462,8 @@ export async function getStudentReadiness(req: AuthenticatedRequest, res: Respon
 
 export async function getCareerBenchmark(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const careerId = req.params.careerId || req.params.id || (req.query.career_id as string)
+    const rawId = req.params.careerId || req.params.id || req.query.career_id
+    const careerId = Array.isArray(rawId) ? String(rawId[0]) : String(rawId || '')
     if (!careerId) {
       return res.status(400).json({ success: false, error: 'Career ID or slug is required' })
     }
@@ -1328,8 +1331,14 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
 
     const supabase = getSupabaseAdmin()
     let persisted = false
+    const isDemoMode =
+      req.headers['x-demo-mode'] === 'true' ||
+      (typeof user.id === 'string' && user.id.startsWith('demo-'))
 
-    if (supabase) {
+    // Demo mode is intentionally read-only: never write demo records to the
+    // production database. The response still succeeds but states persistence=false
+    // so the UI can label the outcome honestly.
+    if (!isDemoMode && supabase) {
       const rows = ratings.map((r: { skill_id: string; self_rating_label: SelfRatingLabel }) => ({
         student_id: user.id,
         career_target_id,
@@ -1342,10 +1351,16 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
         .from('student_self_ratings')
         .upsert(rows, { onConflict: 'student_id,career_target_id,skill_id' })
 
-      if (!error) persisted = true
+      if (error) {
+        return res.status(502).json({
+          success: false,
+          error: `Could not persist self-ratings: ${error.message}`,
+        })
+      }
+      persisted = true
     }
 
-    // ─── Groq API Integration for Self-Rating Narrative Analysis (Task 2) ───
+    // ─── Gemini AI Integration for Self-Rating Narrative Analysis ───
     const career = findCareerBenchmark(career_target_id)
     const careerTitle = career?.name || 'Target Career Track'
     const ratingDescriptions = ratings.map((r: { skill_id: string; self_rating_label: string }) => {
@@ -1356,55 +1371,21 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
       return `${skillName}: ${r.self_rating_label.replace('_', ' ')}`
     }).join(', ')
 
-    let insightText = ''
-    const apiKey = ENV.GROQ_API_KEY
-    const modelName = ENV.GROQ_MODEL || 'openai/gpt-oss-120b'
-    const baseUrl = ENV.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'
-
-    if (apiKey) {
+    let insightText = 'Insight generation temporarily unavailable'
+    if (AI_CONFIG.isLiveProviderConfigured()) {
       try {
-        console.log(`[Groq AI] Calling Groq chat completions for self-ratings on career '${careerTitle}' using model '${modelName}'...`)
-        const promptText = `Student's target career: ${careerTitle}.\nStudent's self-declared skill confidence levels: ${ratingDescriptions}.\n\nProvide a concise 2-3 sentence narrative summarizing their self-declared strengths and growth areas for this role. Do NOT mention numerical test scores, point calculations, or readiness percentages.`
-
-        const groqResponse = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a career development mentor for SkillBridge Connect. Give a concise, encouraging 2-sentence narrative summary of the student\'s self-declared baseline profile relative to their target role. Do NOT generate or calculate numerical scores or percentages.'
-              },
-              { role: 'user', content: promptText }
-            ],
-            temperature: 0.4,
-            max_tokens: 250,
-          }),
-          signal: AbortSignal.timeout(10000),
+        const promptText = `Student's target career: ${careerTitle}.\nStudent's self-declared skill confidence levels: ${ratingDescriptions}.\n\nProvide a concise 2-sentence narrative summarizing their self-declared baseline relative to their target role. Do NOT mention numerical test scores, point calculations, or readiness percentages.`
+        const result = await GeminiService.generateText({
+          systemInstruction: 'You are a career development mentor for SkillBridge Connect. Give a concise, encouraging 2-sentence narrative summary of the student\'s self-declared baseline profile relative to their target role. Do NOT generate or calculate numerical scores or percentages.',
+          userPrompt: promptText,
+          temperature: 0.3,
         })
-
-        console.log(`[Groq AI] Groq HTTP response status: ${groqResponse.status}`)
-        if (!groqResponse.ok) {
-          const errBody = await groqResponse.text()
-          console.error('[Groq AI] Groq API error body:', groqResponse.status, errBody)
-          throw new Error('AI insight generation failed')
+        if (result) {
+          insightText = result
         }
-
-        const data: any = await groqResponse.json()
-        insightText = data.choices?.[0]?.message?.content?.trim() || ''
-        console.log('[Groq AI] Raw Groq generated response content:', insightText)
-        if (!insightText) throw new Error('Groq returned no content')
       } catch (err) {
-        console.warn('[Groq AI] Error in Groq call, using safe fallback:', err)
-        insightText = 'Insight generation temporarily unavailable'
+        console.warn('[Gemini AI] Error in self-rating insight call:', err)
       }
-    } else {
-      console.warn('[Groq AI] GROQ_API_KEY is not set, using fallback message')
-      insightText = 'Insight generation temporarily unavailable'
     }
 
     res.status(200).json({

@@ -27,6 +27,7 @@ export interface EvaluatedSkillGap {
   importance: string
   priorityScore: number
   isAssessed: boolean
+  verificationStatus?: string
   recommendation: string
 }
 
@@ -236,6 +237,7 @@ export function evaluateCareerReadiness(
       importance: req.importance,
       priorityScore,
       isAssessed,
+      verificationStatus: studentSkill?.verificationStatus || (studentSkill ? 'self_declared' : 'not_assessed'),
       recommendation,
     }
   })

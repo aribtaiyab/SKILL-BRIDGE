@@ -61,10 +61,7 @@ export async function getCareerReadinessDiagnosis(
   // 1. Calculate deterministic fallback values first
   const fallbackResult = calculateRuleBasedReadiness(targetRole, studentScores, benchmark)
 
-  const apiKey =
-    process.env.GEMINI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.GROQ_API_KEY
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim()
 
   if (!apiKey) {
     return fallbackResult
@@ -72,7 +69,7 @@ export async function getCareerReadinessDiagnosis(
 
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 7500) // 7.5s timeout for Vercel
+    const timeout = setTimeout(() => controller.abort(), 7500)
 
     const prompt = `You are the SkillBridge Diagnostic AI.
 Target Role: ${targetRole}
@@ -89,20 +86,21 @@ Respond ONLY with valid JSON having this exact structure:
   "recommendedTask": "${fallbackResult.recommendedTask}"
 }`
 
-    const baseUrl = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1"
-    const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
+    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash'
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        response_format: { type: "json_object" },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 1024,
+          responseMimeType: "application/json",
+        },
       }),
       signal: controller.signal,
     })
@@ -114,7 +112,7 @@ Respond ONLY with valid JSON having this exact structure:
     }
 
     const data: any = await response.json()
-    const content = data.choices?.[0]?.message?.content
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (content) {
       const parsed = JSON.parse(content.replace(/```json|```/g, "").trim())
       return {

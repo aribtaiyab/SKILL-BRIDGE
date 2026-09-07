@@ -1,11 +1,12 @@
 /**
- * Career Navigator - Secure Groq AI Service
+ * Career Navigator - Secure Google Gemini AI Service
  *
- * Calls Groq API (openai/gpt-oss-120b) with authoritative deterministic context.
+ * Calls Google Gemini API (gemini-2.5-flash) with authoritative deterministic context.
  * Performs strict Zod schema validation.
  * Includes prompt injection defense and deterministic fallback.
  */
 
+import { GoogleGenAI } from '@google/genai'
 import { AI_CONFIG } from '@/lib/ai/config'
 import {
   CareerNavigatorAIOutput,
@@ -151,7 +152,7 @@ export class CareerNavigatorAIService {
     calcResult: CareerComparisonResult,
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
   ): Promise<CareerNavigatorAIOutput> {
-    // 1. If Groq is not configured or fails, use deterministic explanation
+    // 1. If Gemini is not configured or fails, use deterministic explanation
     if (!AI_CONFIG.isLiveProviderConfigured()) {
       return this.buildDeterministicExplanation(query, intent, studentContext, calcResult)
     }
@@ -212,37 +213,71 @@ REQUIRED JSON OUTPUT FORMAT:
       // Sanitize user query against prompt injection
       const sanitizedQuery = query.replace(/[<>{}[\]\\]/g, ' ').slice(0, 500)
 
-      const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AI_CONFIG.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: AI_CONFIG.model,
-          temperature: 0.2, // Low temperature for factual precision
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...conversationHistory.slice(-3),
-            { role: 'user', content: sanitizedQuery },
-          ],
-        }),
-        signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
+      const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+
+      // Map conversation history
+      conversationHistory.slice(-4).forEach(msg => {
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
+        })
       })
 
-      if (!response.ok) {
-        throw new Error(`Groq API returned HTTP ${response.status}`)
+      contents.push({
+        role: 'user',
+        parts: [{ text: sanitizedQuery }],
+      })
+
+      const ai = new GoogleGenAI({ apiKey: AI_CONFIG.apiKey })
+      let targetModel = AI_CONFIG.model
+      let parsed: any = null
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: targetModel,
+            contents,
+            config: {
+              systemInstruction: systemPrompt,
+              temperature: 0.2,
+              maxOutputTokens: 2048,
+              responseMimeType: 'application/json',
+            },
+          })
+
+          const content = response.text?.trim() || '{}'
+          const cleanJson = content.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim()
+          parsed = JSON.parse(cleanJson)
+          break
+        } catch (callErr: any) {
+          const raw = callErr?.message || ''
+          const status = callErr?.status || callErr?.statusCode || 0
+          const isDailyQuota = raw.includes('PerDay') || raw.includes('quota') || status === 429
+          const isModelRetired = status === 404 || raw.includes('no longer available') || raw.includes('is not found')
+
+          if (isDailyQuota) {
+            console.warn('[CareerNavigator] Gemini daily quota limit reached. Falling back to deterministic engine.')
+            break
+          }
+
+          if (isModelRetired && targetModel !== 'gemini-3.5-flash' && attempt === 1) {
+            console.log('[CareerNavigator] Switching model to "gemini-3.5-flash" and retrying once...')
+            targetModel = 'gemini-3.5-flash'
+            continue
+          }
+
+          console.warn('[CareerNavigator] Gemini AI call failed, falling back to deterministic explanation:', raw.slice(0, 150))
+          break
+        }
       }
 
-      const raw = await response.json()
-      const content = raw.choices?.[0]?.message?.content || '{}'
-      const parsed = JSON.parse(content)
-
-      // Validate against strict Zod schema
-      return CareerNavigatorOutputSchema.parse(parsed)
-    } catch (err) {
-      console.warn('[CareerNavigator] Groq AI call failed, falling back to deterministic explanation:', err)
+      if (parsed) {
+        // Validate against strict Zod schema
+        return CareerNavigatorOutputSchema.parse(parsed)
+      }
+      return this.buildDeterministicExplanation(query, intent, studentContext, calcResult)
+    } catch (err: any) {
+      console.warn('[CareerNavigator] Error in explanation processing, using safe deterministic fallback:', err?.message || err)
       return this.buildDeterministicExplanation(query, intent, studentContext, calcResult)
     }
   }

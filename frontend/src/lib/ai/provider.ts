@@ -503,10 +503,39 @@ export class DeterministicSkillBridgeAIProvider implements AIProvider {
 
 /**
  * Live OpenAI/Compatible API Provider
- * Falls back to DeterministicSkillBridgeAIProvider if key missing or request fails.
+* Falls back to DeterministicSkillBridgeAIProvider if key missing or request fails.
  */
 export class LiveAPIProvider implements AIProvider {
   private fallback = new DeterministicSkillBridgeAIProvider()
+
+  private async callGemini(systemPrompt: string, userPrompt: string): Promise<any> {
+    const apiKey = AI_CONFIG.apiKey
+    if (!apiKey) return null
+    const url = `${AI_CONFIG.baseUrl}/models/${AI_CONFIG.model}:generateContent?key=${apiKey}`
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            temperature: AI_CONFIG.temperature,
+            maxOutputTokens: AI_CONFIG.maxTokens,
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
+      })
+      if (!response.ok) return null
+      const data = (await response.json()) as any
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+      if (!text) return null
+      return JSON.parse(text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim())
+    } catch {
+      return null
+    }
+  }
 
   async diagnose(context: StudentAIContext, skillName: string): Promise<DiagnosticOutput> {
     if (!AI_CONFIG.isLiveProviderConfigured()) {
@@ -519,20 +548,7 @@ export class LiveAPIProvider implements AIProvider {
     const gap = Math.max(targetScore - currentScore, 0)
 
     try {
-      const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AI_CONFIG.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: AI_CONFIG.model,
-          temperature: AI_CONFIG.temperature,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: `${getDiagnosticSystemPrompt(context, skillName)}\n\nRespond ONLY with a JSON object with this exact shape:\n{
+      const systemPrompt = `${getDiagnosticSystemPrompt(context, skillName)}\n\nRespond ONLY with a JSON object with this exact shape:\n{
   "skill": "${skillName}",
   "currentScore": ${currentScore},
   "targetScore": ${targetScore},
@@ -545,22 +561,13 @@ export class LiveAPIProvider implements AIProvider {
   "recommendedSequence": ["step 1", "step 2"],
   "nextAction": { "title": "action title", "estimatedMinutes": 30, "actionType": "practice", "description": "action description" },
   "confidence": "high"
-}`,
-            },
-            {
-              role: 'user',
-              content: JSON.stringify({ context: formatSkillBridgeContext(context), requestedSkill: skillName }),
-            },
-          ],
-        }),
-        signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
-      })
-
-      if (!response.ok) throw new Error(`AI Provider returned HTTP ${response.status}`)
-      const data = await response.json()
-      const content = data.choices?.[0]?.message?.content || '{}'
-      const parsed = JSON.parse(content.replace(/```json|```/g, '').trim())
-      return DiagnosticOutputSchema.parse(parsed)
+}`
+      const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), requestedSkill: skillName })
+      const parsed = await this.callGemini(systemPrompt, userPrompt)
+      if (parsed) {
+        return DiagnosticOutputSchema.parse(parsed)
+      }
+      return this.fallback.diagnose(context, skillName)
     } catch (err) {
       console.warn('Live AI diagnose failed, using deterministic fallback:', err)
       return this.fallback.diagnose(context, skillName)
@@ -578,20 +585,7 @@ export class LiveAPIProvider implements AIProvider {
     const gap = Math.max(targetScore - initialScore, 0)
 
     try {
-      const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AI_CONFIG.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: AI_CONFIG.model,
-          temperature: AI_CONFIG.temperature,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: `${getLearningPlanSystemPrompt(context, skillName)}\n\nRespond ONLY with a JSON object with this exact shape:\n{
+      const systemPrompt = `${getLearningPlanSystemPrompt(context, skillName)}\n\nRespond ONLY with a JSON object with this exact shape:\n{
   "skill": "${skillName}",
   "initialScore": ${initialScore},
   "targetScore": ${targetScore},
@@ -605,22 +599,13 @@ export class LiveAPIProvider implements AIProvider {
     { "stepNumber": 5, "title": "Step 5", "description": "Desc", "stepType": "reassess", "durationMinutes": 30, "actionableTask": "Task", "milestone": "Milestone" }
   ],
   "milestones": ["Milestone 1", "Milestone 2"]
-}`,
-            },
-            {
-              role: 'user',
-              content: JSON.stringify({ context: formatSkillBridgeContext(context), skillName }),
-            },
-          ],
-        }),
-        signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
-      })
-
-      if (!response.ok) throw new Error(`AI Provider returned HTTP ${response.status}`)
-      const data = await response.json()
-      const content = data.choices?.[0]?.message?.content || '{}'
-      const parsed = JSON.parse(content.replace(/```json|```/g, '').trim())
-      return LearningPlanSchema.parse(parsed)
+}`
+      const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), skillName })
+      const parsed = await this.callGemini(systemPrompt, userPrompt)
+      if (parsed) {
+        return LearningPlanSchema.parse(parsed)
+      }
+      return this.fallback.createLearningPlan(context, skillName)
     } catch (err) {
       console.warn('Live AI createLearningPlan failed, using deterministic fallback:', err)
       return this.fallback.createLearningPlan(context, skillName)
@@ -655,30 +640,35 @@ export class LiveAPIProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
+      const apiKey = AI_CONFIG.apiKey
+      const url = `${AI_CONFIG.baseUrl}/models/${AI_CONFIG.model}:generateContent?key=${apiKey}`
+      const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+
+      history.slice(-4).forEach(h => {
+        contents.push({
+          role: h.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: h.content }],
+        })
+      })
+      contents.push({ role: 'user', parts: [{ text: message }] })
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AI_CONFIG.apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: AI_CONFIG.model,
-          temperature: AI_CONFIG.temperature,
-          messages: [
-            {
-              role: 'system',
-              content: getCoachChatSystemPrompt(context),
-            },
-            ...history.slice(-4).map(h => ({ role: h.role, content: h.content })),
-            { role: 'user', content: message },
-          ],
+          systemInstruction: { parts: [{ text: getCoachChatSystemPrompt(context) }] },
+          contents,
+          generationConfig: {
+            temperature: AI_CONFIG.temperature,
+            maxOutputTokens: 1024,
+          },
         }),
         signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
       })
 
-      if (!response.ok) throw new Error(`AI Provider returned HTTP ${response.status}`)
-      const data = await response.json()
-      const reply = data.choices?.[0]?.message?.content || 'I am ready to help you improve your skills.'
+      if (!response.ok) throw new Error(`Gemini returned HTTP ${response.status}`)
+      const data = (await response.json()) as any
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'I am ready to help you improve your skills.'
       return {
         reply,
         suggestedQuestions: [

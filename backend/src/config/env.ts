@@ -1,5 +1,30 @@
 import dotenv from 'dotenv'
-dotenv.config()
+import fs from 'fs'
+import path from 'path'
+
+function loadProjectEnv() {
+  const candidates = new Set<string>()
+  const cwd = process.cwd()
+
+  for (const dir of [cwd, path.resolve(cwd, '..')]) {
+    candidates.add(path.join(dir, '.env'))
+    candidates.add(path.join(dir, '.env.local'))
+  }
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      dotenv.config({ path: candidate, override: false })
+    }
+  }
+
+  // If a root-level .env.local exists, keep it authoritative for app settings.
+  const rootEnvLocal = path.resolve(process.cwd(), '..', '.env.local')
+  if (fs.existsSync(rootEnvLocal)) {
+    dotenv.config({ path: rootEnvLocal, override: true })
+  }
+}
+
+loadProjectEnv()
 
 export const ENV = {
   PORT: parseInt(process.env.PORT || '5000', 10),
@@ -14,15 +39,27 @@ export const ENV = {
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 
-  GROQ_API_KEY: process.env.GROQ_API_KEY || '',
-  GROQ_MODEL: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
-  GROQ_BASE_URL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
+  const hasUrl = Boolean(
     ENV.SUPABASE_URL &&
+    ENV.SUPABASE_URL.startsWith('http') &&
     !ENV.SUPABASE_URL.includes('your-project') &&
-    ENV.SUPABASE_ANON_KEY
+    !ENV.SUPABASE_URL.includes('placeholder')
   )
+  const hasAnon = Boolean(
+    ENV.SUPABASE_ANON_KEY &&
+    !ENV.SUPABASE_ANON_KEY.includes('your-anon-key') &&
+    !ENV.SUPABASE_ANON_KEY.includes('placeholder')
+  )
+  const hasServiceRole = Boolean(
+    ENV.SUPABASE_SERVICE_ROLE_KEY &&
+    !ENV.SUPABASE_SERVICE_ROLE_KEY.includes('your-service-role-key') &&
+    !ENV.SUPABASE_SERVICE_ROLE_KEY.includes('placeholder')
+  )
+
+  return hasUrl && hasAnon && hasServiceRole
 }

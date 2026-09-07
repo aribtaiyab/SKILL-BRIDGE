@@ -8,6 +8,23 @@ import {
   evaluatePractice,
   explainCareerReadiness,
 } from '../ai/coach-service.js'
+import { GeminiService } from '../services/ai/gemini.service.js'
+import { AI_CONFIG } from '../ai/config.js'
+
+export async function getAiHealth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const status = await GeminiService.testConnection()
+    res.status(200).json(status)
+  } catch (err) {
+    res.status(200).json({
+      configured: false,
+      provider: 'gemini',
+      model: AI_CONFIG.model,
+      reachable: false,
+      message: 'Gemini health test running in deterministic mode',
+    })
+  }
+}
 
 export async function chatCoach(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {

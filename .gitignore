@@ -10,7 +10,9 @@ node_modules/
 dist/
 */dist/
 build/
+*/build/
 out/
+*/out/
 
 # Testing & coverage
 coverage/
@@ -19,14 +21,29 @@ coverage/
 # Environment files
 .env
 .env.*
+.env.local
+.env.development
+.env.production
+.env.*.local
+*.env
+*.env.local
 !.env.example
 !*/.env.example
 
 # Logs & Debug
+*.log
+**/*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# Scratch, temporary debugging, and local test artifacts
+scratch/
+*/scratch/
+tmp/
+temp/
+scripts/test_gemini_models.cjs
 
 # IDE & OS files
 .DS_Store

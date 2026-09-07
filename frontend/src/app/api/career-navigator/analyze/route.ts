@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       goal,
     })
 
-    // 5. Generate AI reasoning using Groq (or deterministic fallback)
+    // 5. Generate AI reasoning using Google Gemini (or deterministic fallback)
     const aiOutput = await CareerNavigatorAIService.explainDecision(
       message,
       intent,

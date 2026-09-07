@@ -4,6 +4,7 @@ import { optionalAuth, requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
+router.get('/health', aic.getAiHealth)
 router.post('/coach', optionalAuth, aic.chatCoach)
 router.post('/diagnose', optionalAuth, aic.diagnose)
 router.post('/learning-plan', optionalAuth, aic.learningPlan)

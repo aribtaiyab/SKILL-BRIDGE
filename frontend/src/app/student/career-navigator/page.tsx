@@ -192,11 +192,12 @@ export default function CareerNavigatorPage() {
         {/* Quick Action Pills */}
         <div className="flex flex-wrap gap-2 pt-1">
           {[
-            { label: "Compare Careers", prompt: "Web Development or AI/ML?" },
-            { label: "Find My Best Fit", prompt: "Which career fits my current skills?" },
-            { label: "Plan a Career Switch", prompt: "Can I switch from frontend to AI?" },
-            { label: "Market Demand", prompt: "Which career has better market demand?" },
-            { label: "Skill Choice", prompt: "Should I learn Java or Python?" },
+            { label: "AI or Web Development?", prompt: "AI or Web Development?" },
+            { label: "Which career fits me?", prompt: "Which career fits me?" },
+            { label: "Can I switch to AI?", prompt: "Can I switch to AI?" },
+            { label: "What should I learn next?", prompt: "What should I learn next?" },
+            { label: "Java or Python?", prompt: "Should I learn Java or Python?" },
+            { label: "DSA or Development?", prompt: "Should I focus on DSA or Web Development?" },
           ].map((action) => (
             <button
               key={action.label}
@@ -239,8 +240,15 @@ export default function CareerNavigatorPage() {
 
         {/* Suggested Prompts below input */}
         <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
-          <span className="font-semibold text-slate-700">Try asking:</span>
-          {["AI or Web Development?", "Full Stack or Data Science?", "Can I switch to AI?", "Should I learn Java or Python?"].map((sample) => (
+          <span className="font-semibold text-slate-700">Quick questions:</span>
+          {[
+            "AI or Web Development?",
+            "Which career fits me?",
+            "Can I switch to AI?",
+            "What should I learn next?",
+            "Java or Python?",
+            "DSA or Development?"
+          ].map((sample) => (
             <button
               key={sample}
               type="button"
@@ -513,14 +521,14 @@ export default function CareerNavigatorPage() {
               </div>
 
               <div className="flex items-center gap-2.5">
-                <Link href="/student/assessment">
+                <Link href={`/student/career?target=${encodeURIComponent(result.recommendation.careerSlug || '')}&action=roadmap`}>
                   <Button className="h-10 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-sm">
-                    Build My Plan <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    Build My Roadmap <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                   </Button>
                 </Link>
                 <Link href="/student/opportunities">
                   <Button variant="outline" className="h-10 px-4 rounded-xl text-xs font-semibold">
-                    Matching Opportunities ({isDemo ? 4 : 'Active'})
+                    View Matching Opportunities ({isDemo ? 4 : 'Active'})
                   </Button>
                 </Link>
               </div>

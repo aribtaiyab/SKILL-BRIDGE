@@ -1,5 +1,8 @@
 import { getSupabaseAdmin } from '../config/supabase.js'
 import { AI_CONFIG } from '../ai/config.js'
+import { GeminiService } from './ai/gemini.service.js'
+import { CAREER_NAVIGATOR_SYSTEM_INSTRUCTION, buildCareerNavigatorUserPrompt } from './ai/prompts/careerNavigator.prompt.js'
+import { CareerNavigatorOutputSchema } from './ai/schemas/careerNavigator.schema.js'
 
 export interface CareerMarketData {
   careerSlug: string
@@ -249,82 +252,48 @@ export class CareerNavigatorService {
     comparison.sort((a, b) => b.fitScore - a.fitScore)
     const topPick = comparison[0]
 
-    // 4. Try Groq AI reasoning
+    // 4. Gemini AI reasoning (with deterministic SkillBridge fallback)
     let headline = `${topPick.careerName} is your highest-leverage career path.`
-    let summary = `Based on your assessed skills (SQL 82/100, React 75/100) and current readiness of ${readinessScore}%, you have an immediate advantage in ${topPick.careerName}. While AI/ML has exceptionally high market demand (96/100), your verified practical competencies position you to land a ${topPick.careerName} role 3x faster.`
+    let summary = `Based on your assessed skills (${studentSkills.slice(0, 2).map(s => `${s.name} ${s.level}/100`).join(', ') || 'assessed competencies'}) and current readiness of ${readinessScore}%, you have an immediate advantage in ${topPick.careerName}. While high-demand paths exist, your verified practical competencies position you to land a ${topPick.careerName} role faster.`
     let why = [
       `Immediate skill alignment: You already satisfy ${topPick.fitScore}% of canonical requirements.`,
-      `Verified proof: Your SQL evidence (82/100) gives you an edge over general candidates.`,
-      `Strategic career stepping-stone: Mastering production web systems provides the engineering foundation to transition into specialized AI roles later.`,
+      `Verified proof: Your assessed evidence gives you an edge over general candidates.`,
+      `Strategic career stepping-stone: Mastering production fundamentals provides the engineering foundation to transition into specialized roles later.`,
     ]
 
     if (AI_CONFIG.isLiveProviderConfigured()) {
       try {
-        console.log(`[CareerNavigator Groq AI] Outbound request for query: "${input.query}"`)
-        console.log(`[CareerNavigator Groq AI] Model: ${AI_CONFIG.model}, Student: ${studentName}, Target: ${topPick.careerName}`)
-        console.log(`[CareerNavigator Groq AI] Verified Skills Context:`, studentSkills.map(s => `${s.name}: ${s.level} (verified: ${s.verified})`).join(', '))
-
-        const groqRes = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${AI_CONFIG.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: AI_CONFIG.model,
-            temperature: 0.3,
-            max_tokens: 800,
-            messages: [
-              {
-                role: 'system',
-                content: `You are the Career Navigator for SkillBridge Connect.
-Provide objective, realistic, and strategic career guidance tailored specifically to the user's exact query and their verified skill ledger.
-Never hallucinate numbers. Use the exact provided scores.
-Differentiate between "Student Skill Fit" vs "Market Demand" (Match != Market).
-Return a valid JSON object with:
-{
-  "headline": "One punchy summary sentence directly answering the user's query",
-  "summary": "2-3 sentences explaining the trade-off and strategic recommendation addressing their query",
-  "why": ["Point 1", "Point 2", "Point 3"]
-}`,
-              },
-              {
-                role: 'user',
-                content: `Student: ${studentName}, Target Career: ${topPick.careerName}, Readiness: ${readinessScore}%.
-Query: "${input.query}"
-Verified Skills Ledger:
-${studentSkills.map(s => `- ${s.name}: ${s.level}/100 (verified: ${s.verified})`).join('\n')}
-Compared Careers:
-${comparison.map(c => `- ${c.careerName}: Fit ${c.fitScore}%, Market Demand ${c.marketData.demandScore}%, Missing: ${c.missingSkills.join(', ')}`).join('\n')}`,
-              },
-            ],
-          }),
-          signal: AbortSignal.timeout(8000),
+        const userPrompt = buildCareerNavigatorUserPrompt({
+          query: input.query,
+          studentName,
+          targetCareer: topPick.careerName,
+          readinessScore,
+          verifiedSkills: studentSkills.map(s => ({ name: s.name, level: s.level, status: s.verified ? 'verified' : 'self_declared' })),
+          priorityGap: topPick.missingSkills[0] ? { skill: topPick.missingSkills[0], gap: 20 } : null,
+          comparisonData: comparison.map(c => ({
+            careerName: c.careerName,
+            careerSlug: c.careerSlug,
+            fitScore: c.fitScore,
+            marketOutlook: c.marketOutlook,
+            missingSkills: c.missingSkills,
+          })),
+          marketSummary: `${topPick.marketData.source} (${topPick.marketData.freshness}): ${topPick.marketData.entryLevelDemand} demand, ${topPick.marketData.opportunityVolume}`,
         })
 
-        console.log(`[CareerNavigator Groq AI] Groq HTTP status: ${groqRes.status}`)
-        if (groqRes.ok) {
-          const groqData = (await groqRes.json()) as any
-          const raw = groqData.choices?.[0]?.message?.content?.trim() || ''
-          const jsonMatch = raw.match(/\{[\s\S]*\}/)
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0])
-            if (parsed.headline) headline = parsed.headline
-            if (parsed.summary) summary = parsed.summary
-            if (Array.isArray(parsed.why) && parsed.why.length > 0) why = parsed.why.slice(0, 4)
+        const geminiResult = await GeminiService.generateStructured<any>({
+          systemInstruction: CAREER_NAVIGATOR_SYSTEM_INSTRUCTION,
+          userPrompt,
+        })
+
+        if (geminiResult) {
+          if (geminiResult.headline) headline = geminiResult.headline
+          if (geminiResult.summary) summary = geminiResult.summary
+          if (Array.isArray(geminiResult.why) && geminiResult.why.length > 0) {
+            why = geminiResult.why.slice(0, 4)
           }
-        } else {
-          const errText = await groqRes.text()
-          console.error(`[CareerNavigator Groq AI] Groq returned HTTP ${groqRes.status}:`, errText)
-          headline = 'Analysis temporarily unavailable — please try again'
-          summary = 'Analysis temporarily unavailable — please try again.'
-          why = ['Groq AI analysis service temporarily unavailable']
         }
       } catch (aiErr) {
-        console.error('[CareerNavigator Groq AI] Caught error in Groq call:', aiErr)
-        headline = 'Analysis temporarily unavailable — please try again'
-        summary = 'Analysis temporarily unavailable — please try again.'
-        why = ['Groq AI analysis service temporarily unavailable']
+        console.warn('[CareerNavigator Gemini AI] Using safe deterministic fallback:', aiErr)
       }
     }
 

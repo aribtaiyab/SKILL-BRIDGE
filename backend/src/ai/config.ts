@@ -1,31 +1,31 @@
 /**
- * Server-only AI Layer Configuration — Groq API
+ * Server-only AI Layer Configuration — Google Gemini API
  *
- * Primary Provider: Groq API (https://api.groq.com/openai/v1)
- * Default Model: openai/gpt-oss-120b
+ * Primary Provider: Google Gemini API (https://generativelanguage.googleapis.com)
+ * Preferred Model: gemini-2.5-flash
  */
 
 export const AI_CONFIG = {
   get apiKey(): string {
-    return (process.env.GROQ_API_KEY || '').trim()
+    return (process.env.GEMINI_API_KEY || '').trim()
   },
   get model(): string {
-    return process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+    return process.env.GEMINI_MODEL || 'gemini-3.5-flash'
   },
   get baseUrl(): string {
-    return process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'
+    return 'https://generativelanguage.googleapis.com/v1beta'
   },
   get maxTokens(): number {
-    return Number(process.env.AI_MAX_TOKENS) || 1500
+    return Number(process.env.AI_MAX_TOKENS) || 2048
   },
   get temperature(): number {
-    return Number(process.env.AI_TEMPERATURE) || 0.4
+    return Number(process.env.AI_TEMPERATURE) || 0.2
   },
   get timeoutMs(): number {
-    return Number(process.env.AI_TIMEOUT_MS) || 12000
+    return Number(process.env.AI_TIMEOUT_MS) || 45000
   },
   isLiveProviderConfigured(): boolean {
-    return (process.env.GROQ_API_KEY || '').trim().length > 0
+    return (process.env.GEMINI_API_KEY || '').trim().length > 0
   },
 }
 
@@ -34,16 +34,14 @@ export const AI_CONFIG = {
  */
 export function getAIConfigurationStatus(): {
   configured: boolean
-  providerType: 'groq' | 'fallback_deterministic'
+  provider: 'gemini'
   model: string
-  baseUrl: string
 } {
   const isConfigured = AI_CONFIG.isLiveProviderConfigured()
 
   return {
     configured: isConfigured,
-    providerType: isConfigured ? 'groq' : 'fallback_deterministic',
+    provider: 'gemini',
     model: AI_CONFIG.model,
-    baseUrl: AI_CONFIG.baseUrl,
   }
 }

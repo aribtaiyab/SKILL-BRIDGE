@@ -14,7 +14,7 @@ import {
 import { apiClient } from "@/lib/api-client"
 import { CareerTargetOption } from "@/types"
 import { CareerReadinessResult } from "@/lib/intelligence/engine"
-import { CAREER_BENCHMARK_PROFILES, computeDeterministicReadiness } from "@/lib/benchmarks"
+import { CAREER_BENCHMARK_PROFILES } from "@/lib/benchmarks"
 
 export default function CareerTargetPage() {
   const defaultList: CareerTargetOption[] = CAREER_BENCHMARK_PROFILES.map(c => ({
@@ -45,6 +45,11 @@ export default function CareerTargetPage() {
   const [savingSelfRatings, setSavingSelfRatings] = useState(false)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
 
+  // ─── AI Learning Roadmap Modal State ───────────────────────────────────────
+  const [roadmapOpen, setRoadmapOpen] = useState(false)
+  const [roadmapLoading, setRoadmapLoading] = useState(false)
+  const [roadmapData, setRoadmapData] = useState<any>(null)
+
   // ─── Calibration Insight state (Task 4) ────────────────────────────────────
   interface CalibrationPair {
     skillId: string
@@ -69,6 +74,56 @@ export default function CareerTargetPage() {
     basic:       'Basic',
     comfortable: 'Comfortable',
     strong:      'Strong',
+  }
+
+  const getVerificationBadgeInfo = (status?: string, isAssessed?: boolean, currentLevel?: number) => {
+    const norm = (status || '').toLowerCase().trim()
+    if (norm === 'institution_verified') {
+      return {
+        label: 'Institution Verified',
+        badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        dotClass: 'bg-indigo-500',
+        isVerified: true,
+      }
+    }
+    if (norm === 'evidence_verified') {
+      return {
+        label: 'Evidence Verified',
+        badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+        dotClass: 'bg-purple-500',
+        isVerified: true,
+      }
+    }
+    if (norm === 'practical_verified') {
+      return {
+        label: 'Practical Verified',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        dotClass: 'bg-emerald-500',
+        isVerified: true,
+      }
+    }
+    if (norm === 'assessment_verified') {
+      return {
+        label: 'Assessment Verified',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+        dotClass: 'bg-blue-500',
+        isVerified: true,
+      }
+    }
+    if (norm === 'self_declared' || (norm.includes('self') && currentLevel && currentLevel > 0)) {
+      return {
+        label: 'Self Declared',
+        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+        dotClass: 'bg-amber-500',
+        isVerified: false,
+      }
+    }
+    return {
+      label: 'Not Assessed',
+      badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+      dotClass: 'bg-slate-400',
+      isVerified: false,
+    }
   }
 
   const getAssessmentForSkill = (skillName?: string) => {
@@ -137,6 +192,35 @@ export default function CareerTargetPage() {
     }
   }
 
+  // AI Targeted Roadmap Generator
+  const handleGenerateRoadmap = async (targetSkillName?: string) => {
+    const skillName = targetSkillName || readinessData?.priorityGap?.skillName || (readinessData?.skills && readinessData.skills[0]?.skillName) || "Node.js"
+    const targetSkill = readinessData?.skills?.find(s => s.skillName.toLowerCase() === skillName.toLowerCase())
+    const currentScore = targetSkill ? targetSkill.currentLevel : (readinessData?.priorityGap?.currentLevel || 50)
+    const targetScore = targetSkill ? targetSkill.requiredLevel : (readinessData?.priorityGap?.requiredLevel || 80)
+
+    setRoadmapLoading(true)
+    setRoadmapOpen(true)
+    try {
+      const json = await apiClient<{ success: boolean; data: { plan: any } }>('/api/ai/learning-plan', {
+        method: 'POST',
+        body: JSON.stringify({
+          skill: skillName,
+          careerTarget: activeCareer?.name || 'Software Engineer',
+          currentScore,
+          targetScore,
+        }),
+      })
+      if (json.success && json.data?.plan) {
+        setRoadmapData(json.data.plan)
+      }
+    } catch (err) {
+      console.warn('Could not load AI roadmap:', err)
+    } finally {
+      setRoadmapLoading(false)
+    }
+  }
+
   // Handle AI Skill Extraction
   const handleExtractWithAI = async () => {
     if (!experienceText.trim()) return
@@ -199,7 +283,7 @@ export default function CareerTargetPage() {
       setIsDiscoveryOpen(false)
     } catch (err) {
       console.warn('Declaration error:', err)
-      setSaveStatus('Declared skills saved.')
+      setSaveStatus('Could not save declared skills — please try again.')
       setIsDiscoveryOpen(false)
     } finally {
       setSavingDeclarations(false)
@@ -216,8 +300,9 @@ export default function CareerTargetPage() {
           data: Array<{ id: string; name: string; slug: string; description?: string | null; category?: string }>
         }>('/api/student/career-targets')
 
+        let loadedList = defaultList
         if (careersResponse.data && careersResponse.data.length > 0) {
-          const list = careersResponse.data.map(c => ({
+          loadedList = careersResponse.data.map(c => ({
             id: c.id,
             name: c.name,
             slug: c.slug,
@@ -225,7 +310,7 @@ export default function CareerTargetPage() {
             opps: 0,
             description: c.description || undefined,
           }))
-          setCareers(list)
+          setCareers(loadedList)
         }
 
         const targetResponse = await apiClient<{
@@ -236,12 +321,32 @@ export default function CareerTargetPage() {
           } | null
         }>('/api/student/career-target')
 
-        const currentCareerId =
+        let activeId =
           targetResponse.data?.target_career_id ||
           targetResponse.data?.career_targets?.id
 
-        if (currentCareerId) {
-          setSelectedCareerId(currentCareerId)
+        // Check URL parameters for direct target or roadmap action
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search)
+          const targetSlug = params.get('target')
+          const action = params.get('action')
+
+          if (targetSlug) {
+            const matchedCareer = loadedList.find(c => c.slug === targetSlug || c.id === targetSlug)
+            if (matchedCareer) {
+              activeId = matchedCareer.id
+            }
+          }
+
+          if (action === 'roadmap') {
+            setTimeout(() => {
+              handleGenerateRoadmap()
+            }, 800)
+          }
+        }
+
+        if (activeId) {
+          setSelectedCareerId(activeId)
         }
       } catch (err) {
         // Zero crash rule: quietly fallback to local benchmarks
@@ -271,77 +376,14 @@ export default function CareerTargetPage() {
           return
         }
 
-        // API returned empty data — fall through to deterministic fallback
+        // API returned empty data — do NOT fabricate scores. Show the empty state.
         throw new Error('No readiness skills returned from API')
       } catch (err) {
-        console.warn('API readiness unavailable or empty, using local deterministic engine:', err)
-
-        // Compute readiness deterministically if API call fails or returns empty
-        const computed = computeDeterministicReadiness(benchmarkProfile, {
-          "Node.js": { score: 65, verifiedStatus: "assessment_verified" },
-          "REST APIs": { score: 72, verifiedStatus: "practical_verified" },
-          "SQL": { score: 82, verifiedStatus: "evidence_verified" },
-          "Git & Version Control": { score: 75, verifiedStatus: "practical_verified" },
-          "React.js": { score: 60, verifiedStatus: "assessment_verified" },
-        })
-
-        const fallbackResult: CareerReadinessResult = {
-          careerId: computed.careerId,
-          careerName: computed.careerName,
-          readinessPercentage: computed.readinessPercentage,
-          readinessCategory: computed.readinessCategory,
-          readinessVariant: computed.readinessVariant,
-          skills: computed.skills.map(s => ({
-            ...s,
-            status: s.status === 'ready' ? ('ready' as const) : s.status === 'critical' ? ('critical' as const) : ('needs_improvement' as const),
-            category: 'Technical',
-            priorityScore: s.gap,
-            recommendation: s.gap > 0 ? `Close ${s.gap} point deficit.` : 'Satisfied',
-          })),
-          strengths: computed.skills.filter(s => s.status === 'ready').map(s => ({
-            ...s,
-            status: 'ready' as const,
-            category: 'Technical',
-            priorityScore: 0,
-            recommendation: 'Satisfied',
-          })),
-          nearReadySkills: computed.skills.filter(s => s.status === 'improve').map(s => ({
-            ...s,
-            status: 'needs_improvement' as const,
-            category: 'Technical',
-            priorityScore: s.gap,
-            recommendation: `Close ${s.gap} point deficit.`,
-          })),
-          criticalGaps: computed.skills.filter(s => s.status === 'critical').map(s => ({
-            ...s,
-            status: 'critical' as const,
-            category: 'Technical',
-            priorityScore: s.gap,
-            recommendation: `Close ${s.gap} point deficit.`,
-          })),
-          priorityGap: computed.priorityGap
-            ? {
-                skillId: 'priority-skill',
-                skillName: computed.priorityGap.skillName,
-                requiredLevel: computed.priorityGap.required,
-                currentLevel: computed.priorityGap.verified,
-                gap: computed.priorityGap.gap,
-                status: computed.priorityGap.category === 'Critical Gap' ? 'critical' : 'needs_improvement',
-                importance: 'High',
-                priorityScore: computed.priorityGap.gap,
-                isAssessed: true,
-                recommendation: computed.priorityGap.recommendation,
-              }
-            : null,
-          explanation: {
-            strengthsText: ["SQL competency satisfied (82/70)", "Git proficiency verified (75/60)"],
-            nearReadyText: ["REST APIs is within 3 points of target"],
-            criticalText: computed.priorityGap?.gap ? [`${computed.priorityGap.skillName} has a deficit of ${computed.priorityGap.gap} points`] : [],
-            recommendedAction: computed.priorityGap?.recommendation || "All core benchmarks satisfied.",
-          },
-        }
-
-        setReadinessData(fallbackResult)
+        // Honest fail-safe: without real assessment/skill data we must never invent
+        // verified scores or readiness. Leave readinessData null so the UI shows an
+        // empty state directing the student to take the assessment.
+        console.warn('API readiness unavailable or empty; showing assessment CTA instead of fabricated scores:', err)
+        setReadinessData(null)
       } finally {
         // ALWAYS clear loading — this is the fix for the infinite spinner
         setLoadingReadiness(false)
@@ -452,8 +494,8 @@ export default function CareerTargetPage() {
       })
       setSaveStatus('Career target saved successfully.')
     } catch {
-      // Zero crash: confirm to user locally
-      setSaveStatus('Career target saved successfully.')
+      // Honest failure message — do not claim success when persistence failed
+      setSaveStatus('Could not save career target — please try again.')
     } finally {
       setPersisting(false)
       setTimeout(() => setSaveStatus(null), 3500)
@@ -539,23 +581,30 @@ export default function CareerTargetPage() {
       <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Career Target & Skill Benchmark</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">What career are you aiming for?</h1>
             <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border-[var(--color-border-primary)] text-xs font-semibold px-2.5 py-0.5">
               <Sparkles className="h-3 w-3 mr-1 inline text-[var(--color-accent)]" /> Opportunity-Specific Engine
             </Badge>
           </div>
           <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-            Select your target career role to calculate readiness against official industry benchmarks and identify priority skill gaps.
+            Active Target: <strong className="text-slate-900 font-bold">{activeCareer?.name || 'Selected Role'}</strong>. Evaluate readiness against real benchmarks, declare known skills, and take assessments to verify competencies.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => handleGenerateRoadmap()}
+            className="h-10 px-4 rounded-xl border-[var(--color-border-primary)] bg-white/90 text-[var(--color-accent-hover)] font-semibold shadow-xs hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5 transition-all flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4 text-[var(--color-accent)]" /> Generate AI Roadmap
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
               setIsDiscoveryOpen(true)
               loadDiscoverySkills()
             }}
-            className="h-10 px-4 rounded-xl border-[var(--color-border-primary)] bg-white/90 text-[var(--color-accent-hover)] font-semibold shadow-xs hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5 transition-all flex items-center gap-2"
+            className="h-10 px-4 rounded-xl border-[var(--color-border-primary)] bg-white/90 text-slate-700 font-semibold shadow-xs hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5 transition-all flex items-center gap-2"
           >
             <Brain className="h-4 w-4 text-[var(--color-accent)]" /> Discover & Declare Skills
           </Button>
@@ -703,7 +752,7 @@ export default function CareerTargetPage() {
                         <p className="text-slate-600 leading-relaxed font-medium">
                           {readinessData.priorityGap.recommendation}
                         </p>
-                        <div className="pt-2">
+                        <div className="pt-2 flex items-center gap-2.5 flex-wrap">
                           {(() => {
                             const targetAssessment = getAssessmentForSkill(readinessData.priorityGap.skillName)
                             return (
@@ -714,6 +763,14 @@ export default function CareerTargetPage() {
                               </Link>
                             )
                           })()}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleGenerateRoadmap(readinessData.priorityGap?.skillName)}
+                            className="h-8 text-xs font-semibold rounded-xl border-amber-300 text-amber-800 hover:bg-amber-100 bg-white/80 shadow-xs hover:-translate-y-0.5 transition-all flex items-center gap-1.5"
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-amber-600" /> Generate AI Roadmap
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -726,7 +783,7 @@ export default function CareerTargetPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-black text-slate-900 tracking-tight">Required Skills & Benchmark Readiness</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Calibrated to actual role benchmarks with 5-tier verification ledger</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Calibrated to actual role benchmarks with 6-tier verification ledger</p>
                   </div>
                   <Button
                     variant="ghost"
@@ -748,31 +805,23 @@ export default function CareerTargetPage() {
                     </div>
                   ) : (
                     readinessData.skills.map((skill) => {
-                    const isUnassessed = !skill.isAssessed
+                    const badge = getVerificationBadgeInfo(skill.verificationStatus, skill.isAssessed, skill.currentLevel)
+                    const isUnassessed = !skill.isAssessed || badge.label === 'Not Assessed'
+                    const isSelfDeclared = badge.label === 'Self Declared'
                     const isReady = !isUnassessed && skill.status === 'ready'
                     const isCritical = !isUnassessed && skill.status === 'critical'
 
                     const cardStyle = isUnassessed
-                      ? 'border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)]/30 text-[var(--color-foreground)]'
+                      ? 'border-slate-200/80 bg-slate-50/40 text-slate-700'
+                      : isSelfDeclared
+                      ? 'border-amber-200/80 bg-amber-50/30 text-slate-900'
                       : isReady
                       ? 'border-emerald-200/80 bg-emerald-50/40 text-emerald-900'
                       : isCritical
                       ? 'border-rose-200/80 bg-rose-50/40 text-rose-900'
                       : 'border-amber-200/80 bg-amber-50/40 text-amber-900'
 
-                    const badgeStyle = isUnassessed
-                      ? 'bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] border-[var(--color-border-primary)]'
-                      : isReady
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : isCritical
-                      ? 'bg-rose-100 text-rose-800 border-rose-300'
-                      : 'bg-amber-100 text-amber-800 border-amber-300'
-
-                    const tierLabel = isUnassessed
-                      ? 'Unassessed'
-                      : skill.currentLevel > 0
-                      ? 'Verified Benchmark'
-                      : 'Self-Declared (Unverified)'
+                    const targetAssessment = getAssessmentForSkill(skill.skillName)
 
                     return (
                       <div
@@ -780,34 +829,43 @@ export default function CareerTargetPage() {
                         className={`rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${cardStyle}`}
                       >
                         <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2.5 flex-wrap">
                             <span className="font-bold text-sm text-slate-900">{skill.skillName}</span>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white/80 border border-slate-200 px-2 py-0.5 rounded-md">
                               {skill.importance} Weight
                             </span>
-                            <span className="text-[10px] font-semibold text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2 py-0.5 rounded-md">
-                              {tierLabel}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1.5 ${badge.badgeClass}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${badge.dotClass}`} />
+                              {badge.label}
                             </span>
                           </div>
-                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeStyle}`}>
-                            {isUnassessed ? 'Unassessed' : isReady ? 'Ready' : isCritical ? 'Critical Gap' : 'Needs Improvement'}
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                            isUnassessed ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                            isReady ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                            isCritical ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                            'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
+                            {isUnassessed ? 'Not Assessed' : isReady ? 'Ready' : isCritical ? 'Critical Gap' : 'Needs Improvement'}
                           </span>
                         </div>
 
                         {/* Progress */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs font-semibold text-slate-600">
-                            <span>Current Verified: <strong className="text-slate-900">{isUnassessed ? 'Unassessed' : `${skill.currentLevel} / 100`}</strong></span>
+                            <span>
+                              Verified Status: <strong className="text-slate-900">{isUnassessed ? 'Not Assessed' : isSelfDeclared ? `Self-Declared (${skill.currentLevel} pts - Unverified)` : `${skill.currentLevel} / 100`}</strong>
+                            </span>
                             <span>Required: <strong className="text-slate-900">{skill.requiredLevel} / 100</strong></span>
                           </div>
                           <div className="h-2 w-full rounded-full bg-white/80 overflow-hidden border border-slate-200/40">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${
-                                isUnassessed ? 'bg-slate-300' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
+                                isUnassessed ? 'bg-slate-200' : isSelfDeclared ? 'bg-amber-400' : isReady ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'
                               }`}
-                              style={{ width: `${isUnassessed ? 10 : Math.min((skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100, 100)}%` }}
+                              style={{ width: `${isUnassessed ? 0 : Math.min((skill.currentLevel / Math.max(skill.requiredLevel, 1)) * 100, 100)}%` }}
                             />
                           </div>
+
                           {/* Task 2 — Self-Rated label. Always shows "(unverified)". Never styled like verified data. */}
                           <div className="flex items-center gap-1.5 pt-1">
                             <span className="text-[11px] font-medium text-slate-500">
@@ -823,24 +881,40 @@ export default function CareerTargetPage() {
                           </div>
                         </div>
 
-                        <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
+                        <div className="flex justify-between items-center text-xs text-slate-500 pt-3 border-t border-slate-100/60 mt-2">
                           <span className="font-medium">
                             {isUnassessed
-                              ? `Requires ${skill.requiredLevel} pts • Take benchmark assessment to establish score`
+                              ? `Requires ${skill.requiredLevel} pts • Establish baseline score with benchmark assessment`
+                              : isSelfDeclared
+                              ? `Self-declared at ${skill.currentLevel} pts • Needs official verification to count toward readiness`
                               : skill.gap > 0
                               ? `${skill.gap} points to close deficit`
                               : 'Benchmark requirement satisfied'}
                           </span>
-                          {(() => {
-                            const cardTarget = getAssessmentForSkill(skill.skillName)
-                            return (
-                              <Link href={`/student/assessment?skill=${encodeURIComponent(cardTarget.skill)}&assessmentId=${cardTarget.id}&autostart=true`}>
-                                <span className="font-bold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] hover:underline inline-flex items-center gap-1">
-                                  {isUnassessed ? 'Take Initial Test' : 'Assess Now'} <ArrowRight className="h-3 w-3" />
-                                </span>
-                              </Link>
-                            )
-                          })()}
+                          <div className="flex items-center gap-2">
+                            {skill.gap > 0 && (
+                              <button
+                                onClick={() => handleGenerateRoadmap(skill.skillName)}
+                                className="font-bold text-xs text-slate-600 hover:text-[var(--color-accent)] transition-colors inline-flex items-center gap-1"
+                              >
+                                <Sparkles className="h-3 w-3 text-[var(--color-accent)]" /> Roadmap
+                              </button>
+                            )}
+                            <Link href={`/student/assessment?skill=${encodeURIComponent(targetAssessment.skill)}&assessmentId=${targetAssessment.id}&autostart=true`}>
+                              <Button
+                                size="sm"
+                                variant={isUnassessed || isSelfDeclared ? "default" : "outline"}
+                                className={`h-7 px-3 text-xs font-bold rounded-lg transition-all ${
+                                  isUnassessed || isSelfDeclared
+                                    ? 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-xs'
+                                    : 'text-slate-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                {isUnassessed ? 'Verify Skill' : isSelfDeclared ? 'Verify Skill' : skill.gap > 0 ? 'Improve Score' : 'Re-Assess'}
+                                <ArrowRight className="ml-1 h-3 w-3" />
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     )
@@ -848,7 +922,7 @@ export default function CareerTargetPage() {
                 </div>
               </div>
 
-              {/* Task 2 — Groq AI Narrative Calibration Insight */}
+              {/* Gemini AI Narrative Calibration Insight */}
               {aiSummary && (
                 <div className="rounded-3xl border border-[var(--color-border-primary)] bg-white/95 p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-3 animate-in fade-in duration-300">
                   <div className="flex items-center gap-2.5">
@@ -858,7 +932,7 @@ export default function CareerTargetPage() {
                     <div>
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">Self-Declared Profile AI Insight</h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Groq narrative calibration analysis • Explanatory reflection (does not modify verified readiness scores)
+                        Gemini AI narrative calibration analysis • Explanatory reflection (does not modify verified readiness scores)
                       </p>
                     </div>
                   </div>
@@ -1195,6 +1269,134 @@ export default function CareerTargetPage() {
                 {savingDeclarations ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Confirm & Save Baseline'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── AI LEARNING ROADMAP MODAL ─────────────────────────────────────── */}
+      {roadmapOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-5 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="h-8 w-8 rounded-xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent)] flex items-center justify-center">
+                    <Sparkles className="h-4 w-4" />
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">AI Targeted Learning Roadmap</h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {roadmapData?.skill ? (
+                    <>Personalized 5-step strategy for <strong className="text-slate-700">{roadmapData.skill}</strong> ({roadmapData.initialScore} → {roadmapData.targetScore} pts) in <strong className="text-slate-700">{activeCareer?.name}</strong></>
+                  ) : (
+                    <>Generating tailored skill closure strategy...</>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setRoadmapOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {roadmapLoading ? (
+              <div className="py-16 text-center space-y-3">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)] mx-auto" />
+                <p className="text-xs font-semibold text-slate-600">Architecting your 5-step learning milestones with Gemini AI...</p>
+              </div>
+            ) : roadmapData ? (
+              <div className="space-y-5">
+                {/* Summary Banner */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50/70 via-white to-sky-50/40 border border-sky-200/70 text-xs text-slate-700 leading-relaxed font-medium">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-bold text-sky-900 uppercase tracking-wider text-[10px]">Estimated Study Time</span>
+                    <span className="font-bold text-sky-900 text-xs">~{roadmapData.estimatedTotalHours || 6} Hours Total</span>
+                  </div>
+                  <p>{roadmapData.summary}</p>
+                </div>
+
+                {/* Steps List */}
+                <div className="space-y-3">
+                  {roadmapData.steps?.map((step: any, idx: number) => {
+                    const typeColors: Record<string, { bg: string; text: string; border: string }> = {
+                      understand: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+                      learn: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+                      practice: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+                      build: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+                      reassess: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+                    }
+                    const badge = typeColors[step.stepType] || typeColors.learn
+
+                    return (
+                      <div key={idx} className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2 hover:bg-white hover:border-slate-300 transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-6 w-6 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
+                              {step.stepNumber}
+                            </span>
+                            <span className="font-bold text-sm text-slate-900">{step.title}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badge.bg} ${badge.text} ${badge.border}`}>
+                            {step.stepType} ({step.estimatedMinutes || 45}m)
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed pl-8">
+                          {step.description}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] pl-8 pt-1 text-slate-500">
+                          {step.keyConcept && (
+                            <span className="bg-white border border-slate-200 px-2 py-0.5 rounded-md font-medium text-slate-700">
+                              Concept: {step.keyConcept}
+                            </span>
+                          )}
+                          {step.careerRelevance && (
+                            <span className="text-slate-500 italic">
+                              • {step.careerRelevance}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Footer action */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <span className="text-xs text-slate-500">
+                    Ready to begin? Start with practice or verify your baseline directly.
+                  </span>
+                  {(() => {
+                    const cardTarget = getAssessmentForSkill(roadmapData.skill)
+                    return (
+                      <Link href={`/student/assessment?skill=${encodeURIComponent(cardTarget.skill)}&assessmentId=${cardTarget.id}&autostart=true`}>
+                        <Button className="h-9 px-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold shadow-xs">
+                          Start Assessment Now <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    )
+                  })()}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200/80 bg-white/90 min-h-[340px] flex flex-col items-center justify-center text-center px-6 py-10 shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent)]">
+                  <ZapOff className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mt-4">No assessed skill data yet</h3>
+                <p className="text-xs text-slate-500 mt-1.5 max-w-sm leading-relaxed">
+                  Your readiness is calculated from real assessment results only — we never invent scores.
+                  Take your first skill assessment to establish a verified baseline.
+                </p>
+                <Link href="/student/assessment">
+                  <Button className="h-9 px-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold shadow-xs mt-5">
+                    Start Skill Assessment <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
