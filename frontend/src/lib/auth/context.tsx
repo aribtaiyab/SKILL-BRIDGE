@@ -15,12 +15,15 @@ interface UserProfile {
   avatar_url: string | null
 }
 
+export type AuthState = 'checking' | 'authenticated' | 'unauthenticated'
+
 interface AuthContextValue {
   user: User | null
   session: Session | null
   profile: UserProfile | null
   role: UserRole | null
   loading: boolean
+  authState: AuthState
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -31,6 +34,7 @@ const AuthContext = createContext<AuthContextValue>({
   profile: null,
   role: null,
   loading: true,
+  authState: 'checking',
   signOut: async () => {},
   refreshProfile: async () => {},
 })
@@ -41,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authState, setAuthState] = useState<AuthState>('checking')
 
   // Use singleton browser client instance
   const fetchProfile = useCallback(async (userId: string, fallbackUser?: User | null) => {
@@ -64,10 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const meta = fallbackUser.user_metadata || {}
       setProfile({
         id: fallbackUser.id,
-        full_name: (meta.full_name as string) || (fallbackUser.email?.split('@')[0]) || 'Student',
+        full_name: (meta.full_name as string) || (fallbackUser.email?.split('@')[0]) || 'User',
         email: fallbackUser.email || '',
-        role: (meta.role as UserRole) || 'student',
-        onboarding_completed: true,
+        role: (meta.role as UserRole) || null,
+        onboarding_completed: Boolean(meta.onboarding_completed),
         avatar_url: (meta.avatar_url as string) || null,
       })
     } else {
@@ -88,12 +93,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setSession(null)
     setProfile(null)
+    setAuthState('unauthenticated')
+    setLoading(false)
     if (typeof window !== 'undefined') {
       document.cookie = 'sb_demo_mode=; path=/; max-age=0'
       sessionStorage.removeItem('sb_demo_mode')
       sessionStorage.removeItem('sb_demo_role')
     }
-    router.push('/login')
+    router.replace('/login')
     router.refresh()
   }, [supabase, router])
 
@@ -106,14 +113,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        setAuthState('authenticated')
         fetchProfile(session.user.id, session.user).finally(() => {
           if (isMounted) setLoading(false)
         })
       } else {
+        setAuthState('unauthenticated')
         setLoading(false)
       }
     }).catch(() => {
-      if (isMounted) setLoading(false)
+      if (isMounted) {
+        setAuthState('unauthenticated')
+        setLoading(false)
+      }
     })
 
     // 2. Listen for auth state changes
@@ -124,9 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null)
 
         if (session?.user) {
+          setAuthState('authenticated')
           await fetchProfile(session.user.id, session.user)
         } else {
           setProfile(null)
+          setAuthState('unauthenticated')
         }
 
         setLoading(false)
@@ -137,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [supabase, fetchProfile])
 
   const authValue = useMemo(() => ({
     user,
@@ -145,9 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     role: profile?.role ?? null,
     loading,
+    authState,
     signOut,
     refreshProfile,
-  }), [user, session, profile, loading, signOut, refreshProfile])
+  }), [user, session, profile, loading, authState, signOut, refreshProfile])
 
   return (
     <AuthContext.Provider value={authValue}>
@@ -159,4 +174,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   return useContext(AuthContext)
 }
+
 

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import {
+  ArrowLeft,
   LayoutDashboard, Award, Users, AlertTriangle, BookOpen,
   Presentation, GitMerge, Briefcase, TrendingUp, Bell,
   UserCheck, Settings, LogOut, Loader2, Menu, X, ShieldCheck
@@ -21,7 +22,7 @@ interface NavItem {
 }
 
 export default function AcademiaLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, signOut } = useAuth()
+  const { user, profile, loading, authState, signOut } = useAuth()
   const { isDemo } = useDemo()
   const router = useRouter()
   const pathname = usePathname()
@@ -30,17 +31,18 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
 
   // Auth & Role Guard
   useEffect(() => {
-    if (!loading) {
-      if (!user && !isDemo) {
-        router.replace('/login')
-        return
-      }
-      if (user && profile && profile.role && profile.role !== 'academician' && !isDemo) {
+    if (authState === 'unauthenticated' && !isDemo) {
+      router.replace('/login')
+      return
+    }
+
+    if (authState === 'authenticated' && user && !isDemo) {
+      if (profile && profile.role && profile.role !== 'academician' && profile.role !== 'institution') {
         if (profile.role === 'student') router.replace('/student')
         else if (profile.role === 'industry') router.replace('/industry')
       }
     }
-  }, [loading, user, profile, isDemo, router])
+  }, [authState, user, profile, isDemo, router])
 
   // Fetch real notification count
   useEffect(() => {
@@ -57,10 +59,10 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
 
   const navItems: NavItem[] = [
     { href: "/academia", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/academia/my-experience", label: "My Experience", icon: Award },
+    { href: "/academia/verification", label: "Skill Verifications", icon: ShieldCheck },
     { href: "/academia/students", label: "Students", icon: Users },
     { href: "/academia/skill-gaps", label: "Skill Gaps", icon: AlertTriangle },
-    { href: "/academia/mentorship", label: "Mentorship", icon: BookOpen },
+    { href: "/academia/my-experience", label: "My Experience", icon: Award },
     { href: "/academia/workshops", label: "Workshops", icon: Presentation },
     { href: "/academia/interventions", label: "Interventions", icon: GitMerge },
     { href: "/academia/opportunities", label: "Opportunities", icon: Briefcase },
@@ -75,7 +77,7 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
   const displayEmail = isDemo ? 'faculty.cs@dtu.edu' : (user?.email || '')
   const initials = displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 
-  if (loading && !isDemo) {
+  if ((loading || authState === 'checking') && !isDemo) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
@@ -148,16 +150,28 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
               <div className="text-[10px] text-slate-500 truncate">{displayEmail}</div>
             </div>
           </div>
-          {!isDemo && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={signOut}
-              className="w-full justify-start text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 h-8 rounded-lg"
-            >
-              <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
-            </Button>
-          )}
+          <Link
+            href="/"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors mb-1"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Exit Portal / Back to Home</span>
+          </Link>
+          <Link
+            href="/select-role"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-bold text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)] transition-colors mb-1"
+          >
+            <UserCheck className="h-3.5 w-3.5 text-[var(--color-accent)]" />
+            <span>Switch Role</span>
+          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="w-full justify-start text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 h-8 rounded-lg"
+          >
+            <LogOut className="mr-2 h-3.5 w-3.5" /> {isDemo ? 'Exit Demo Session' : 'Sign Out'}
+          </Button>
         </div>
       </aside>
 
@@ -179,6 +193,13 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
                 Academia Ecosystem
               </span>
             </div>
+            <Link
+              href="/"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200 ml-2"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Home</span>
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">
@@ -231,9 +252,23 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
                 })}
               </div>
 
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t space-y-1">
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Exit Portal / Back to Home</span>
+                </Link>
+                <Link
+                  href="/select-role"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)]"
+                >
+                  <UserCheck className="h-3.5 w-3.5 text-[var(--color-accent)]" />
+                  <span>Switch Role</span>
+                </Link>
                 <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start text-xs font-bold text-rose-600">
-                  <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
+                  <LogOut className="mr-2 h-3.5 w-3.5" /> {isDemo ? 'Exit Demo Session' : 'Sign Out'}
                 </Button>
               </div>
             </div>

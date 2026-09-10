@@ -10,13 +10,13 @@ import { LayoutDashboard, Briefcase, Users, PlusCircle, ListTodo, LineChart, Log
 import { Button } from "@/components/ui/button"
 
 export default function IndustryLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, signOut } = useAuth()
+  const { user, profile, loading, authState, signOut } = useAuth()
   const { isDemo } = useDemo()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !user && !isDemo) router.replace('/login')
-  }, [loading, user, isDemo, router])
+    if (authState === 'unauthenticated' && !isDemo) router.replace('/login')
+  }, [authState, isDemo, router])
 
   const navItems = [
     { href: "/industry", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
@@ -31,7 +31,7 @@ export default function IndustryLayout({ children }: { children: React.ReactNode
   const displayEmail = isDemo ? 'recruiter@technova.com' : (user?.email || '')
   const initials = isDemo ? 'TN' : displayName.substring(0, 2).toUpperCase()
 
-  if (loading && !isDemo) {
+  if ((loading || authState === 'checking') && !isDemo) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--color-background)]">
         <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />

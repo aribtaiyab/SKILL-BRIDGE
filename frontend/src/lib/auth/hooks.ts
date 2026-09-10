@@ -10,16 +10,16 @@ import { UserRole } from '@/types/database'
  * Redirects to /login if unauthenticated, or to the user's role dashboard if role doesn't match.
  */
 export function useRequireAuth(requiredRole?: UserRole) {
-  const { user, profile, role, loading, signOut } = useAuth()
+  const { user, profile, role, loading, authState, signOut } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.replace('/login')
-        return
-      }
+    if (authState === 'unauthenticated') {
+      router.replace('/login')
+      return
+    }
 
+    if (authState === 'authenticated' && user) {
       if (requiredRole && role && role !== requiredRole) {
         const dashboardMap: Record<string, string> = {
           student: '/student',
@@ -30,7 +30,7 @@ export function useRequireAuth(requiredRole?: UserRole) {
         router.replace(dashboardMap[role] || '/login')
       }
     }
-  }, [loading, user, role, requiredRole, router])
+  }, [authState, loading, user, role, requiredRole, router])
 
-  return { user, profile, role, loading, signOut }
+  return { user, profile, role, loading, authState, signOut }
 }

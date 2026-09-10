@@ -8,26 +8,27 @@ import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import {
   LayoutDashboard, Target, FileText, Code, AlertTriangle,
-  Compass, Award, Briefcase, ListTodo, TrendingUp, LogOut, Loader2, User
+  Compass, Award, Briefcase, ListTodo, TrendingUp, LogOut, Loader2, User, ShieldCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, signOut } = useAuth()
+  const { user, profile, loading, authState, signOut } = useAuth()
   const { isDemo, student } = useDemo()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !user && !isDemo) {
+    if (authState === 'unauthenticated' && !isDemo) {
       router.replace('/login')
     }
-  }, [loading, user, isDemo, router])
+  }, [authState, isDemo, router])
 
   const navItems = [
     { href: "/student", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
     { href: "/student/career", label: "Career Target", icon: <Target size={20} /> },
     { href: "/student/assessment", label: "Assignments & Assessments", icon: <FileText size={20} /> },
     { href: "/student/skills", label: "Skills", icon: <Code size={20} /> },
+    { href: "/student/verification", label: "Academician Verification", icon: <ShieldCheck size={20} /> },
     { href: "/student/skill-gap", label: "Skill Gap", icon: <AlertTriangle size={20} /> },
     { href: "/student/career-navigator", label: "Career Navigator", icon: <Compass size={20} /> },
     { href: "/student/passport", label: "Skill Passport", icon: <Award size={20} /> },
@@ -40,7 +41,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const displayEmail = isDemo ? student.email : (user?.email || '')
   const initials = isDemo ? student.avatarInitials : ((profile?.full_name || 'ST').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase())
 
-  if (loading && !isDemo) {
+  if ((loading || authState === 'checking') && !isDemo) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--color-background)]">
         <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />

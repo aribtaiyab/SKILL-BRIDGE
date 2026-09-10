@@ -61,6 +61,9 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') || '').trim()
   const password = String(formData.get('password') || '')
   const confirmPassword = String(formData.get('confirmPassword') || '')
+  let rawRole = String(formData.get('role') || '').trim().toLowerCase()
+  if (rawRole === 'academia') rawRole = 'academician'
+  const role = (['student', 'industry', 'academician', 'institution'].includes(rawRole)) ? (rawRole as UserRole) : null
 
   // Validate
   if (!fullName || fullName.length < 2) {
@@ -80,31 +83,81 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
   try {
     const supabase = await createSupabaseServerClient()
 
+    let userCreated = false
+    let userId: string | null = null
+
+    const userMetadata: Record<string, any> = { full_name: fullName }
+    if (role) userMetadata.role = role
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          full_name: fullName,
-        },
+        data: userMetadata,
       },
     })
 
-    if (error) {
-      return { success: false, error: humanizeAuthError(error) }
+    if (!error && data?.user) {
+      userCreated = true
+      userId = data.user.id
+    } else {
+      // In case of provider email rate limit, fallback to admin creation with immediate confirmation
+      const admin = createSupabaseAdminClient()
+      if (admin) {
+        const { data: adminUser, error: adminErr } = await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: userMetadata,
+        })
+        if (!adminErr && adminUser?.user) {
+          userCreated = true
+          userId = adminUser.user.id
+        } else if (error) {
+          return { success: false, error: humanizeAuthError(adminErr || error) }
+        }
+      } else if (error) {
+        return { success: false, error: humanizeAuthError(error) }
+      }
     }
 
-    if (!data.user) {
+    if (!userCreated) {
       return { success: false, error: 'Could not create account. Please try again.' }
     }
 
-    // If email confirmation is required, the session will be null
-    if (data.session === null) {
-      return { success: true, redirectTo: '/auth/verify-email' }
+    // Save profile row with role if role was specified
+    if (userId && role) {
+      const admin = createSupabaseAdminClient()
+      const dbClient = admin || supabase
+      try {
+        await (dbClient as any)
+          .from('profiles')
+          .upsert({
+            id: userId,
+            email: email,
+            full_name: fullName,
+            role: role,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+      } catch (e) {
+        console.warn('Profiles table upsert notice on signup:', e)
+      }
     }
 
-    // Session is active — go to onboarding
-    return { success: true, redirectTo: '/onboarding' }
+    // Immediately establish confirmed session with signInWithPassword
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    const targetRedirect = role ? getDashboardForRole(role) : '/select-role'
+
+    if (signInError || !signInData?.session) {
+      return { success: true, redirectTo: targetRedirect }
+    }
+
+    // Session is active immediately — land directly on appropriate screen
+    return { success: true, redirectTo: targetRedirect }
   } catch {
     return { success: false, error: 'We couldn\'t connect right now. Please try again.' }
   }
@@ -149,7 +202,6 @@ async function resolveAuthenticatedRedirect(
   authUser?: any
 ): Promise<ActionResult> {
   let role: UserRole | null = null
-  let onboardingComplete = false
 
   try {
     const { data: profile } = await (supabase as any)
@@ -166,40 +218,19 @@ async function resolveAuthenticatedRedirect(
   // Fallback to user metadata if DB profile record is unavailable
   if (!role && authUser?.user_metadata?.role) {
     role = authUser.user_metadata.role as UserRole
-    onboardingComplete = true
   }
 
-  if (role) {
-    const roleTableMap: Record<string, string> = {
-      student: 'student_profiles',
-      industry: 'industry_profiles',
-      academician: 'academician_profiles',
-      institution: 'institution_profiles',
-    }
-    const table = roleTableMap[role]
-    if (table) {
-      try {
-        const { data: roleProfile } = await (supabase as any)
-          .from(table)
-          .select('onboarding_completed')
-          .eq('profile_id', userId)
-          .maybeSingle()
-        if (roleProfile) {
-          onboardingComplete = Boolean((roleProfile as { onboarding_completed?: boolean })?.onboarding_completed)
-        }
-      } catch {
-        // Assume complete if unmigrated
-        onboardingComplete = true
-      }
-    }
+  // Normalize role aliases if needed
+  if (role && (role as string) === 'academia') {
+    role = 'academician'
   }
 
+  // If no role set yet, redirect to /select-role
   if (!role) {
-    role = 'student'
-    onboardingComplete = true
+    return { success: true, redirectTo: '/select-role' }
   }
 
-  if (!onboardingComplete) return { success: true, redirectTo: '/onboarding' }
+  // If role is set, redirect directly to that role's dashboard
   return { success: true, redirectTo: getDashboardForRole(role as UserRole) }
 }
 

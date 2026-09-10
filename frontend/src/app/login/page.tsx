@@ -19,6 +19,7 @@ function LoginForm() {
 
   const resetSuccess = searchParams.get('reset') === 'success'
   const redirectTo = searchParams.get('redirect') || null
+  const roleParam = searchParams.get('role') || null
 
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -46,9 +47,23 @@ function LoginForm() {
           return
         }
 
-        const dest = redirectTo || result.redirectTo || '/student'
-        
-        router.push(dest)
+        let dest = '/select-role'
+        if (result.redirectTo && result.redirectTo !== '/select-role') {
+          // Stored database profile.role is the primary authoritative source
+          dest = result.redirectTo
+        } else if (roleParam) {
+          const normRole = roleParam.toLowerCase()
+          if (normRole === 'academician' || normRole === 'academia' || normRole === 'institution') dest = '/academia'
+          else if (normRole === 'industry') dest = '/industry'
+          else if (normRole === 'student') dest = '/student'
+          else dest = '/select-role'
+        } else if (redirectTo) {
+          dest = redirectTo
+        } else {
+          dest = result.redirectTo || '/select-role'
+        }
+
+        router.replace(dest)
         router.refresh()
       } catch {
         setError("Couldn't reach the server. Please check your connection and try again.")
@@ -132,7 +147,10 @@ function LoginForm() {
 
         <div className="mt-6 text-center text-sm text-[var(--color-text-secondary)]">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-[var(--color-accent)] font-medium hover:underline">
+          <Link
+            href={roleParam ? `/signup?role=${encodeURIComponent(roleParam)}` : "/signup"}
+            className="text-[var(--color-accent)] font-medium hover:underline"
+          >
             Sign up
           </Link>
         </div>
