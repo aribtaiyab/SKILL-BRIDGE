@@ -7,9 +7,9 @@ import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import {
   ArrowLeft,
-  LayoutDashboard, Award, Users, AlertTriangle,
+  LayoutDashboard, Award, Users, AlertTriangle, BookOpen,
   Presentation, GitMerge, Briefcase, TrendingUp, Bell,
-  UserCheck, Settings, LogOut, Loader2, Menu, X, ShieldCheck, ChevronRight
+  UserCheck, Settings, LogOut, Loader2, Menu, X, ShieldCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { apiClient } from "@/lib/api-client"
@@ -75,167 +75,204 @@ export default function AcademiaLayout({ children }: { children: React.ReactNode
     ? 'Dr. Sarah Mitchell (Faculty)'
     : (profile?.full_name || user?.email?.split('@')[0] || 'Academician')
   const displayEmail = isDemo ? 'faculty.cs@dtu.edu' : (user?.email || '')
-  const initials = displayName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+  const initials = displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 
   if ((loading || authState === 'checking') && !isDemo) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[var(--color-background)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
-            <Loader2 className="h-5 w-5 text-white animate-spin" />
-          </div>
-          <p className="text-xs font-semibold text-[var(--color-text-muted)] tracking-wider uppercase">Verifying credentials...</p>
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
+          <p className="text-xs font-semibold text-slate-500">Verifying authorized Academia credentials...</p>
         </div>
       </div>
     )
   }
 
-  const NavContent = () => (
-    <>
-      {/* Brand */}
-      <div className="h-20 flex items-center px-4 border-b border-white/6 justify-between shrink-0">
-        <Link href="/academia" className="flex items-center gap-3 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white text-xs font-black shadow-lg group-hover:scale-105 transition-transform">
-            SC
-          </div>
-          <div>
-            <div className="text-[13px] font-bold text-white">SkillBridge</div>
-            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.15em] text-sky-400">
-              <ShieldCheck className="h-2.5 w-2.5" />
-              Academia
+  return (
+    <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
+      
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex w-64 flex-col border-r border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-xs">
+        {/* Brand Header */}
+        <div className="h-20 flex items-center px-6 border-b border-slate-100 justify-between">
+          <Link href="/academia" className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-accent)] text-white font-black text-xs shadow-xs">
+              SC
             </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Nav Links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== '/academia' && pathname.startsWith(item.href))
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group ${
-                isActive
-                  ? 'bg-sky-500/15 border border-sky-500/25 text-sky-300'
-                  : 'text-[var(--color-text-muted)] hover:text-white hover:bg-white/6'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-sky-400' : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]'}`} />
-                <span>{item.label}</span>
+            <div>
+              <div className="font-black text-base tracking-tight text-slate-900">SkillBridge</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-accent)] flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" /> Academia
               </div>
-              <div className="flex items-center gap-1.5">
+            </div>
+          </Link>
+        </div>
+
+        {/* Nav Links */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-[var(--color-accent)] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{item.label}</span>
+                </div>
                 {item.badge && item.badge > 0 ? (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
-                    isActive ? 'bg-sky-400 text-white' : 'bg-sky-400/20 text-sky-400 border border-sky-400/30'
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    isActive ? 'bg-white text-[var(--color-accent)]' : 'bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-border-primary)]'
                   }`}>
                     {item.badge}
                   </span>
                 ) : null}
-                {isActive && <ChevronRight className="h-3 w-3 text-sky-400" />}
-              </div>
-            </Link>
-          )
-        })}
-      </nav>
+              </Link>
+            )
+          })}
+        </nav>
 
-      {/* User Footer */}
-      <div className="p-4 border-t border-white/6 space-y-1.5 shrink-0">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-8 w-8 rounded-xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-xs font-bold text-sky-300 shrink-0">
-            {initials}
+        {/* User Footer */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-8 w-8 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] flex items-center justify-center text-xs font-bold shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-slate-900 truncate">{displayName}</div>
+              <div className="text-[10px] text-slate-500 truncate">{displayEmail}</div>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-white truncate">{displayName}</div>
-            <div className="text-[10px] text-[var(--color-text-muted)] truncate">{displayEmail}</div>
-          </div>
+          <Link
+            href="/"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors mb-1"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Exit Portal / Back to Home</span>
+          </Link>
+          <Link
+            href="/select-role"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-bold text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)] transition-colors mb-1"
+          >
+            <UserCheck className="h-3.5 w-3.5 text-[var(--color-accent)]" />
+            <span>Switch Role</span>
+          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="w-full justify-start text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 h-8 rounded-lg"
+          >
+            <LogOut className="mr-2 h-3.5 w-3.5" /> {isDemo ? 'Exit Demo Session' : 'Sign Out'}
+          </Button>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold text-[var(--color-text-muted)] hover:text-white hover:bg-white/6 transition-all"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Exit Portal</span>
-        </Link>
-        <Link
-          href="/select-role"
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold text-sky-400/70 hover:text-sky-400 hover:bg-sky-400/8 transition-all"
-        >
-          <UserCheck className="h-3.5 w-3.5" />
-          <span>Switch Role</span>
-        </Link>
-        <button
-          onClick={signOut}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[var(--color-text-muted)] hover:text-rose-400 hover:bg-rose-400/8 transition-all"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          {isDemo ? 'Exit Demo' : 'Sign Out'}
-        </button>
-      </div>
-    </>
-  )
-
-  return (
-    <div className="flex h-screen bg-[var(--color-background)] overflow-hidden">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col bg-[var(--color-surface)] border-r border-white/6">
-        <NavContent />
       </aside>
 
       {/* Main Body */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
         {/* Top Header */}
-        <header className="h-16 flex items-center justify-between px-4 sm:px-8 border-b border-white/6 bg-[var(--color-surface)]/80 backdrop-blur z-30 shrink-0">
+        <header className="h-16 flex items-center justify-between px-4 sm:px-8 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl shadow-xs z-30">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl text-[var(--color-text-muted)] hover:text-white hover:bg-white/8 transition-colors"
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] hidden sm:inline">Portal:</span>
-              <span className="text-xs font-bold text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 hidden sm:inline">Portal:</span>
+              <span className="text-xs font-bold text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
                 Academia Ecosystem
               </span>
             </div>
             <Link
               href="/"
-              className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-[var(--color-text-muted)] hover:text-white hover:bg-white/6 px-3 py-1.5 rounded-xl transition-colors border border-white/6 ml-1"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200 ml-2"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Home</span>
+              <span>Back to Home</span>
             </Link>
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/academia/notifications" className="relative p-2 rounded-xl text-[var(--color-text-muted)] hover:text-white hover:bg-white/8 transition-colors">
+            <Link href="/academia/notifications" className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100">
               <Bell className="h-4 w-4" />
               {unreadNotifications > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-[var(--color-surface)]" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--color-accent)] ring-2 ring-white" />
               )}
             </Link>
 
-            <div className="flex items-center gap-2.5 pl-3 border-l border-white/6">
-              <div className="h-7 w-7 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-xs font-bold text-sky-300">
+            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
+              <div className="h-7 w-7 rounded-lg bg-[var(--color-accent)] text-white flex items-center justify-center text-xs font-bold">
                 {initials}
               </div>
-              <span className="text-xs font-bold text-white hidden md:inline">{displayName}</span>
+              <span className="text-xs font-bold text-slate-800 hidden md:inline">{displayName}</span>
             </div>
           </div>
         </header>
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 z-40 flex">
-            <div className="w-72 bg-[var(--color-surface)] h-full shadow-2xl flex flex-col border-r border-white/8">
-              <NavContent />
+          <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex">
+            <div className="w-72 bg-white h-full shadow-2xl flex flex-col p-4 space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <span className="font-black text-sm text-slate-900">Academia Portal</span>
+                <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {navItems.map(item => {
+                  const Icon = item.icon
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold ${
+                        isActive ? 'bg-[var(--color-accent)] text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+
+              <div className="pt-2 border-t space-y-1">
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Exit Portal / Back to Home</span>
+                </Link>
+                <Link
+                  href="/select-role"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--color-accent-hover)] hover:bg-[var(--color-accent-light)]"
+                >
+                  <UserCheck className="h-3.5 w-3.5 text-[var(--color-accent)]" />
+                  <span>Switch Role</span>
+                </Link>
+                <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start text-xs font-bold text-rose-600">
+                  <LogOut className="mr-2 h-3.5 w-3.5" /> {isDemo ? 'Exit Demo Session' : 'Sign Out'}
+                </Button>
+              </div>
             </div>
-            <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+            <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
           </div>
         )}
 
