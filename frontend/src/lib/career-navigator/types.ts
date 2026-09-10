@@ -63,10 +63,13 @@ export const CareerNavigatorOutputSchema = z.object({
   why: z.array(z.string()).min(1).max(6),
   strengths: z.array(z.string()),
   nextSteps: z.array(z.string()).min(1),
-  followUpQuestion: z.object({
-    questionText: z.string(),
-    options: z.array(z.string()).min(2),
-  }).nullable().optional(),
+  followUpQuestion: z.union([
+    z.object({
+      questionText: z.string(),
+      options: z.array(z.string()).default([]),
+    }),
+    z.string().transform(q => ({ questionText: q, options: ['Explore more', 'Review skills'] })),
+  ]).nullable().optional(),
 })
 
 export type CareerNavigatorAIOutput = z.infer<typeof CareerNavigatorOutputSchema>
@@ -75,26 +78,72 @@ export interface CareerNavigatorResponse {
   success: boolean
   data: {
     sessionId?: string
-    intent: CareerNavigatorIntent
+    intent: CareerNavigatorIntent | string
+    extractedQuery?: {
+      intent: string
+      subjectA?: string
+      subjectB?: string
+      currentSkill?: string
+      rawQuery: string
+    }
     headline: string
     summary: string
+    directAnswer?: string
+    why?: string[]
+    marketOutlook?: {
+      available: boolean
+      demand?: string
+      growth?: string
+      opportunityVolume?: string
+      entryLevelOpportunity?: string
+      industryRelevance?: string
+      summary?: string
+      note?: string
+      skillMomentum?: string[]
+    }
+    currentFit?: {
+      score: number
+      targetCareer: string
+      fitLevel: string
+      summary: string
+    }
+    skillsHave?: Array<{
+      name: string
+      level: number
+      verificationStatus: string
+      isVerified: boolean
+    }>
+    skillsMissing?: string[]
+    skillGaps?: Array<{
+      skillName: string
+      currentLevel: number
+      requiredLevel: number
+      deficit: number
+    }>
+    whatToLearn?: string[]
+    roadmap?: {
+      day7: string
+      day30: string
+      day60: string
+      day90: string
+    }
+    finalRecommendation?: string
     recommendation: {
-      type: 'single' | 'hybrid' | 'explore'
+      type?: 'single' | 'hybrid' | 'explore'
       careerSlug?: string
       careerName?: string
       confidence: number
       reason: string
     }
-    comparison: CareerComparisonItem[]
-    why: string[]
-    strengths: string[]
-    gaps: Array<{
+    comparison?: CareerComparisonItem[]
+    strengths?: string[]
+    gaps?: Array<{
       careerName: string
       skills: string[]
     }>
-    nextSteps: string[]
-    bridgeMilestones: string[]
-    recommendedActionRoute: string
+    nextSteps?: string[]
+    bridgeMilestones?: string[]
+    recommendedActionRoute?: string
     followUpQuestion?: {
       questionText: string
       options: string[]
@@ -106,6 +155,7 @@ export interface CareerNavigatorResponse {
       dataAvailable: boolean
     }
     isFromFallback?: boolean
+    fallbackNotice?: string | null
   }
   error?: string
 }

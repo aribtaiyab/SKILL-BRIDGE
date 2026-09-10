@@ -60,8 +60,8 @@ export async function getServerProfile(): Promise<AuthProfile | null> {
         id: user.id,
         full_name: (meta.full_name as string) || user.email?.split('@')[0] || 'User',
         email: user.email || '',
-        role: (meta.role as UserRole) || 'student',
-        onboarding_completed: true,
+        role: (meta.role as UserRole) || null,
+        onboarding_completed: Boolean(meta.onboarding_completed),
         avatar_url: (meta.avatar_url as string) || null,
       }
     }
@@ -156,10 +156,10 @@ export function getDashboardForRole(role: UserRole | null): string {
   const map: Record<string, string> = {
     student: '/student',
     industry: '/industry',
-    academician: '/academician',
-    institution: '/institution',
+    academician: '/academia',
+    institution: '/academia',
   }
-  return map[role ?? ''] ?? '/onboarding'
+  return map[role ?? ''] ?? '/select-role'
 }
 
 /**

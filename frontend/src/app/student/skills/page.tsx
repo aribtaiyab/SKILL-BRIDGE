@@ -47,11 +47,11 @@ export default function SkillsPage() {
           json.data.forEach((row: any) => {
             const cat = row.skills?.category || 'Technical Competencies'
             if (!groups[cat]) groups[cat] = []
-            let badge = 'Self-Declared'
+            let badge = 'Self Declared'
+            if (row.verification_status === 'academically_verified' || row.verification_status === 'institution_verified') badge = 'Academically Verified'
             if (row.verification_status === 'assessment_verified') badge = 'Assessment'
             if (row.verification_status === 'practical_verified') badge = 'Practical'
             if (row.verification_status === 'evidence_verified') badge = 'Verified Evidence'
-            if (row.verification_status === 'institution_verified') badge = 'Institution Verified'
 
             const score = row.current_level || 0
             const status = score >= 75 ? 'ready' : score >= 60 ? 'improve' : 'gap'
@@ -88,6 +88,8 @@ export default function SkillsPage() {
 
   const getVerificationBadge = (level: string) => {
     switch(level) {
+      case "Academically Verified":
+        return <Badge className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold"><Shield className="h-3 w-3 mr-1 text-emerald-200" /> ✓ Academically Verified</Badge>
       case "Verified Evidence":
         return <Badge className="bg-[var(--color-foreground)] text-white"><Shield className="h-3 w-3 mr-1" /> Evidence Verified</Badge>
       case "Practical":
@@ -206,7 +208,14 @@ export default function SkillsPage() {
                         <p className="text-sm text-[var(--color-text-secondary)]">{skill.level} • Score: {skill.score}</p>
                       </div>
                       
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        {skill.verification !== "Academically Verified" && (
+                          <Link href="/student/verification">
+                            <Button size="sm" variant="outline" className="text-xs border-emerald-300 text-emerald-800 hover:bg-emerald-50">
+                              <Shield className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Request Verification
+                            </Button>
+                          </Link>
+                        )}
                         <Link href="/student/evidence">
                           <Button size="sm" variant="outline" className="text-xs">
                             <Shield className="h-3.5 w-3.5 mr-1 text-[var(--color-accent)]" /> Attach Proof

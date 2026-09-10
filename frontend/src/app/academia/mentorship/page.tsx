@@ -18,6 +18,7 @@ import {
   ExternalLink
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { apiClient } from "@/lib/api-client"
 
 interface MentorshipItem {
   id: string
@@ -77,8 +78,7 @@ export default function AcademiaMentorshipPage() {
         return
       }
 
-      const res = await fetch(`/api/academia/mentorship?status=${statusFilter}`)
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: MentorshipItem[] }>(`/api/academia/mentorship?status=${statusFilter}`)
       if (json.success) {
         setMentorships(json.data || [])
       }
@@ -105,8 +105,7 @@ export default function AcademiaMentorshipPage() {
         return
       }
 
-      const res = await fetch('/api/academia/students')
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data?: { students: any[] } }>('/api/academia/students')
       if (json.success && json.data?.students) {
         setStudentsList(json.data.students.map((s: any) => ({
           id: s.id,
@@ -155,19 +154,14 @@ export default function AcademiaMentorshipPage() {
         return
       }
 
-      const res = await fetch('/api/academia/mentorship', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudentId,
-          notes: notes ? `${notes} (Target Skill: ${focusSkill || 'Core Engineering'})` : `Mentorship on ${focusSkill || 'Core Engineering'}`,
-          startDate,
-          endDate: endDate || null,
-          status: 'active',
-        }),
+      const json = await apiClient.post('/api/academia/mentorship', {
+        studentId: selectedStudentId,
+        notes: notes ? `${notes} (Target Skill: ${focusSkill || 'Core Engineering'})` : `Mentorship on ${focusSkill || 'Core Engineering'}`,
+        startDate,
+        endDate: endDate || null,
+        status: 'active',
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         throw new Error(json.error || 'Failed to create mentorship')
       }
       setShowCreateModal(false)
@@ -196,15 +190,10 @@ export default function AcademiaMentorshipPage() {
         return
       }
 
-      const res = await fetch(`/api/academia/mentorship/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: newStatus,
-          endDate: newStatus === 'completed' ? new Date().toISOString().split('T')[0] : undefined,
-        }),
+      const json = await apiClient.patch(`/api/academia/mentorship/${id}`, {
+        status: newStatus,
+        endDate: newStatus === 'completed' ? new Date().toISOString().split('T')[0] : undefined,
       })
-      const json = await res.json()
       if (json.success) {
         setToastMessage(`Mentorship marked as ${newStatus}!`)
         fetchMentorships()
@@ -232,12 +221,7 @@ export default function AcademiaMentorshipPage() {
         return
       }
 
-      const res = await fetch(`/api/academia/mentorship/${editItem.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: updatingNotes }),
-      })
-      const json = await res.json()
+      const json = await apiClient.patch(`/api/academia/mentorship/${editItem.id}`, { notes: updatingNotes })
       if (json.success) {
         setToastMessage('Progress notes updated successfully!')
         setEditItem(null)

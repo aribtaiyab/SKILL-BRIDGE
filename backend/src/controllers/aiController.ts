@@ -49,14 +49,17 @@ export async function chatCoach(req: AuthenticatedRequest, res: Response, next: 
 export async function diagnose(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const studentId = req.user?.id || '00000000-0000-0000-0000-000000000001'
-    const { skillName, targetCareerId, opportunityId } = req.body || {}
+    const body = req.body || {}
+    const resolvedSkillName = body.skillName || body.skill || 'Node.js'
+    const resolvedCareerId = body.targetCareerId || body.careerTarget || body.target_career_id
+    const resolvedOpportunityId = body.opportunityId || body.opportunity_id
 
-    const result = await diagnoseSkillGap(studentId, skillName, {
-      targetCareerId,
-      opportunityId,
+    const result = await diagnoseSkillGap(studentId, resolvedSkillName, {
+      targetCareerId: resolvedCareerId,
+      opportunityId: resolvedOpportunityId,
     })
 
-    res.status(200).json({ data: result.diagnosis })
+    res.status(200).json({ success: true, data: result.diagnosis })
   } catch (err) {
     next(err)
   }
@@ -65,13 +68,15 @@ export async function diagnose(req: AuthenticatedRequest, res: Response, next: N
 export async function learningPlan(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const studentId = req.user?.id || '00000000-0000-0000-0000-000000000001'
-    const { skillName, targetCareerId } = req.body || {}
+    const body = req.body || {}
+    const resolvedSkillName = body.skillName || body.skill || 'Node.js'
+    const resolvedCareerId = body.targetCareerId || body.careerTarget || body.target_career_id
 
-    const result = await getOrGenerateLearningPlan(studentId, skillName, {
-      targetCareerId,
+    const result = await getOrGenerateLearningPlan(studentId, resolvedSkillName, {
+      targetCareerId: resolvedCareerId,
     })
 
-    res.status(200).json({ data: result.plan })
+    res.status(200).json({ success: true, data: { plan: result.plan, ...result.plan } })
   } catch (err) {
     next(err)
   }

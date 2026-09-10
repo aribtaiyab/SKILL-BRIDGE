@@ -162,7 +162,7 @@ export const CLOSE_THRESHOLD = 15
  */
 export function calculateOpportunityMatch(
   opportunity: OpportunityItem,
-  studentScores: Record<string, number> = { "Node.js": 72, "REST APIs": 75, "SQL": 82, "Git & Version Control": 75 }
+  studentScores: Record<string, number> = {}
 ): OpportunityMatchResult {
   let totalPoints = 0
   let earnedPoints = 0

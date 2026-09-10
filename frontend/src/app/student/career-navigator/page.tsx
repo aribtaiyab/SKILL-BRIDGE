@@ -23,6 +23,12 @@ import {
   Check,
   Zap,
   Target,
+  BookOpen,
+  Calendar,
+  ShieldCheck,
+  Layers,
+  Award,
+  BarChart3,
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { CareerNavigatorResponse } from "@/lib/career-navigator/types"
@@ -90,6 +96,7 @@ export default function CareerNavigatorPage() {
     try {
       const response = await apiClient<CareerNavigatorResponse>('/api/career-navigator/analyze', {
         method: 'POST',
+        timeoutMs: 40000,
         body: JSON.stringify({
           message: q,
           query: q,
@@ -98,37 +105,28 @@ export default function CareerNavigatorPage() {
       })
 
       if (response.success && response.data) {
-        if (
-          response.data.headline?.toLowerCase().includes('temporarily unavailable') ||
-          response.data.summary?.toLowerCase().includes('temporarily unavailable')
-        ) {
-          setErrorMsg('Analysis temporarily unavailable — please try again')
-          setResult(null)
-          return
-        }
-
         setResult(response.data)
         setConversation(prev => [
           ...prev,
-          { role: 'assistant' as const, content: response.data.summary },
+          { role: 'assistant' as const, content: response.data.directAnswer || response.data.summary },
         ])
         // Add to history items if not present
         setHistoryItems(prev => [
           {
             id: `decision-${Date.now()}`,
             question: q,
-            recommended_career_name: response.data.recommendation.careerName,
-            confidence: response.data.recommendation.confidence,
+            recommended_career_name: response.data.recommendation?.careerName || response.data.headline,
+            confidence: response.data.recommendation?.confidence || 75,
             created_at: new Date().toISOString(),
           },
           ...prev.slice(0, 9),
         ])
       } else {
-        throw new Error(response.error || 'Analysis temporarily unavailable — please try again')
+        throw new Error(response.error || 'Career Navigator could not analyze this question. Please try again.')
       }
     } catch (err: any) {
       console.error('Career Navigator error:', err)
-      setErrorMsg('Analysis temporarily unavailable — please try again')
+      setErrorMsg(err.message || 'Analysis temporarily unavailable — please try again')
       setResult(null)
     } finally {
       setAnalyzing(false)
@@ -338,212 +336,385 @@ export default function CareerNavigatorPage() {
       {/* ─── RESULTS CONTAINER ─────────────────────────────────────────────── */}
       {result && !analyzing && (
         <div className="space-y-8 animate-in fade-in duration-300">
-          {/* Recommendation Banner */}
+          {/* AI Fallback Notice Banner if Gemini unavailable / quota exhausted */}
+          {result.isFromFallback && (
+            <div className="rounded-2xl bg-amber-50/90 border border-amber-200/90 p-4 text-xs font-medium text-amber-900 flex items-center gap-3 shadow-xs">
+              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+              <div>
+                <strong className="font-bold text-amber-950 block">SkillBridge Deterministic Intelligence Active</strong>
+                <span>{result.fallbackNotice || 'AI analysis is currently operating in deterministic mode — displaying SkillBridge benchmark standards and profile intelligence.'}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ─── 1. DIRECT ANSWER ─────────────────────────────────────────────── */}
           <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-gradient-to-br from-[#FAF6F3] via-white to-[#F2F7F9] p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-4">
             <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
-              <div className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-3 py-0.5 rounded-full">
-                  <Target className="h-3 w-3" /> Career Recommendation
-                </span>
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-3 py-0.5 rounded-full">
+                    <Sparkles className="h-3 w-3" /> 1. Direct Answer
+                  </span>
+                  {result.extractedQuery?.intent && (
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                      Intent: {result.extractedQuery.intent}
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   {result.headline}
                 </h3>
-                <p className="text-sm text-slate-700 leading-relaxed font-medium max-w-2xl">
-                  {result.summary}
-                </p>
+                <div className="p-4 rounded-2xl bg-white/90 border border-[var(--color-border-primary)] text-sm sm:text-base font-semibold text-slate-800 leading-relaxed shadow-xs">
+                  {result.directAnswer || result.summary}
+                </div>
               </div>
 
-              {result.recommendation.confidence > 0 && (
-                <div className="p-4 rounded-2xl bg-white border border-[var(--color-border-primary)] shrink-0 text-center sm:text-right shadow-xs">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Match Confidence</span>
+              {result.recommendation?.confidence !== undefined && (
+                <div className="p-4 rounded-2xl bg-white border border-[var(--color-border-primary)] shrink-0 text-center sm:text-right shadow-xs min-w-[130px]">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Confidence</span>
                   <div className="text-3xl font-black text-[var(--color-accent)]">{result.recommendation.confidence}%</div>
-                  <span className="text-[10px] font-semibold text-slate-500">Based on authenticated ledger</span>
+                  <span className="text-[10px] font-semibold text-slate-500">SkillBridge Verified</span>
                 </div>
               )}
             </div>
-
-            {result.recommendation.reason && (
-              <div className="p-4 rounded-2xl bg-white/80 border border-[var(--color-border-primary)] text-xs text-slate-700 font-medium">
-                <strong className="text-slate-900 font-bold block mb-1">Recommendation Breakdown:</strong>
-                {result.recommendation.reason}
-              </div>
-            )}
           </div>
 
-          {/* ─── SIDE-BY-SIDE COMPARISON GRID ──────────────────────────────── */}
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Side-by-Side Path Comparison</h3>
-              <p className="text-xs text-slate-500">
-                Authoritative benchmark compliance vs live industry market outlook
-              </p>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {result.comparison.map((item, idx) => {
-                const isWinner = item.careerSlug === result.recommendation.careerSlug
-                return (
-                  <div
-                    key={item.careerSlug}
-                    className={`rounded-3xl border p-6 flex flex-col justify-between transition-all duration-300 backdrop-blur-xl ${
-                      isWinner
-                        ? 'border-[var(--color-accent)] bg-white ring-2 ring-[var(--color-accent)]/20 shadow-xs'
-                        : 'border-slate-200/80 bg-white/90 shadow-sm'
-                    }`}
-                  >
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          {isWinner && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2 py-0.5 rounded-full mb-1 inline-block">
-                              Best Fit For You
-                            </span>
-                          )}
-                          <h4 className="text-lg font-black text-slate-900">{item.careerName}</h4>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-2xl font-black text-slate-900 font-mono">{item.fitScore}%</span>
-                          <span className="text-[10px] font-semibold text-slate-400 block">Your Fit</span>
-                        </div>
-                      </div>
-
-              {/* Metric Breakdown Table */}
-                      <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/60 space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Skill Advantage:</span>
-                          <strong className="font-bold text-slate-700">
-                            {Array.isArray(item.skillAdvantage) ? item.skillAdvantage[0] : (item.skillAdvantage || 'Standard')}
-                          </strong>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Skill Deficit / Gap:</span>
-                          <strong className="font-bold text-slate-700">
-                            {Array.isArray((item as any).missingSkills) ? `${(item as any).missingSkills.length} areas` : (item.gapLevel || 'Targeted')}
-                          </strong>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Market Outlook:</span>
-                          <strong className="text-[var(--color-accent-hover)] font-bold">{item.marketOutlook}</strong>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Transition Difficulty:</span>
-                          <strong className="font-bold text-slate-700">
-                            {item.transitionDifficulty}
-                          </strong>
-                        </div>
-                        <div className="flex justify-between pt-1 border-t border-slate-200/60">
-                          <span className="text-slate-500">Salary Range (Median):</span>
-                          <strong className="text-slate-900 font-bold">
-                            {item.marketData?.salaryRange?.median ? String(item.marketData.salaryRange.median) : 'Competitive'}
-                          </strong>
-                        </div>
-                      </div>
-
-                      {/* Market Note */}
-                      {item.marketData?.summary && (
-                        <p className="text-[11px] text-slate-600 leading-relaxed italic bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
-                          "{item.marketData.summary}"
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="pt-4 mt-3 border-t border-slate-100">
-                      <Link href="/student/career">
-                        <Button
-                          variant={isWinner ? "default" : "outline"}
-                          size="sm"
-                          className="w-full text-xs font-semibold rounded-xl"
-                        >
-                          Select as Career Target →
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* ─── WHY THIS RESULT & WHAT'S MISSING ─────────────────────────── */}
+          {/* ─── 2. WHY THIS IS BETTER FOR YOU & 4. YOUR CURRENT FIT ───────────── */}
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Why This Result? */}
+            {/* 2. Why This Is Better For You */}
             <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" /> Why This Result?
-              </h4>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  <CheckCircle2 className="h-4 w-4" />
+                </span>
+                <h4 className="text-base font-bold text-slate-900">2. Why This Is Better For You</h4>
+              </div>
               <ul className="space-y-2.5">
-                {(result.why || []).map((reason, idx) => (
-                  <li key={idx} className="text-xs text-slate-700 leading-relaxed flex items-start gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                    <span>{reason}</span>
+                {(result.why && result.why.length > 0 ? result.why : [result.summary]).map((reason, idx) => (
+                  <li key={idx} className="text-xs text-slate-700 leading-relaxed flex items-start gap-2.5 p-2 rounded-xl bg-slate-50/60 border border-slate-100">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 mt-1 shrink-0" />
+                    <span className="font-medium">{reason}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* What You Are Missing */}
+            {/* 4. Your Current Fit */}
             <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600" /> What You Are Missing
-              </h4>
-              <div className="space-y-3">
-                {((result.gaps && result.gaps.length > 0) ? result.gaps : (result.comparison || []).map(c => ({ careerName: c.careerName, skills: ((c as any).missingSkills || []) as string[] }))).map((item: { careerName: string; skills: string[] }) => (
-                  <div key={item.careerName} className="p-3 rounded-2xl bg-amber-50/50 border border-amber-200/60 space-y-1">
-                    <span className="text-xs font-bold text-amber-950 block">{item.careerName}:</span>
-                    {item.skills && item.skills.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.skills.map((s: string, idx: number) => (
-                          <span key={idx} className="text-[11px] font-semibold bg-white text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md">
-                            {s}
-                          </span>
-                        ))}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-border-primary)]">
+                    <Target className="h-4 w-4" />
+                  </span>
+                  <h4 className="text-base font-bold text-slate-900">4. Your Current Fit</h4>
+                </div>
+                {result.currentFit && (
+                  <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border-[var(--color-border-primary)] text-xs font-bold">
+                    {result.currentFit.fitLevel}
+                  </Badge>
+                )}
+              </div>
+
+              {result.currentFit ? (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Target Career</span>
+                      <strong className="text-sm font-black text-slate-900">{result.currentFit.targetCareer}</strong>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Readiness Score</span>
+                      <strong className="text-xl font-black text-[var(--color-accent)] font-mono">{result.currentFit.score}%</strong>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    {result.currentFit.summary}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">Profile fit calculation active for your configured career targets.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ─── 3. MARKET OUTLOOK ────────────────────────────────────────────── */}
+          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-200">
+                <TrendingUp className="h-4 w-4" />
+              </span>
+              <h4 className="text-base font-bold text-slate-900">3. Market Outlook</h4>
+            </div>
+
+            {result.marketOutlook && result.marketOutlook.available && !result.marketOutlook.demand?.includes('unavailable') ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-slate-500 block mb-1">Demand Level</span>
+                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.demand}</strong>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-slate-500 block mb-1">Projected Growth</span>
+                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.growth}</strong>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-slate-500 block mb-1">Opportunity Volume</span>
+                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.opportunityVolume || 'Active'}</strong>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <span className="text-slate-500 block mb-1">Industry Relevance</span>
+                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.industryRelevance || 'High'}</strong>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 space-y-1">
+                <div className="flex items-center gap-2 text-slate-800 font-bold">
+                  <BarChart3 className="h-4 w-4 text-slate-500" />
+                  <span>Market Data Availability Notice</span>
+                </div>
+                <p className="italic">
+                  {result.marketOutlook?.note || 'Market data unavailable for this specific comparison request. General technical recommendations are derived from verified engineering roadmaps and career target benchmarks.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ─── OPTIONAL: SIDE-BY-SIDE PATH COMPARISON (IF MULTI-TRACK) ────── */}
+          {result.comparison && result.comparison.length > 1 && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-base font-bold text-slate-900">Side-by-Side Path Comparison</h4>
+                <p className="text-xs text-slate-500">Benchmark compliance and fit comparison</p>
+              </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {result.comparison.map((item) => {
+                  const isWinner = item.careerSlug === result.recommendation?.careerSlug
+                  return (
+                    <div
+                      key={item.careerSlug}
+                      className={`rounded-2xl border p-5 flex flex-col justify-between transition-all ${
+                        isWinner
+                          ? 'border-[var(--color-accent)] bg-white ring-2 ring-[var(--color-accent)]/20 shadow-xs'
+                          : 'border-slate-200/80 bg-white/90 shadow-sm'
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            {isWinner && (
+                              <span className="text-[10px] font-bold uppercase text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] px-2 py-0.5 rounded-full mb-1 inline-block">
+                                Best Fit
+                              </span>
+                            )}
+                            <h5 className="text-base font-bold text-slate-900">{item.careerName}</h5>
+                          </div>
+                          <span className="text-xl font-black text-slate-900 font-mono">{item.fitScore}%</span>
+                        </div>
+                        <div className="text-xs space-y-1.5 text-slate-600">
+                          <div className="flex justify-between">
+                            <span>Market Outlook:</span>
+                            <strong className="text-slate-800">{item.marketOutlook}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Difficulty:</span>
+                            <strong className="text-slate-800">{item.transitionDifficulty}</strong>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      <span className="text-xs text-emerald-700 font-medium">All core benchmarks satisfied!</span>
-                    )}
+                      <div className="pt-3 mt-3 border-t border-slate-100">
+                        <Link href="/student/career">
+                          <Button variant={isWinner ? "default" : "outline"} size="sm" className="w-full text-xs rounded-xl">
+                            Select Career →
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 5. SKILLS YOU ALREADY HAVE & 6. SKILLS YOU ARE MISSING ───────── */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 5. Skills You Already Have */}
+            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  <ShieldCheck className="h-4 w-4" />
+                </span>
+                <h4 className="text-base font-bold text-slate-900">5. Skills You Already Have</h4>
+              </div>
+
+              {result.skillsHave && result.skillsHave.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {result.skillsHave.map((skill, idx) => (
+                    <div
+                      key={idx}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
+                        skill.isVerified
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                          : 'bg-slate-50 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {skill.isVerified ? (
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-slate-400" />
+                      )}
+                      <span>{skill.name}</span>
+                      <span className="text-[10px] opacity-75 font-mono">
+                        ({skill.isVerified ? `Verified Lvl ${skill.level}` : `Self-Declared Lvl ${skill.level}`})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 text-xs text-slate-500">
+                  No skills declared or assessed yet on your profile. Declare skills in Career Target to calibrate your fit.
+                </div>
+              )}
+            </div>
+
+            {/* 6. Skills You Are Missing */}
+            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-200">
+                  <AlertTriangle className="h-4 w-4" />
+                </span>
+                <h4 className="text-base font-bold text-slate-900">6. Skills You Are Missing</h4>
+              </div>
+
+              {result.skillsMissing && result.skillsMissing.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {result.skillsMissing.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-50/70 text-amber-900 border border-amber-200/80"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-800 font-medium">
+                  No critical missing benchmarks identified for your active track!
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── 7. SKILL GAPS ─────────────────────────────────────────────────── */}
+          {result.skillGaps && result.skillGaps.length > 0 && (
+            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
+                  <Layers className="h-4 w-4" />
+                </span>
+                <h4 className="text-base font-bold text-slate-900">7. Skill Gaps Diagnostic</h4>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {result.skillGaps.map((gap, idx) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <strong className="font-bold text-slate-900">{gap.skillName}</strong>
+                      <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                        -{gap.deficit} Level Gap
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 text-[11px]">
+                      <span>Current: Level {gap.currentLevel}</span>
+                      <span>Target: Level {gap.requiredLevel}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+          )}
+
+          {/* ─── 8. WHAT YOU SHOULD LEARN ──────────────────────────────────────── */}
+          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <h4 className="text-base font-bold text-slate-900">8. What You Should Learn</h4>
+            </div>
+
+            <div className="space-y-2.5">
+              {(result.whatToLearn && result.whatToLearn.length > 0
+                ? result.whatToLearn
+                : result.nextSteps || ['Explore core benchmarks', 'Take skill assessment']
+              ).map((step, idx) => (
+                <div key={idx} className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3 text-xs">
+                  <span className="h-6 w-6 rounded-xl bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-[11px]">
+                    {idx + 1}
+                  </span>
+                  <span className="font-semibold text-slate-800 pt-0.5 leading-relaxed">{step}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* ─── YOUR NEXT MOVE & ACTION PLAN ─────────────────────────────── */}
+          {/* ─── 9. RECOMMENDED ROADMAP ────────────────────────────────────────── */}
+          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-border-primary)]">
+                  <Calendar className="h-4 w-4" />
+                </span>
+                <h4 className="text-base font-bold text-slate-900">9. Recommended Roadmap</h4>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">7 / 30 / 60 / 90 Days</span>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { period: 'Day 7', title: 'Diagnostic', content: result.roadmap?.day7 || 'Complete initial diagnostic assessments.' },
+                { period: 'Day 30', title: 'Core Foundations', content: result.roadmap?.day30 || 'Close top missing benchmark with project.' },
+                { period: 'Day 60', title: 'Verification', content: result.roadmap?.day60 || 'Earn Level 1/2 verification badge.' },
+                { period: 'Day 90', title: 'Opportunity Ready', content: result.roadmap?.day90 || 'Qualify for matching partner opportunities.' },
+              ].map((phase, idx) => (
+                <div key={idx} className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-[var(--color-accent)] bg-[var(--color-accent-light)] px-2 py-0.5 rounded-md">
+                      {phase.period}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400">{phase.title}</span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800 leading-relaxed pt-1">
+                    {phase.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ─── 10. FINAL RECOMMENDATION & ACTIONS ─────────────────────────────── */}
           <div className="rounded-3xl border border-[var(--color-border-primary)] bg-gradient-to-r from-[#FAF6F3] via-white to-[#F2F7F9] p-6 sm:p-8 shadow-sm space-y-5">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] block mb-1">
-                  Actionable Strategy
+              <div className="space-y-1 flex-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] block">
+                  10. Final Recommendation
                 </span>
-                <h4 className="text-xl font-black text-slate-900 tracking-tight">Your Next Move</h4>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Follow these verified milestones to eliminate remaining gaps and qualify for live opportunities.
+                <h4 className="text-xl font-black text-slate-900 tracking-tight">Your Next Strategic Move</h4>
+                <p className="text-sm font-semibold text-slate-800 leading-relaxed max-w-2xl pt-1">
+                  {result.finalRecommendation || result.recommendation?.reason || result.directAnswer}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <Link href={`/student/career?target=${encodeURIComponent(result.recommendation.careerSlug || '')}&action=roadmap`}>
-                  <Button className="h-10 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-sm">
-                    Build My Roadmap <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+                <Link href="/student/career">
+                  <Button className="h-10 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-sm w-full sm:w-auto">
+                    Go to Career Target <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                   </Button>
                 </Link>
-                <Link href="/student/opportunities">
-                  <Button variant="outline" className="h-10 px-4 rounded-xl text-xs font-semibold">
-                    View Matching Opportunities ({isDemo ? 4 : 'Active'})
+                <Link href="/student/career?action=assess">
+                  <Button variant="outline" className="h-10 px-4 rounded-xl text-xs font-semibold w-full sm:w-auto">
+                    Take Skill Assessments
                   </Button>
                 </Link>
               </div>
-            </div>
-
-            {/* Milestones */}
-            <div className="grid sm:grid-cols-3 gap-3 pt-2">
-              {((result.bridgeMilestones && result.bridgeMilestones.length > 0) ? result.bridgeMilestones : (result.nextSteps || [])).slice(0, 3).map((step, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-white border border-[var(--color-border-primary)] shadow-2xs space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-accent-light)] px-2 py-0.5 rounded-md">
-                    Phase {idx + 1}
-                  </span>
-                  <p className="text-xs font-semibold text-slate-800 leading-snug pt-1">{step}</p>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -554,7 +725,7 @@ export default function CareerNavigatorPage() {
                 Market intelligence sources: <span className="text-slate-600 font-medium">{result.marketSummary.source}</span> ({result.marketSummary.freshness}).
               </p>
               <p className="italic">
-                Decision framework combines 35% Student Skill Fit, 25% Requirement Compliance, 20% Market Outlook, 10% Preferences, and 10% Transition Ease.
+                Decision framework combines verified student skills, requirement benchmarks, and current market demand.
               </p>
             </div>
           )}

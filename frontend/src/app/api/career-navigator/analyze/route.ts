@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         intent,
         headline: aiOutput.answer.headline || calcResult.headline,
         summary: aiOutput.answer.summary || calcResult.recommendationReason,
+        directAnswer: aiOutput.answer.summary || calcResult.recommendationReason,
         recommendation: {
           type: aiOutput.recommendation.type,
           careerSlug: aiOutput.recommendation.careerSlug || calcResult.recommendedCareerSlug,

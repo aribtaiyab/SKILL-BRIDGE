@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useDemo } from "@/lib/demo/demo-context"
 import { demoService } from "@/lib/demo/demo-service"
+import { apiClient } from "@/lib/api-client"
 
 interface IndustryDemandData {
   hasEnoughData: boolean
@@ -49,8 +50,7 @@ export default function AcademiaIndustryPage() {
         return
       }
 
-      const res = await fetch('/api/academia/industry')
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: IndustryDemandData }>('/api/academia/industry')
       if (json.success) {
         setData(json.data)
       }

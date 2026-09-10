@@ -16,9 +16,16 @@ router.get('/career-targets/:careerId/benchmark', sc.getCareerBenchmark)
 router.get('/careers/:careerId/benchmark', sc.getCareerBenchmark)
 router.patch('/career-target', sc.setCareerTarget)
 
+// Career Target Skills (Self-declared baseline & diagnostic)
+router.get('/career-target/skills', sc.getCareerTargetSkills)
+router.post('/career-target/skills', sc.saveCareerTargetSkills)
+
 // Skills & Readiness
 router.get('/skills', sc.getStudentSkills)
+router.get('/skills/:skillId/detail', sc.getStudentSkillDetail)
+router.get('/skills/:skillId', sc.getStudentSkillDetail)
 router.post('/skills', sc.addStudentSkill)
+router.post('/skills/declare', sc.bulkDeclareStudentSkills)
 router.get('/readiness', sc.getStudentReadiness)
 router.get('/skill-gaps', sc.getStudentSkillGaps)
 router.get('/opportunities', sc.getStudentOpportunities)
@@ -28,6 +35,8 @@ router.post('/saved-opportunities', sc.toggleSavedOpportunity)
 
 // Assessments
 router.get('/assessments', sc.getStudentAssessments)
+router.get('/assessments/history', sc.getStudentAssessmentHistory)
+router.get('/assessments/history/:skillId', sc.getStudentAssessmentHistory)
 router.get('/assessments/:id', sc.getStudentAssessmentById)
 router.post('/assessments/:id/start', sc.startStudentAssessment)
 router.post('/assessments/:id/submit', sc.submitStudentAssessment)

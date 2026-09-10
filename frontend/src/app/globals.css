@@ -31,13 +31,24 @@
   :root {
     --background: #FAF8F3;
     --foreground: #2A2A28;
+    --color-background: #FAF8F3;
+    --color-foreground: #2A2A28;
     --color-surface: #FFFFFF;
+    --color-surface-secondary: #F4F1EA;
+    --color-surface-card: #FFFFFF;
+    --color-text-secondary: #6B6B64;
+    --color-text-muted: #8D8D84;
+    --color-border-primary: #EAE7DE;
+    --color-border-subtle: #F0EDE5;
+    --color-border: #EAE7DE;
     --color-accent: #3F6B52;
     --color-accent-hover: #335742;
     --color-accent-light: #EBF2ED;
     --color-accent-pink: #E8B4B8;
     --color-accent-sky: #A8C9D9;
-    --color-border: #EAE7DE;
+    --color-success: #4A7C59;
+    --color-warning: #C9924A;
+    --color-critical: #B85C5C;
     --shadow-soft: 0 2px 8px -2px rgba(42, 42, 40, 0.05), 0 1px 3px -1px rgba(42, 42, 40, 0.03);
     --shadow-hover: 0 6px 16px -4px rgba(42, 42, 40, 0.08), 0 2px 6px -2px rgba(42, 42, 40, 0.04);
     --shadow-float: 0 12px 28px -6px rgba(42, 42, 40, 0.09);

@@ -40,17 +40,34 @@ export async function requireAcademicianAuth(): Promise<AuthGuardResult> {
     const adminSupabase = createSupabaseAdminClient()
 
     // 1. Verify user profile and role
-    const { data: profile, error: profileError } = await (adminSupabase as any)
-      .from('profiles')
-      .select('id, full_name, email, role, avatar_url')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (profileError || !profile) {
-      return { success: false, status: 403, error: 'User profile not found.' }
+    let profile: any = null
+    try {
+      const { data, error: profileError } = await (adminSupabase as any)
+        .from('profiles')
+        .select('id, full_name, email, role, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (!profileError && data) {
+        profile = data
+      }
+    } catch {
+      // Table unmigrated
     }
 
-    if (profile.role !== 'academician') {
+    const userRole = (profile?.role || user.user_metadata?.role || 'academician').toLowerCase()
+
+    if (!profile) {
+      profile = {
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Academician',
+        email: user.email || '',
+        role: userRole,
+        avatar_url: user.user_metadata?.avatar_url || null,
+      }
+    }
+
+    const allowedRoles = ['academician', 'institution', 'faculty', 'professor', 'admin']
+    if (!allowedRoles.includes(userRole)) {
       return { success: false, status: 403, error: 'Unauthorized. Academician access required.' }
     }
 

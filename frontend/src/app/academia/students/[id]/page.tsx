@@ -27,6 +27,7 @@ import {
   Sparkles
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { apiClient } from "@/lib/api-client"
 
 interface StudentDetailData {
   student: {
@@ -197,10 +198,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         return
       }
 
-      const res = await fetch(`/api/academia/students/${studentId}`)
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to load student details')
+      const json = await apiClient<{ success: boolean; data: StudentDetailData }>(`/api/academia/students/${studentId}`)
+      if (!json.success || !json.data) {
+        throw new Error('Failed to load student details')
       }
       setData(json.data)
       if (json.data.skillsBreakdown?.length > 0) {
@@ -242,20 +242,15 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         return
       }
 
-      const res = await fetch('/api/academia/mentorship', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          skillId: selectedSkillId,
-          notes: mentorNotes,
-          startDate: mentorStartDate,
-          endDate: mentorEndDate || null,
-          status: 'active',
-        }),
+      const json = await apiClient.post('/api/academia/mentorship', {
+        studentId,
+        skillId: selectedSkillId,
+        notes: mentorNotes,
+        startDate: mentorStartDate,
+        endDate: mentorEndDate || null,
+        status: 'active',
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         throw new Error(json.error || 'Failed to initiate mentorship')
       }
       setActionSuccess('Mentorship established successfully! View progress in the Mentorship module.')

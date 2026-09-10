@@ -10,7 +10,7 @@ export const AI_CONFIG = {
     return (process.env.GEMINI_API_KEY || '').trim()
   },
   get model(): string {
-    return process.env.GEMINI_MODEL || 'gemini-3.5-flash'
+    return process.env.GEMINI_MODEL || 'gemini-3.7-flash'
   },
   get baseUrl(): string {
     return 'https://generativelanguage.googleapis.com/v1beta'
@@ -22,7 +22,7 @@ export const AI_CONFIG = {
     return Number(process.env.AI_TEMPERATURE) || 0.2
   },
   get timeoutMs(): number {
-    return Number(process.env.AI_TIMEOUT_MS) || 45000
+    return Number(process.env.AI_TIMEOUT_MS) || 40000
   },
   isLiveProviderConfigured(): boolean {
     return (process.env.GEMINI_API_KEY || '').trim().length > 0

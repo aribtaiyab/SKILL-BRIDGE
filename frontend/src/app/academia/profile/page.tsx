@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useDemo } from "@/lib/demo/demo-context"
 import { demoService } from "@/lib/demo/demo-service"
+import { apiClient } from "@/lib/api-client"
 
 interface AcademicianProfileData {
   id: string
@@ -82,8 +83,7 @@ export default function AcademiaProfilePage() {
         return
       }
 
-      const res = await fetch('/api/academia/profile')
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: AcademicianProfileData }>('/api/academia/profile')
       if (json.success && json.data) {
         setProfile(json.data)
         setName(json.data.name || '')
@@ -123,21 +123,16 @@ export default function AcademiaProfilePage() {
         return
       }
 
-      const res = await fetch('/api/academia/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          designation,
-          teachingArea,
-          bio,
-          phone,
-          location,
-        }),
+      const json = await apiClient.patch<{ success: boolean }>('/api/academia/profile', {
+        name,
+        designation,
+        teachingArea,
+        bio,
+        phone,
+        location,
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to update profile')
+      if (!json.success) {
+        throw new Error((json as any).error || 'Failed to update profile')
       }
       setToastMessage('Faculty profile updated successfully!')
       fetchProfile()

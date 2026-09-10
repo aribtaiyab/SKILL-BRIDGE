@@ -22,6 +22,7 @@ export interface EvaluatedSkillGap {
   category?: string
   requiredLevel: number
   currentLevel: number
+  selfDeclaredLevel?: number
   gap: number
   status: 'critical' | 'needs_improvement' | 'ready'
   importance: string
@@ -133,11 +134,33 @@ export function calculateOverallReadiness(
 ): number {
   if (!requirements || requirements.length === 0) return 0
 
+  function norm(k?: string): string {
+    return (k || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  }
+
   const studentSkillMap = new Map<string, number>()
   studentSkills.forEach(s => {
-    studentSkillMap.set(s.skillId, s.currentLevel)
+    const isVerified = Boolean(
+      s.verificationStatus &&
+      s.verificationStatus !== 'self_declared' &&
+      s.verificationStatus !== 'unassessed' &&
+      (s.currentLevel > 0 || (s as any).verifiedLevel > 0)
+    )
+    // Self-declared skills receive 0 verified credit in readiness calculations until verified
+    const confidenceMultiplier = isVerified ? 1.0 : 0
+    const level = normalizeScore((s.currentLevel || 0) * confidenceMultiplier)
+
+    const existingLevel = studentSkillMap.get(s.skillId) ?? (s.skillName ? studentSkillMap.get(s.skillName.toLowerCase()) : 0)
+    if (existingLevel && existingLevel > 0 && !isVerified) {
+      return
+    }
+    if (s.skillId) {
+      studentSkillMap.set(s.skillId, level)
+      studentSkillMap.set(norm(s.skillId), level)
+    }
     if (s.skillName) {
-      studentSkillMap.set(s.skillName.toLowerCase(), s.currentLevel)
+      studentSkillMap.set(s.skillName.toLowerCase(), level)
+      studentSkillMap.set(norm(s.skillName), level)
     }
   })
 
@@ -146,7 +169,10 @@ export function calculateOverallReadiness(
 
   for (const req of requirements) {
     const weight = INTELLIGENCE_CONFIG.IMPORTANCE_WEIGHTS[req.importance] ?? 0.7
-    const currentScore = studentSkillMap.get(req.skillId) ?? studentSkillMap.get(req.skillName.toLowerCase()) ?? 0
+    const currentScore = studentSkillMap.get(req.skillId) ??
+      studentSkillMap.get(norm(req.skillId)) ??
+      studentSkillMap.get(req.skillName.toLowerCase()) ??
+      studentSkillMap.get(norm(req.skillName)) ?? 0
     const readinessContribution = calculateSkillReadiness(currentScore, req.requiredLevel)
 
     weightedSum += readinessContribution * weight
@@ -200,30 +226,67 @@ export function evaluateCareerReadiness(
   requirements: SkillRequirement[],
   studentSkills: StudentSkillScore[]
 ): CareerReadinessResult {
+  function norm(k?: string): string {
+    return (k || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  }
+
   const studentSkillMap = new Map<string, StudentSkillScore>()
   studentSkills.forEach(s => {
-    studentSkillMap.set(s.skillId, s)
+    const isVerified = Boolean(
+      s.verificationStatus &&
+      s.verificationStatus !== 'self_declared' &&
+      s.verificationStatus !== 'unassessed'
+    )
+    const existing = studentSkillMap.get(s.skillId) || (s.skillName ? studentSkillMap.get(s.skillName.toLowerCase()) : undefined)
+    const isExistingVerified = Boolean(
+      existing &&
+      existing.verificationStatus &&
+      existing.verificationStatus !== 'self_declared' &&
+      existing.verificationStatus !== 'unassessed'
+    )
+    if (isExistingVerified && !isVerified) {
+      return
+    }
+    if (s.skillId) {
+      studentSkillMap.set(s.skillId, s)
+      studentSkillMap.set(norm(s.skillId), s)
+    }
     if (s.skillName) {
       studentSkillMap.set(s.skillName.toLowerCase(), s)
+      studentSkillMap.set(norm(s.skillName), s)
     }
   })
 
   const evaluatedGaps: EvaluatedSkillGap[] = requirements.map(req => {
-    const studentSkill = studentSkillMap.get(req.skillId) ?? studentSkillMap.get(req.skillName.toLowerCase())
-    const currentLevel = studentSkill ? studentSkill.currentLevel : 0
-    const isAssessed = Boolean(studentSkill && studentSkill.verificationStatus && studentSkill.verificationStatus !== 'self_declared')
+    const studentSkill = studentSkillMap.get(req.skillId) ??
+      studentSkillMap.get(norm(req.skillId)) ??
+      studentSkillMap.get(req.skillName.toLowerCase()) ??
+      studentSkillMap.get(norm(req.skillName))
+    const isVerified = Boolean(
+      studentSkill &&
+      studentSkill.verificationStatus &&
+      studentSkill.verificationStatus !== 'self_declared' &&
+      studentSkill.verificationStatus !== 'unassessed'
+    )
+    const verifiedLevel = isVerified ? (studentSkill?.currentLevel || 0) : 0
+    const declaredLevel = studentSkill ? studentSkill.currentLevel : 0
 
-    const gap = calculateGap(req.requiredLevel, currentLevel)
+    const effectiveCurrentLevel = isVerified ? verifiedLevel : 0
+
+    // Gap is calculated against verified level only so self-declared skills do not inflate readiness
+    const gap = calculateGap(req.requiredLevel, effectiveCurrentLevel)
     const status = classifyGap(gap, req.importance)
     const priorityScore = calculatePriorityScore(gap, req.requiredLevel, req.importance)
 
     let recommendation = ''
-    if (!isAssessed) {
-      recommendation = `Complete the ${req.skillName} assessment to replace this initial estimate with a verified score.`
+    if (!studentSkill) {
+      recommendation = `Unassessed / Missing Data: Complete the ${req.skillName} assessment to establish verified competency.`
+    } else if (studentSkill.verificationStatus === 'self_declared') {
+      recommendation = `Self-Declared (${declaredLevel}/100) — Unassessed. Complete skill assessment to earn verified readiness.`
     } else if (status === 'ready') {
-      recommendation = `Target met (${currentLevel}/${req.requiredLevel}). Keep maintaining practical skills.`
+      recommendation = `Target met (${verifiedLevel}/${req.requiredLevel}). Keep maintaining practical skills.`
     } else if (status === 'critical') {
-      recommendation = `Complete targeted practice and take the ${req.skillName} practical challenge to close the ${gap}-point gap.`
+      recommendation = `Complete targeted practice and take the ${req.skillName} assessment to close the ${gap}-point gap.`
     } else {
       recommendation = `Review ${req.skillName} concepts to close the small ${gap}-point gap.`
     }
@@ -233,13 +296,14 @@ export function evaluateCareerReadiness(
       skillName: req.skillName,
       category: req.category,
       requiredLevel: req.requiredLevel,
-      currentLevel,
+      currentLevel: isVerified ? verifiedLevel : 0,
+      selfDeclaredLevel: declaredLevel,
       gap,
       status,
       importance: req.importance,
       priorityScore,
-      isAssessed,
-      verificationStatus: studentSkill?.verificationStatus || (studentSkill ? 'self_declared' : 'not_assessed'),
+      isAssessed: isVerified,
+      verificationStatus: studentSkill?.verificationStatus || 'unassessed',
       recommendation,
     }
   })
@@ -253,7 +317,12 @@ export function evaluateCareerReadiness(
   const priorityGap = evaluatedGaps.find(g => g.gap > 0) ?? null
 
   const overallReadiness = calculateOverallReadiness(requirements, studentSkills)
-  const hasVerifiedSkill = studentSkills.some(skill => skill.verificationStatus && skill.verificationStatus !== 'self_declared')
+  const hasVerifiedSkill = studentSkills.some(skill => 
+    skill.verificationStatus && 
+    skill.verificationStatus !== 'self_declared' && 
+    skill.verificationStatus !== 'unassessed' &&
+    (skill.currentLevel > 0 || (skill as any).verified_level > 0)
+  )
   const categoryInfo = hasVerifiedSkill
     ? getReadinessCategory(overallReadiness)
     : { label: 'Not Assessed', variant: 'warning' as const }
@@ -262,9 +331,11 @@ export function evaluateCareerReadiness(
   const nearReadyText = nearReadySkills.map(s => `${s.skillName} (${s.currentLevel}/${s.requiredLevel}, ${s.gap} pts to close)`)
   const criticalText = criticalGaps.map(s => `${s.skillName} (${s.currentLevel}/${s.requiredLevel}, ${s.gap} pt gap)`)
 
-  const recommendedAction = priorityGap
-    ? `Focus on closing the ${priorityGap.gap}-point gap in ${priorityGap.skillName} (${priorityGap.importance} priority) to maximize your ${careerName} readiness.`
-    : `All core skill benchmarks for ${careerName} are currently satisfied!`
+  const recommendedAction = hasVerifiedSkill
+    ? (priorityGap
+        ? `Focus on closing the ${priorityGap.gap}-point gap in ${priorityGap.skillName} (${priorityGap.importance} priority) to maximize your ${careerName} readiness.`
+        : `All core skill benchmarks for ${careerName} are currently satisfied!`)
+    : `You have declared skills on your profile. Complete skill assessments to verify your competencies and unlock your verified career readiness score.`
 
   return {
     careerName,
@@ -300,9 +371,18 @@ export function evaluateOpportunityReadiness(
 ): OpportunityReadinessResult {
   const studentSkillMap = new Map<string, number>()
   studentSkills.forEach(s => {
-    studentSkillMap.set(s.skillId, s.currentLevel)
+    const isVerified = Boolean(
+      s.verificationStatus &&
+      s.verificationStatus !== 'self_declared' &&
+      s.verificationStatus !== 'unassessed' &&
+      (s.currentLevel > 0 || (s as any).verifiedLevel > 0 || (s as any).verified_level > 0)
+    )
+    if (!isVerified) return
+
+    const verifiedScore = (s as any).verifiedLevel || (s as any).verified_level || s.currentLevel || 0
+    studentSkillMap.set(s.skillId, verifiedScore)
     if (s.skillName) {
-      studentSkillMap.set(s.skillName.toLowerCase(), s.currentLevel)
+      studentSkillMap.set(s.skillName.toLowerCase(), verifiedScore)
     }
   })
 
@@ -358,3 +438,95 @@ export function evaluateOpportunityReadiness(
     isEligible: matchPercentage >= 60,
   }
 }
+
+export interface DiagnosticSkill {
+  skillId: string
+  skillName: string
+  category?: string
+  requiredScore: number
+  selfDeclaredScore: number
+  gap: number
+  weight: number
+  priority: 'High' | 'Medium' | 'Low' | string
+  priorityScore: number
+  classification: 'strong' | 'moderate' | 'weak' | 'critical'
+}
+
+export interface InitialDiagnosticResult {
+  careerName: string
+  totalSkills: number
+  strongSkills: DiagnosticSkill[]
+  moderateSkills: DiagnosticSkill[]
+  weakSkills: DiagnosticSkill[]
+  criticalGaps: DiagnosticSkill[]
+  recommendedFirstSkill: DiagnosticSkill | null
+  disclaimer: string
+}
+
+/**
+ * Evaluates initial diagnostic analysis based on self-declared skill confidence.
+ * This is STRICTLY for initial diagnostic guidance — not verified career readiness.
+ */
+export function evaluateDiagnosticSkills(
+  careerName: string,
+  requirements: SkillRequirement[],
+  declaredMap: Map<string, number>
+): InitialDiagnosticResult {
+  const analyzed: DiagnosticSkill[] = requirements.map(req => {
+    const declared = declaredMap.get(req.skillId) ??
+      declaredMap.get(req.skillName.toLowerCase()) ??
+      declaredMap.get(req.skillName) ?? 0
+
+    const gap = Math.max(req.requiredLevel - declared, 0)
+    const importance = req.importance || 'High'
+    const weight = INTELLIGENCE_CONFIG.IMPORTANCE_WEIGHTS[importance] ?? 0.7
+    const priorityScore = calculatePriorityScore(gap, req.requiredLevel, importance)
+
+    let classification: 'strong' | 'moderate' | 'weak' = 'moderate'
+    if (declared >= 75 || gap === 0) {
+      classification = 'strong'
+    } else if (declared >= 50) {
+      classification = 'moderate'
+    } else {
+      classification = 'weak'
+    }
+
+    const isCritical = gap >= 20 || (importance === 'High' && gap >= 15) || (declared < 50 && (importance === 'High' || importance === 'Medium'))
+
+    return {
+      skillId: req.skillId,
+      skillName: req.skillName,
+      category: req.category,
+      requiredScore: req.requiredLevel,
+      selfDeclaredScore: declared,
+      gap,
+      weight,
+      priority: importance,
+      priorityScore,
+      classification,
+      isCritical,
+    }
+  })
+
+  // Sort weak & critical skills by priorityScore descending
+  analyzed.sort((a, b) => b.priorityScore - a.priorityScore)
+
+  const strongSkills = analyzed.filter(s => s.classification === 'strong')
+  const moderateSkills = analyzed.filter(s => s.classification === 'moderate')
+  const weakSkills = analyzed.filter(s => s.classification === 'weak')
+  const criticalGaps = analyzed.filter((s: any) => s.isCritical)
+  const priorityList = [...criticalGaps, ...weakSkills, ...moderateSkills]
+  const recommendedFirstSkill = priorityList.length > 0 ? priorityList[0] : null
+
+  return {
+    careerName,
+    totalSkills: requirements.length,
+    strongSkills,
+    moderateSkills,
+    weakSkills,
+    criticalGaps,
+    recommendedFirstSkill,
+    disclaimer: 'Self-declared confidence — not yet verified. Complete assessments to earn verified career readiness points.',
+  }
+}
+

@@ -249,6 +249,22 @@ export default function StudentDashboard() {
                 </Link>
 
                 <Link
+                  href="/student/verification"
+                  className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-emerald-50/40 hover:border-emerald-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shadow-xs">
+                      <Shield className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">Academician Verification</div>
+                      <div className="text-[10px] text-slate-500">Live faculty reviews & skill tests</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                </Link>
+
+                <Link
                   href="/student/career-navigator"
                   className="group flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-secondary)]/50 border border-[var(--color-border-primary)] hover:bg-[var(--color-surface-secondary)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98] transition-all duration-200"
                 >

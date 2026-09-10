@@ -16,6 +16,7 @@ import {
   Building2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { apiClient } from "@/lib/api-client"
 
 interface WorkshopItem {
   id: string
@@ -63,8 +64,7 @@ export default function AcademiaWorkshopsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/workshops')
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: WorkshopItem[] }>('/api/academia/workshops')
       if (json.success) {
         setWorkshops(json.data || [])
       }
@@ -105,21 +105,16 @@ export default function AcademiaWorkshopsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/workshops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          date,
-          duration,
-          capacity,
-          status: 'scheduled',
-        }),
+      const json = await apiClient.post<{ success: boolean; data?: any }>('/api/academia/workshops', {
+        title,
+        description,
+        date,
+        duration,
+        capacity,
+        status: 'scheduled',
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to create workshop')
+      if (!json.success) {
+        throw new Error((json as any).error || 'Failed to create workshop')
       }
       setShowCreateModal(false)
       setTitle('')
@@ -145,12 +140,7 @@ export default function AcademiaWorkshopsPage() {
         return
       }
 
-      const res = await fetch(`/api/academia/workshops/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      const json = await res.json()
+      const json = await apiClient.patch<{ success: boolean }>(`/api/academia/workshops/${id}`, { status: newStatus })
       if (json.success) {
         setToastMessage(`Workshop status updated to ${newStatus}`)
         fetchWorkshops()
@@ -173,10 +163,7 @@ export default function AcademiaWorkshopsPage() {
         return
       }
 
-      const res = await fetch(`/api/academia/workshops/${id}`, {
-        method: 'DELETE',
-      })
-      const json = await res.json()
+      const json = await apiClient.delete<{ success: boolean }>(`/api/academia/workshops/${id}`)
       if (json.success) {
         setToastMessage('Workshop deleted successfully')
         fetchWorkshops()

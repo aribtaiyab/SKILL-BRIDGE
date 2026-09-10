@@ -18,6 +18,7 @@ export interface QuestionSafeView {
 export interface AssessmentAttemptResult {
   attemptId: string
   assessmentId: string
+  skillId?: string
   title: string
   skillName: string
   totalQuestions: number
@@ -25,6 +26,9 @@ export interface AssessmentAttemptResult {
   score: number
   percentage: number
   passed: boolean
+  verifiedLevel?: number
+  verificationStatus?: string
+  attemptNumber?: number
   previousScore: number | null
   improvement: number
   explanationSummary: {

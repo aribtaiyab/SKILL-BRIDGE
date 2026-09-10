@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { apiClient } from "@/lib/api-client"
 
 interface InterventionItem {
   id: string
@@ -66,8 +67,7 @@ export default function AcademiaInterventionsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/interventions')
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: InterventionItem[] }>('/api/academia/interventions')
       if (json.success) {
         setInterventions(json.data || [])
       }
@@ -108,26 +108,21 @@ export default function AcademiaInterventionsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/interventions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          interventionType,
-          targetStudents,
-          startDate,
-          endDate: endDate || null,
-        }),
+      const json = await apiClient.post<{ success: boolean }>('/api/academia/interventions', {
+        title,
+        description,
+        interventionType,
+        targetStudents,
+        startDate,
+        endDate: endDate || null,
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to create intervention')
+      if (!json.success) {
+        throw new Error((json as any).error || 'Failed to create intervention')
       }
       setShowCreateModal(false)
       setTitle('')
       setDescription('')
-      setToastMessage('Faculty intervention program designed and scheduled successfully!')
+      setToastMessage('Faculty intervention created successfully!')
       fetchInterventions()
       setTimeout(() => setToastMessage(null), 5000)
     } catch (err: any) {

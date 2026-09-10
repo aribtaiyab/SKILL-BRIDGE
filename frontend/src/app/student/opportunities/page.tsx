@@ -295,12 +295,7 @@ export default function OpportunitiesPage() {
     setLoading(true)
 
     // 1. Fetch student verified skills to drive genuine, single-path match calculations
-    let studentScores: Record<string, number> = {
-      "Node.js": 65,
-      "React.js": 75,
-      "SQL": 82,
-      "Git & Version Control": 75,
-    }
+    let studentScores: Record<string, number> = {}
     let verifiedCount = 0
 
     try {
@@ -309,25 +304,29 @@ export default function OpportunitiesPage() {
         const scoreMap: Record<string, number> = {}
         skillsRes.data.forEach((s: any) => {
           const name = s.skills?.name || s.name || s.skillName
-          const level = Number(s.current_level ?? s.level ?? 0)
           const isVerified = s.verification_status && s.verification_status !== 'self_declared'
-          if (name) {
+          const level = Number(s.verified_level ?? s.current_level ?? 0)
+          if (name && isVerified) {
             scoreMap[name] = level
             scoreMap[name.toLowerCase()] = level
-          }
-          if (isVerified || level > 0) {
             verifiedCount++
           }
         })
         studentScores = scoreMap
       }
     } catch {
-      // Fall back to baseline demo skills
-      verifiedCount = 4
+      // Fall back to empty scores — no fake data
+      verifiedCount = 0
     }
 
     const studentHasSkills = verifiedCount > 0
     setHasVerifiedSkills(studentHasSkills)
+
+    if (!studentHasSkills) {
+      setOpportunities([])
+      setLoading(false)
+      return
+    }
 
     // 2. Fetch student's persisted saved opportunities
     let currentSavedIds = new Set<string>()

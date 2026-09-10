@@ -20,13 +20,14 @@ const API_BASE_URL = (configuredApiUrl && !isLocalhostInProd)
   ? configuredApiUrl.replace(/\/$/, '')
   : ''
 
-const REQUEST_TIMEOUT_MS = 8000
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000
 
 let cachedToken: string | null = null
 let refreshPromise: Promise<string | null> | null = null
 
 export interface ApiClientOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>
+  timeoutMs?: number
 }
 
 async function getAuthToken(): Promise<string | undefined> {
@@ -60,7 +61,7 @@ async function getAuthToken(): Promise<string | undefined> {
 }
 
 export async function apiClient<T = any>(endpoint: string, options: ApiClientOptions = {}): Promise<T> {
-  const { params, headers = {}, ...customConfig } = options
+  const { params, headers = {}, timeoutMs, ...customConfig } = options
 
   // Ensure endpoint starts with /
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
@@ -102,10 +103,12 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
     ...(headers as Record<string, string>),
   }
 
+  const timeoutDuration = timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
+
   const executeFetch = async (targetUrl: string) => {
     const controller = new AbortController()
     const timeout = typeof window !== 'undefined'
-      ? window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+      ? window.setTimeout(() => controller.abort(), timeoutDuration)
       : undefined
     const abortHandler = () => controller.abort()
     customConfig.signal?.addEventListener('abort', abortHandler, { once: true })
@@ -149,16 +152,22 @@ export async function apiClient<T = any>(endpoint: string, options: ApiClientOpt
       }
     }
   } catch (error: any) {
-    // If external API_BASE_URL failed with network error / connection refused / timeout, fallback to local Next.js handler
+    // If request was aborted due to timeout, immediately throw clear timeout error (never do slow sequential fallback)
+    if (error?.name === 'AbortError') {
+      throw new Error('The request timed out. Please check your connection or retry.')
+    }
+
+    // If external API_BASE_URL failed with connection refused / network error, fallback to local Next.js handler
     if (API_BASE_URL && typeof window !== 'undefined') {
       try {
         response = await executeFetch(localUrl)
       } catch (fallbackError: any) {
-        if (fallbackError?.name === 'AbortError') throw new Error('The server took too long to respond. Please try again.')
+        if (fallbackError?.name === 'AbortError') {
+          throw new Error('The request timed out. Please check your connection or retry.')
+        }
         throw new Error('Network error. Please check your connection and try again.')
       }
     } else {
-      if (error?.name === 'AbortError') throw new Error('The server took too long to respond. Please try again.')
       throw new Error('Network error. Please check your connection and try again.')
     }
   }

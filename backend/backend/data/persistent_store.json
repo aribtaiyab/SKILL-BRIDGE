@@ -1,0 +1,698 @@
+{
+  "careerTargets": {
+    "test-gate-student-999": "backend-developer",
+    "c19182b8-4699-4663-a7cd-66406f12a059": "30000000-0000-0000-0000-000000000001",
+    "00000000-0000-0000-0000-000000000001": "30000000-0000-0000-0000-000000000003",
+    "demo-student-id": "30000000-0000-0000-0000-000000000001",
+    "test-student-career-target": "30000000-0000-0000-0000-000000000012",
+    "test-student-1788965054111": "30000000-0000-0000-0000-000000000012"
+  },
+  "skills": {
+    "test-gate-student-999": {
+      "node-js": {
+        "id": "ss-1788891271112-ojhqjl",
+        "student_id": "test-gate-student-999",
+        "skill_id": "node-js",
+        "self_declared_level": 60,
+        "current_level": 60,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "node-js",
+          "name": "node-js",
+          "category": "Technical"
+        }
+      },
+      "postgresql": {
+        "id": "ss-1788891271332-f9lvst",
+        "student_id": "test-gate-student-999",
+        "skill_id": "postgresql",
+        "self_declared_level": 40,
+        "current_level": 40,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "postgresql",
+          "name": "postgresql",
+          "category": "Technical"
+        }
+      },
+      "40000000-0000-0000-0000-000000000001": {
+        "id": "ss-1788891902639-40000000-0000-0000-0000-000000000001",
+        "student_id": "test-gate-student-999",
+        "skill_id": "40000000-0000-0000-0000-000000000001",
+        "self_declared_level": 20,
+        "current_level": 20,
+        "verified_level": 20,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000001",
+          "name": "Node.js",
+          "category": "Technical"
+        }
+      }
+    },
+    "00000000-0000-0000-0000-000000000001": {
+      "skill-fullstack-1": {
+        "id": "ss-1788961026406-h8d3wk",
+        "student_id": "00000000-0000-0000-0000-000000000001",
+        "skill_id": "skill-fullstack-1",
+        "self_declared_level": 60,
+        "current_level": 100,
+        "verified_level": 100,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000002",
+          "name": "React",
+          "category": "Technical"
+        }
+      },
+      "skill-fullstack-2": {
+        "id": "ss-1788961026983-dz4mfc",
+        "student_id": "00000000-0000-0000-0000-000000000001",
+        "skill_id": "skill-fullstack-2",
+        "self_declared_level": 80,
+        "current_level": 80,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fullstack-2",
+          "name": "Node.js",
+          "category": "Technical"
+        }
+      },
+      "40000000-0000-0000-0000-000000000002": {
+        "id": "ss-1788961031215-40000000-0000-0000-0000-000000000002",
+        "student_id": "00000000-0000-0000-0000-000000000001",
+        "skill_id": "40000000-0000-0000-0000-000000000002",
+        "self_declared_level": 100,
+        "current_level": 100,
+        "verified_level": 100,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000002",
+          "name": "React",
+          "category": "Technical"
+        }
+      }
+    },
+    "test-student-career-target": {
+      "40000000-0000-0000-0000-000000000008": {
+        "id": "ss-1788964741347-40000000-0000-0000-0000-000000000008",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000008",
+        "self_declared_level": 30,
+        "current_level": 100,
+        "verified_level": 100,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000008",
+          "name": "MongoDB",
+          "category": "Technical"
+        }
+      },
+      "40000000-0000-0000-0000-000000000016": {
+        "id": "ss-1788964837119-xlww6z",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000016",
+        "self_declared_level": 90,
+        "current_level": 90,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000016",
+          "name": "HTML",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:43:28.564Z"
+      },
+      "40000000-0000-0000-0000-000000000017": {
+        "id": "ss-1788964837749-466hfe",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000017",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000017",
+          "name": "CSS",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:43:28.824Z"
+      },
+      "40000000-0000-0000-0000-000000000015": {
+        "id": "ss-1788964837989-uosnxz",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000015",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000015",
+          "name": "JavaScript",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:43:29.085Z"
+      },
+      "40000000-0000-0000-0000-000000000006": {
+        "id": "ss-1788964838449-eqmbcx",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000006",
+        "self_declared_level": 85,
+        "current_level": 85,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000006",
+          "name": "React.js",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:43:29.553Z"
+      },
+      "40000000-0000-0000-0000-000000000001": {
+        "id": "ss-1788964838649-1m4yiy",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000001",
+        "self_declared_level": 65,
+        "current_level": 65,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000001",
+          "name": "Node.js",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T14:43:29.807Z"
+      },
+      "skill-fs-express": {
+        "id": "ss-1788964838878-sbkxhf",
+        "student_id": "test-student-career-target",
+        "skill_id": "skill-fs-express",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-express",
+          "name": "Express.js",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T14:43:30.492Z"
+      },
+      "40000000-0000-0000-0000-000000000003": {
+        "id": "ss-1788964839363-mmchmq",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000003",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000003",
+          "name": "SQL / Databases",
+          "category": "Databases"
+        },
+        "updated_at": "2026-09-09T14:43:31.538Z"
+      },
+      "40000000-0000-0000-0000-000000000002": {
+        "id": "ss-1788964839562-pkiq4e",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000002",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000002",
+          "name": "REST APIs",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T14:43:31.798Z"
+      },
+      "40000000-0000-0000-0000-000000000004": {
+        "id": "ss-1788964839756-te2fyl",
+        "student_id": "test-student-career-target",
+        "skill_id": "40000000-0000-0000-0000-000000000004",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000004",
+          "name": "Git / GitHub",
+          "category": "Tools"
+        },
+        "updated_at": "2026-09-09T14:43:32.072Z"
+      },
+      "skill-fs-auth": {
+        "id": "ss-1788964839956-kft457",
+        "student_id": "test-student-career-target",
+        "skill_id": "skill-fs-auth",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-auth",
+          "name": "Authentication",
+          "category": "Security"
+        },
+        "updated_at": "2026-09-09T14:43:32.539Z"
+      },
+      "skill-fs-deploy": {
+        "id": "ss-1788964840197-6l9gas",
+        "student_id": "test-student-career-target",
+        "skill_id": "skill-fs-deploy",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-deploy",
+          "name": "Deployment",
+          "category": "Operations"
+        },
+        "updated_at": "2026-09-09T14:43:32.791Z"
+      },
+      "skill-fs-dsa": {
+        "id": "ss-1788964840421-czgrhh",
+        "student_id": "test-student-career-target",
+        "skill_id": "skill-fs-dsa",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-dsa",
+          "name": "Problem Solving / DSA",
+          "category": "Computer Science"
+        },
+        "updated_at": "2026-09-09T14:43:33.044Z"
+      }
+    },
+    "test-student-1788965054111": {
+      "40000000-0000-0000-0000-000000000016": {
+        "id": "ss-1788965056166-t2q2ek",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000016",
+        "self_declared_level": 90,
+        "current_level": 90,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000016",
+          "name": "HTML",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:44:16.166Z"
+      },
+      "40000000-0000-0000-0000-000000000017": {
+        "id": "ss-1788965056416-45jsbe",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000017",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000017",
+          "name": "CSS",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:44:16.416Z"
+      },
+      "40000000-0000-0000-0000-000000000015": {
+        "id": "ss-1788965056651-7la8g4",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000015",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000015",
+          "name": "JavaScript",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:44:16.651Z"
+      },
+      "40000000-0000-0000-0000-000000000006": {
+        "id": "ss-1788965056893-t5sgot",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000006",
+        "self_declared_level": 85,
+        "current_level": 85,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000006",
+          "name": "React.js",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-09T14:44:16.893Z"
+      },
+      "40000000-0000-0000-0000-000000000001": {
+        "id": "ss-1788965057138-nqf26w",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000001",
+        "self_declared_level": 65,
+        "current_level": 65,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000001",
+          "name": "Node.js",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T14:44:17.138Z"
+      },
+      "skill-fs-express": {
+        "id": "ss-1788965057381-nn9bo6",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "skill-fs-express",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-express",
+          "name": "Express.js",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T14:44:17.381Z"
+      },
+      "40000000-0000-0000-0000-000000000008": {
+        "id": "ss-1788965057619-xxrjh6",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000008",
+        "self_declared_level": 30,
+        "current_level": 100,
+        "verified_level": 100,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000008",
+          "name": "MongoDB",
+          "category": "Technical"
+        }
+      },
+      "40000000-0000-0000-0000-000000000003": {
+        "id": "ss-1788965057859-mcq2n6",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000003",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000003",
+          "name": "SQL / Databases",
+          "category": "Databases"
+        },
+        "updated_at": "2026-09-09T14:44:17.859Z"
+      },
+      "40000000-0000-0000-0000-000000000002": {
+        "id": "ss-1788965058096-ezy7nx",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000002",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000002",
+          "name": "REST APIs",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T14:44:18.096Z"
+      },
+      "40000000-0000-0000-0000-000000000004": {
+        "id": "ss-1788965058333-zwuw0k",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "40000000-0000-0000-0000-000000000004",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000004",
+          "name": "Git / GitHub",
+          "category": "Tools"
+        },
+        "updated_at": "2026-09-09T14:44:18.333Z"
+      },
+      "skill-fs-auth": {
+        "id": "ss-1788965058573-xf0p6j",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "skill-fs-auth",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-auth",
+          "name": "Authentication",
+          "category": "Security"
+        },
+        "updated_at": "2026-09-09T14:44:18.573Z"
+      },
+      "skill-fs-deploy": {
+        "id": "ss-1788965059047-4ljf0g",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "skill-fs-deploy",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-deploy",
+          "name": "Deployment",
+          "category": "Operations"
+        },
+        "updated_at": "2026-09-09T14:44:19.047Z"
+      },
+      "skill-fs-dsa": {
+        "id": "ss-1788965059282-4b1ee1",
+        "student_id": "test-student-1788965054111",
+        "skill_id": "skill-fs-dsa",
+        "self_declared_level": 50,
+        "current_level": 50,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "skill-fs-dsa",
+          "name": "Problem Solving / DSA",
+          "category": "Computer Science"
+        },
+        "updated_at": "2026-09-09T14:44:19.282Z"
+      }
+    },
+    "demo-student-id": {
+      "40000000-0000-0000-0000-000000000016": {
+        "id": "ss-1788966785519-40000000-0000-0000-0000-000000000016",
+        "student_id": "demo-student-id",
+        "skill_id": "40000000-0000-0000-0000-000000000016",
+        "self_declared_level": 0,
+        "current_level": 0,
+        "verified_level": 0,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000016",
+          "name": "HTML",
+          "category": "Technical"
+        }
+      }
+    },
+    "c19182b8-4699-4663-a7cd-66406f12a059": {
+      "40000000-0000-0000-0000-000000000001": {
+        "id": "ss-1788968427081-ukg5yd",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000001",
+        "self_declared_level": 70,
+        "current_level": 70,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000001",
+          "name": "Node.js",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T15:40:27.081Z"
+      },
+      "40000000-0000-0000-0000-000000000002": {
+        "id": "ss-1788968427926-fjvdhg",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000002",
+        "self_declared_level": 15,
+        "current_level": 15,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000002",
+          "name": "REST APIs",
+          "category": "Backend"
+        },
+        "updated_at": "2026-09-09T15:40:27.926Z"
+      },
+      "40000000-0000-0000-0000-000000000003": {
+        "id": "ss-1788968428386-k9povh",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000003",
+        "self_declared_level": 45,
+        "current_level": 45,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000003",
+          "name": "SQL",
+          "category": "Databases"
+        },
+        "updated_at": "2026-09-09T15:40:28.386Z"
+      },
+      "40000000-0000-0000-0000-000000000004": {
+        "id": "ss-1788968428581-8lqwio",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000004",
+        "self_declared_level": 30,
+        "current_level": 30,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000004",
+          "name": "Git & Version Control",
+          "category": "Tools"
+        },
+        "updated_at": "2026-09-09T15:40:28.581Z"
+      }
+    }
+  },
+  "selfRatings": {
+    "c19182b8-4699-4663-a7cd-66406f12a059:30000000-0000-0000-0000-000000000001": {
+      "skill-backend-1": "strong",
+      "skill-backend-2": "strong",
+      "skill-backend-3": "comfortable",
+      "skill-backend-4": "never_used"
+    },
+    "c19182b8-4699-4663-a7cd-66406f12a059:30000000-0000-0000-0000-000000000003": {
+      "skill-fullstack-1": "strong",
+      "skill-fullstack-2": "basic",
+      "skill-fullstack-3": "never_used",
+      "skill-fullstack-4": "never_used"
+    },
+    "demo-student-id:30000000-0000-0000-0000-000000000001": {
+      "skill-backend-1": "strong"
+    }
+  },
+  "assessmentAttempts": {
+    "test-student-career-target": [
+      {
+        "id": "attempt-1788964738259-gr730",
+        "studentId": "test-student-career-target",
+        "skillId": "40000000-0000-0000-0000-000000000008",
+        "skillName": "MongoDB",
+        "title": "MongoDB Aggregations & Document Modeling Benchmark",
+        "assessmentId": "assess-l1-mongodb-core",
+        "score": 0,
+        "percentage": 0,
+        "passed": false,
+        "attemptNumber": 1,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-09T14:39:01.347Z",
+        "createdAt": "2026-09-09T14:39:01.347Z"
+      },
+      {
+        "id": "attempt-1788964841151-j8vks",
+        "studentId": "test-student-career-target",
+        "skillId": "40000000-0000-0000-0000-000000000008",
+        "skillName": "MongoDB",
+        "title": "MongoDB Aggregations & Document Modeling Benchmark",
+        "assessmentId": "assess-l1-mongodb-core",
+        "score": 100,
+        "percentage": 100,
+        "passed": true,
+        "attemptNumber": 2,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-09T14:40:43.391Z",
+        "createdAt": "2026-09-09T14:40:43.391Z"
+      },
+      {
+        "id": "attempt-1788965013726-rh38w",
+        "studentId": "test-student-career-target",
+        "skillId": "40000000-0000-0000-0000-000000000008",
+        "skillName": "MongoDB",
+        "title": "MongoDB Aggregations & Document Modeling Benchmark",
+        "assessmentId": "assess-l1-mongodb-core",
+        "score": 100,
+        "percentage": 100,
+        "passed": true,
+        "attemptNumber": 3,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-09T14:43:36.224Z",
+        "createdAt": "2026-09-09T14:43:36.224Z"
+      }
+    ],
+    "test-student-1788965054111": [
+      {
+        "id": "attempt-1788965060241-vsjw7",
+        "studentId": "test-student-1788965054111",
+        "skillId": "40000000-0000-0000-0000-000000000008",
+        "skillName": "MongoDB",
+        "title": "MongoDB Aggregations & Document Modeling Benchmark",
+        "assessmentId": "assess-l1-mongodb-core",
+        "score": 100,
+        "percentage": 100,
+        "passed": true,
+        "attemptNumber": 1,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-09T14:44:22.591Z",
+        "createdAt": "2026-09-09T14:44:22.591Z"
+      }
+    ],
+    "demo-student-id": [
+      {
+        "id": "attempt-1788965880129-gap3i",
+        "studentId": "demo-student-id",
+        "skillId": "40000000-0000-0000-0000-000000000016",
+        "skillName": "HTML",
+        "title": "Semantic HTML5 & Web Standards Benchmark",
+        "assessmentId": "assess-l1-html-basics",
+        "score": 0,
+        "percentage": 0,
+        "passed": false,
+        "attemptNumber": 1,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-09T15:13:05.519Z",
+        "createdAt": "2026-09-09T15:13:05.519Z"
+      },
+      {
+        "id": "attempt-1788965880129-gap3i",
+        "studentId": "demo-student-id",
+        "skillId": "40000000-0000-0000-0000-000000000016",
+        "skillName": "HTML",
+        "title": "Semantic HTML5 & Web Standards Benchmark",
+        "assessmentId": "assess-l1-html-basics",
+        "score": 0,
+        "percentage": 0,
+        "passed": false,
+        "attemptNumber": 2,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-09T15:13:06.056Z",
+        "createdAt": "2026-09-09T15:13:06.056Z"
+      }
+    ]
+  },
+  "updatedAt": "2026-09-09T15:40:29.105Z"
+}

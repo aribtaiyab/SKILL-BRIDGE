@@ -41,25 +41,31 @@ const FALLBACK_CANDIDATES = [
   },
 ]
 
+const sessionOpportunities: any[] = [...FALLBACK_INDUSTRY_OPPS]
+
 export async function getIndustryOpportunities(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ success: true, data: FALLBACK_INDUSTRY_OPPS })
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .select('*, opportunity_skills(*, skills(id, name))')
+          .eq('industry_id', user.id)
 
-    const { data, error } = await supabase
-      .from('opportunities')
-      .select('*, opportunity_skills(*, skills(id, name))')
-      .eq('industry_id', user.id)
-
-    if (error || !data || data.length === 0) {
-      return res.status(200).json({ success: true, data: FALLBACK_INDUSTRY_OPPS })
+        if (!error && data && data.length > 0) {
+          return res.status(200).json({ success: true, data })
+        }
+      } catch {}
     }
-    res.status(200).json({ success: true, data })
+
+    const userOpps = sessionOpportunities.filter(o => !o.industry_id || o.industry_id === user.id)
+    res.status(200).json({ success: true, data: userOpps.length > 0 ? userOpps : sessionOpportunities })
   } catch (err) {
-    res.status(200).json({ success: true, data: FALLBACK_INDUSTRY_OPPS })
+    res.status(200).json({ success: true, data: sessionOpportunities })
   }
 }
 
@@ -92,22 +98,33 @@ export async function createIndustryOpportunity(req: AuthenticatedRequest, res: 
       .select()
       .single()
 
-    if (error || !opp) return res.status(201).json({ success: true, data: { id: `opp-${Date.now()}`, ...body, industry_id: user.id } })
-
-    // Insert skill requirements if provided
-    if (Array.isArray(required_skills) && required_skills.length > 0) {
-      const rows = required_skills.map((s: any) => ({
-        opportunity_id: opp.id,
-        skill_id: s.skill_id,
-        minimum_level: s.required_level || s.minimum_level || 70,
-        importance: s.is_mandatory === false ? 'Preferred' : 'Required',
-      }))
-      await supabase.from('opportunity_skills').insert(rows)
+    const oppRecord = {
+      id: opp?.id || `opp-${Date.now()}`,
+      title,
+      description,
+      opportunity_type,
+      location: location || 'Remote',
+      deadline: deadline || new Date(Date.now() + 30 * 86400000).toISOString(),
+      status: 'published',
+      spots_available: body.spots_available || 2,
+      created_at: new Date().toISOString(),
+      industry_id: user.id,
+      _applicationCount: 0,
+      skills: Array.isArray(required_skills) ? required_skills : []
     }
+    sessionOpportunities.unshift(oppRecord)
 
-    res.status(201).json({ success: true, data: opp })
+    res.status(201).json({ success: true, data: oppRecord })
   } catch (err) {
-    res.status(201).json({ success: true, data: { id: `opp-${Date.now()}`, ...req.body, industry_id: (req as any).user?.id } })
+    const oppRecord = {
+      id: `opp-${Date.now()}`,
+      ...req.body,
+      industry_id: (req as any).user?.id || 'demo-industry-id',
+      created_at: new Date().toISOString(),
+      _applicationCount: 0
+    }
+    sessionOpportunities.unshift(oppRecord)
+    res.status(201).json({ success: true, data: oppRecord })
   }
 }
 

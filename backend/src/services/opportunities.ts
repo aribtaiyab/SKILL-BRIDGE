@@ -16,6 +16,7 @@ interface RawOpportunityRow {
   } | null
   opportunity_skills: {
     minimum_level: number
+    importance: string
     skills: {
       name: string
     } | null
@@ -51,37 +52,25 @@ export async function getOpportunities(search?: string, type?: string): Promise<
       const rows = data as unknown as RawOpportunityRow[] | null
 
       if (rows && rows.length > 0) {
-        const matches: Record<string, number> = {
-          '1': 91,
-          '2': 85,
-          '3': 100,
-          '4': 62,
-          '5': 94,
-          '6': 58,
-        }
-
         return rows.map((item, idx) => {
           const orgName = item.industry_profiles?.organization_name || 'Organization'
           const skillsList = (item.opportunity_skills || []).map((s) => ({
             name: s.skills?.name || 'Skill',
-            met: s.minimum_level <= 70 // Student threshold heuristic
+            met: false,
+            minimumLevel: s.minimum_level || 70,
+            importance: s.importance || 'Required',
           }))
 
           return {
             id: item.id || String(idx + 1),
             role: item.title,
             company: orgName,
-            match: matches[String(idx + 1)] || 85,
+            match: 0,
             type: item.opportunity_type,
             location: item.location,
             duration: item.duration || '6 Months',
             deadline: item.deadline || 'Rolling',
-            skills: skillsList.length > 0 ? skillsList : [
-              { name: 'Node.js', met: true },
-              { name: 'REST APIs', met: true },
-              { name: 'SQL', met: true },
-              { name: 'Docker', met: false }
-            ]
+            skills: skillsList,
           }
         })
       }

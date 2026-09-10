@@ -17,6 +17,7 @@ import {
   Info
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { apiClient } from "@/lib/api-client"
 
 interface SkillGapItem {
   skillId: string
@@ -77,12 +78,14 @@ export default function AcademiaSkillGapsPage() {
         return
       }
 
-      const params = new URLSearchParams()
-      if (careerFilter !== 'all') params.append('career', careerFilter)
-      if (severityFilter !== 'all') params.append('severity', severityFilter)
+      const params: Record<string, string> = {}
+      if (careerFilter !== 'all') params.career = careerFilter
+      if (severityFilter !== 'all') params.severity = severityFilter
 
-      const res = await fetch(`/api/academia/skill-gaps?${params.toString()}`)
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data?: { gaps: SkillGapItem[]; summary: GapSummary } }>(
+        '/api/academia/skill-gaps',
+        { params }
+      )
       if (json.success && json.data) {
         setGaps(json.data.gaps || [])
         setSummary(json.data.summary || {
@@ -136,21 +139,16 @@ export default function AcademiaSkillGapsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/workshops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: workshopTitle,
-          skillId: targetSkill.id,
-          date: workshopDate,
-          duration: workshopDuration,
-          capacity: workshopCapacity,
-          description: `Targeted academic workshop aimed at closing cohort deficit in ${targetSkill.name}.`,
-          status: 'scheduled',
-        }),
+      const json = await apiClient.post('/api/academia/workshops', {
+        title: workshopTitle,
+        skillId: targetSkill.id,
+        date: workshopDate,
+        duration: workshopDuration,
+        capacity: workshopCapacity,
+        description: `Targeted academic workshop aimed at closing cohort deficit in ${targetSkill.name}.`,
+        status: 'scheduled',
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         throw new Error(json.error || 'Failed to create workshop')
       }
       setShowWorkshopModal(false)

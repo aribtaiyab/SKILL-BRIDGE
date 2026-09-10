@@ -33,6 +33,8 @@ function AssessmentContent() {
   const [isTakingL1, setIsTakingL1] = useState(false)
   const [loadingL1, setLoadingL1] = useState(false)
   const [submittingL1, setSubmittingL1] = useState(false)
+  const [l1Error, setL1Error] = useState<string | null>(null)
+  const [attemptIdL1, setAttemptIdL1] = useState<string | null>(null)
   const [currentQIndex, setCurrentQIndex] = useState(0)
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null)
   const [answersL1, setAnswersL1] = useState<{ questionId: string; selectedOptionId: string }[]>([])
@@ -95,6 +97,7 @@ function AssessmentContent() {
     setActiveAssessmentTitle(local.title)
     setActiveAssessmentSkill(local.skill)
     setLoadingL1(true)
+    setL1Error(null)
     try {
       const json = await apiClient<{
         success: boolean
@@ -102,15 +105,18 @@ function AssessmentContent() {
       }>(`/api/student/assessments/${assessmentId}/start`, { method: 'POST' })
 
       if (json.data && json.data.questions && json.data.questions.length > 0) {
+        if (json.data.attemptId) setAttemptIdL1(json.data.attemptId)
         setL1Questions(json.data.questions)
         setTimeLeftL1((json.data.timeLimit || 15) * 60)
         if (json.data.title) setActiveAssessmentTitle(json.data.title)
         if (json.data.skillName) setActiveAssessmentSkill(json.data.skillName)
       } else {
-        throw new Error('Fallback')
+        throw new Error('Could not load assessment questions from server')
       }
-    } catch {
-      // Local fallback questions matching requested assessment
+    } catch (err: any) {
+      // Local canonical questions matching requested assessment
+      const fallbackAttemptId = `attempt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+      setAttemptIdL1(fallbackAttemptId)
       setL1Questions(
         local.questions.map(q => ({
           id: q.id,
@@ -153,12 +159,17 @@ function AssessmentContent() {
   // Submit Level 1
   const submitL1 = useCallback(async (finalAnswers: { questionId: string; selectedOptionId: string }[]) => {
     setSubmittingL1(true)
+    setL1Error(null)
     try {
       const json = await apiClient<{ success: boolean; data: AssessmentAttemptResult }>(
         `/api/student/assessments/${activeAssessmentId}/submit`,
         {
           method: 'POST',
-          body: JSON.stringify({ answers: finalAnswers }),
+          body: JSON.stringify({
+            attempt_id: attemptIdL1,
+            attemptId: attemptIdL1,
+            answers: finalAnswers,
+          }),
         }
       )
       if (json.data) {
@@ -166,34 +177,16 @@ function AssessmentContent() {
         if (json.data.passed) {
           setCurrentTier(prev => prev === "Self-Declared" ? "Assessment Verified" : prev)
         }
+      } else {
+        throw new Error('Assessment grading response was empty')
       }
-    } catch {
-      // Fallback grade
-      const local = LEVEL_1_KNOWLEDGE_ASSESSMENTS.find(a => a.id === activeAssessmentId) || LEVEL_1_KNOWLEDGE_ASSESSMENTS[0]
-      setL1Result({
-        attemptId: `attempt-${Date.now()}`,
-        assessmentId: activeAssessmentId,
-        title: local.title,
-        skillName: local.skill,
-        totalQuestions: local.totalQuestions,
-        correctCount: Math.max(1, Math.round(local.totalQuestions * 0.8)),
-        score: 80,
-        percentage: 80,
-        passed: true,
-        previousScore: 60,
-        improvement: 20,
-        explanationSummary: {
-          strengths: ["Architecture & Syntax", "Standard Conventions"],
-          weaknesses: [],
-          careerImpact: `Your ${local.skill} verified score increased to 80/100, advancing your career readiness!`,
-          nextStep: "Complete Level 2 Practical Challenges to earn Practical Verified status.",
-        },
-      })
-      setCurrentTier("Assessment Verified")
+    } catch (err: any) {
+      console.error('Assessment submission error:', err)
+      setL1Error(err?.message || 'Assessment submission failed. Please verify your connection and retry.')
     } finally {
       setSubmittingL1(false)
     }
-  }, [activeAssessmentId])
+  }, [activeAssessmentId, attemptIdL1])
 
 
   // Timer countdown for Level 1
@@ -480,6 +473,13 @@ function AssessmentContent() {
                   style={{ width: `${((currentQIndex + 1) / l1Questions.length) * 100}%` }}
                 />
               </div>
+
+              {l1Error && (
+                <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-red-50 text-[var(--color-critical)] text-sm border border-red-200">
+                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-[var(--color-critical)]" />
+                  <div className="flex-1 font-medium">{l1Error}</div>
+                </div>
+              )}
 
               <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 sm:p-8 shadow-[0_20px_50px_-12px_rgba(99,102,241,0.1)] backdrop-blur-xl space-y-6">
                 <h3 className="text-lg font-bold text-slate-900 leading-relaxed">

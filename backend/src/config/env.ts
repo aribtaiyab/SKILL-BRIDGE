@@ -6,7 +6,7 @@ function loadProjectEnv() {
   const candidates = new Set<string>()
   const cwd = process.cwd()
 
-  for (const dir of [cwd, path.resolve(cwd, '..')]) {
+  for (const dir of [cwd, path.join(cwd, 'backend'), path.resolve(cwd, '..')]) {
     candidates.add(path.join(dir, '.env'))
     candidates.add(path.join(dir, '.env.local'))
   }
@@ -17,10 +17,16 @@ function loadProjectEnv() {
     }
   }
 
-  // If a root-level .env.local exists, keep it authoritative for app settings.
-  const rootEnvLocal = path.resolve(process.cwd(), '..', '.env.local')
-  if (fs.existsSync(rootEnvLocal)) {
-    dotenv.config({ path: rootEnvLocal, override: true })
+  // Ensure root-level or backend-level .env.local overrides when present
+  const localOverrides = [
+    path.join(cwd, '.env.local'),
+    path.join(cwd, 'backend', '.env.local'),
+    path.resolve(cwd, '..', '.env.local'),
+  ]
+  for (const loc of localOverrides) {
+    if (fs.existsSync(loc)) {
+      dotenv.config({ path: loc, override: true })
+    }
   }
 }
 
@@ -40,7 +46,7 @@ export const ENV = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
-  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
 }
 
 export function isSupabaseConfigured(): boolean {

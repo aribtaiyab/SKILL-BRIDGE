@@ -28,12 +28,15 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true)
-      if (
-        allowedOrigins.includes(origin)
-      ) {
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+
+      if (isAllowed) {
         return callback(null, true)
       }
-      return callback(new Error('Not allowed by CORS'))
+      return callback(null, false)
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

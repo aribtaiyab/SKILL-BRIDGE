@@ -1,0 +1,53 @@
+{
+  "careerTargets": {
+    "test-gate-student-999": "backend-developer"
+  },
+  "skills": {
+    "test-gate-student-999": {
+      "node-js": {
+        "id": "ss-1788891271112-ojhqjl",
+        "student_id": "test-gate-student-999",
+        "skill_id": "node-js",
+        "self_declared_level": 60,
+        "current_level": 60,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "node-js",
+          "name": "node-js",
+          "category": "Technical"
+        }
+      },
+      "postgresql": {
+        "id": "ss-1788891271332-f9lvst",
+        "student_id": "test-gate-student-999",
+        "skill_id": "postgresql",
+        "self_declared_level": 40,
+        "current_level": 40,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "postgresql",
+          "name": "postgresql",
+          "category": "Technical"
+        }
+      },
+      "40000000-0000-0000-0000-000000000001": {
+        "id": "ss-1788891902639-40000000-0000-0000-0000-000000000001",
+        "student_id": "test-gate-student-999",
+        "skill_id": "40000000-0000-0000-0000-000000000001",
+        "self_declared_level": 20,
+        "current_level": 20,
+        "verified_level": 20,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000001",
+          "name": "Node.js",
+          "category": "Technical"
+        }
+      }
+    }
+  },
+  "selfRatings": {},
+  "updatedAt": "2026-09-08T18:27:50.347Z"
+}

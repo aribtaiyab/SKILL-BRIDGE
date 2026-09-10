@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/student', '/industry', '/academician', '/institution']
+const PROTECTED_PREFIXES = ['/student', '/industry', '/academia', '/academician', '/institution', '/select-role']
 
 // Routes that are only for unauthenticated users
 const AUTH_ONLY_ROUTES = ['/login', '/signup']
@@ -61,7 +61,8 @@ export async function middleware(request: NextRequest) {
 
   // Unauthenticated user attempting to access protected route → redirect to login
   if (isProtected && !user && !isDemo) {
-    const loginUrl = new URL('/login', request.url)
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
     loginUrl.searchParams.set('redirect', pathname)
     const redirectResponse = NextResponse.redirect(loginUrl)
     response.cookies.getAll().forEach(cookie => {
@@ -70,10 +71,13 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  // Authenticated user on auth-only route (/login, /signup) → redirect to appropriate dashboard
+  // Authenticated user on auth-only route (/login, /signup) → redirect to appropriate dashboard or role selection
   if (isAuthOnly && user) {
-    const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/student'
-    const redirectResponse = NextResponse.redirect(new URL(redirectUrl, request.url))
+    const role = user.user_metadata?.role
+    const defaultDash = role ? (role === 'industry' ? '/industry' : (role === 'student' ? '/student' : '/academia')) : '/select-role'
+    const redirectUrl = request.nextUrl.searchParams.get('redirect') || defaultDash
+    const targetUrl = new URL(redirectUrl, request.nextUrl)
+    const redirectResponse = NextResponse.redirect(targetUrl)
     response.cookies.getAll().forEach(cookie => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
     })

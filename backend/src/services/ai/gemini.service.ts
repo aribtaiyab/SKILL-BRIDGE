@@ -100,8 +100,8 @@ export class GeminiService {
       return {
         category: 'model_unavailable',
         message: `Gemini model "${currentModel}" is unavailable or deprecated for this key.`,
-        canRetry: currentModel !== 'gemini-3.5-flash',
-        suggestedModel: 'gemini-3.5-flash',
+        canRetry: currentModel !== 'gemini-3.7-flash',
+        suggestedModel: 'gemini-3.7-flash',
       }
     }
 
@@ -207,6 +207,7 @@ export class GeminiService {
         const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim()
         return JSON.parse(cleanJson) as T
       } catch (err: any) {
+        console.error('[GeminiService] Raw error details:', err?.message || err)
         const classified = this.classifyError(err, targetModel)
         console.warn(`[GeminiService] Attempt ${attempt} failed [${classified.category}]: ${classified.message}`)
 

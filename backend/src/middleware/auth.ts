@@ -32,7 +32,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
          req.baseUrl.includes('institution') ? 'institution' : 'student')).toLowerCase()
 
       req.user = {
-        id: `demo-${demoRole}-id`,
+        id: (req.headers['x-user-id'] as string) || `demo-${demoRole}-id`,
         email: `${demoRole}.demo@skillbridge.edu`,
         role: demoRole,
         user_metadata: {
@@ -129,7 +129,7 @@ export function requireRole(...allowedRoles: string[]) {
     const isAllowed =
       userRole === 'admin' ||
       normalizedAllowed.includes(userRole) ||
-      (normalizedAllowed.includes('academician') && (userRole === 'faculty' || userRole === 'professor' || userRole === 'institution')) ||
+      (normalizedAllowed.includes('academician') && (userRole === 'faculty' || userRole === 'professor' || userRole === 'institution' || userRole === 'academia' || userRole === 'academician')) ||
       (normalizedAllowed.includes('industry') && (userRole === 'recruiter' || userRole === 'partner' || userRole === 'employer')) ||
       (normalizedAllowed.includes('student') && userRole === 'learner')
 

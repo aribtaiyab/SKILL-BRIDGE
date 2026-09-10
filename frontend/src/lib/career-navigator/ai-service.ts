@@ -103,40 +103,65 @@ export class CareerNavigatorAIService {
     const q = query.toLowerCase()
     const found: string[] = []
 
-    if (q.includes('ai') || q.includes('machine learning') || q.includes('ml') || q.includes('data science')) {
-      found.push('ai-ml')
+    if (q.includes('dsa') || q.includes('data structures') || q.includes('algorithms') || q.includes('problem solving') || q.includes('leetcode')) {
+      found.push('dsa')
     }
-    if (q.includes('frontend') || q.includes('front-end') || q.includes('web development') || q.includes('web dev') || q.includes('ui')) {
-      found.push('frontend')
+    if (q.includes('web development') || q.includes('web dev') || (q.includes('web') && !q.includes('devops'))) {
+      if (!found.includes('web')) found.push('web')
     }
-    if (q.includes('backend') || q.includes('back-end') || q.includes('node') || q.includes('server') || q.includes('api')) {
-      found.push('backend')
+    if (q.includes('react') || q.includes('reactjs')) {
+      found.push('react')
+    }
+    if (q.includes('angular') || q.includes('angularjs')) {
+      found.push('angular')
+    }
+    if (/\bjava\b/.test(q) && !q.includes('javascript')) {
+      found.push('java')
+    }
+    if (q.includes('python')) {
+      found.push('python')
+    }
+    if (q.includes('ai') || q.includes('machine learning') || q.includes('ml') || q.includes('data science') || q.includes('artificial intelligence')) {
+      if (!found.includes('ai-ml')) found.push('ai-ml')
+    }
+    if (q.includes('frontend') || q.includes('front-end') || q.includes('ui')) {
+      if (!found.includes('frontend')) found.push('frontend')
+    }
+    if (q.includes('backend') || q.includes('back-end') || q.includes('node') || q.includes('server')) {
+      if (!found.includes('backend')) found.push('backend')
     }
     if (q.includes('full') || q.includes('fullstack') || q.includes('full-stack')) {
-      found.push('fullstack')
+      if (!found.includes('fullstack')) found.push('fullstack')
     }
     if (q.includes('security') || q.includes('cyber') || q.includes('cybersecurity')) {
-      found.push('security')
+      if (!found.includes('security')) found.push('security')
     }
     if (q.includes('devops') || q.includes('cloud')) {
-      found.push('devops')
+      if (!found.includes('devops')) found.push('devops')
     }
     if (q.includes('data analyst') || q.includes('data analytics') || q.includes('analytics')) {
-      found.push('data-analyst')
+      if (!found.includes('data-analyst')) found.push('data-analyst')
     }
 
     if (found.length === 0) {
-      // Default: compare student's current target with top complementary field
       const normDefault = defaultTarget.toLowerCase().includes('front') ? 'frontend' : 'backend'
       found.push(normDefault, normDefault === 'frontend' ? 'ai-ml' : 'fullstack')
     } else if (found.length === 1) {
-      // If student only mentioned one (e.g. "Do I have potential for AI?"), compare against their active target
-      const normDefault = defaultTarget.toLowerCase().includes('front') ? 'frontend' : 'backend'
-      if (!found.includes(normDefault)) {
+      if (found[0] === 'ai-ml') {
+        const normDefault = defaultTarget.toLowerCase().includes('front') ? 'frontend' : 'web'
         found.unshift(normDefault)
+      } else if (found[0] === 'dsa') {
+        found.push('web')
       } else {
-        found.push('ai-ml')
+        const normDefault = defaultTarget.toLowerCase().includes('front') ? 'frontend' : 'backend'
+        if (!found.includes(normDefault)) {
+          found.unshift(normDefault)
+        } else {
+          found.push('ai-ml')
+        }
       }
+    } else if (found.length > 2) {
+      return found.slice(0, 2)
     }
 
     return found

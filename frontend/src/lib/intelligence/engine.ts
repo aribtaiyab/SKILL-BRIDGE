@@ -202,9 +202,11 @@ export function evaluateCareerReadiness(
 ): CareerReadinessResult {
   const studentSkillMap = new Map<string, StudentSkillScore>()
   studentSkills.forEach(s => {
-    studentSkillMap.set(s.skillId, s)
-    if (s.skillName) {
-      studentSkillMap.set(s.skillName.toLowerCase(), s)
+    if (s.verificationStatus && s.verificationStatus !== 'self_declared') {
+      studentSkillMap.set(s.skillId, s)
+      if (s.skillName) {
+        studentSkillMap.set(s.skillName.toLowerCase(), s)
+      }
     }
   })
 
@@ -295,9 +297,11 @@ export function evaluateOpportunityReadiness(
 ): OpportunityReadinessResult {
   const studentSkillMap = new Map<string, number>()
   studentSkills.forEach(s => {
-    studentSkillMap.set(s.skillId, s.currentLevel)
-    if (s.skillName) {
-      studentSkillMap.set(s.skillName.toLowerCase(), s.currentLevel)
+    if (s.verificationStatus && s.verificationStatus !== 'self_declared') {
+      studentSkillMap.set(s.skillId, s.currentLevel)
+      if (s.skillName) {
+        studentSkillMap.set(s.skillName.toLowerCase(), s.currentLevel)
+      }
     }
   })
 

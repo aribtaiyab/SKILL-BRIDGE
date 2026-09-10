@@ -46,7 +46,12 @@ INSERT INTO skills (id, name, slug, category, description, is_active) VALUES
 ('40000000-0000-0000-0000-000000000013', 'REST API Security', 'rest-api-security', 'Backend & APIs', 'JWT authentication, RBAC, rate limiting, and CORS headers', true),
 ('40000000-0000-0000-0000-000000000014', 'System Design Basics', 'system-design', 'Technical', 'Microservices architecture, caching strategies, and load balancing', true)
 ,
-('40000000-0000-0000-0000-000000000015', 'JavaScript', 'javascript', 'Frontend Basics', 'Modern JavaScript language fundamentals for browser and server applications', true)
+('40000000-0000-0000-0000-000000000015', 'JavaScript', 'javascript', 'Frontend Basics', 'Modern JavaScript language fundamentals for browser and server applications', true),
+('40000000-0000-0000-0000-000000000016', 'HTML', 'html', 'Frontend Basics', 'Semantic HTML5 structure and markup standards', true),
+('40000000-0000-0000-0000-000000000017', 'CSS', 'css', 'Frontend Basics', 'Modern CSS styles, layout models, and variables', true),
+('40000000-0000-0000-0000-000000000018', 'Responsive Design', 'responsive-design', 'Frontend Basics', 'Mobile-first layouts, media queries, and flex/grid systems', true),
+('40000000-0000-0000-0000-000000000019', 'API Integration', 'api-integration', 'Frontend Basics', 'Client-side REST / GraphQL API consuming and async data handling', true),
+('40000000-0000-0000-0000-000000000020', 'State Management', 'state-management', 'Frontend Basics', 'Component state, Context API, Redux/Zustand workflows', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Map Career Target Requirements (e.g. Backend Developer requirements)
@@ -59,11 +64,17 @@ INSERT INTO career_target_skills (career_target_id, skill_id, required_level, im
 ON CONFLICT (career_target_id, skill_id) DO NOTHING;
 
 -- Distinct requirements for the other supported career targets
+-- Frontend Developer Canonical 8 Skills:
 INSERT INTO career_target_skills (career_target_id, skill_id, required_level, importance) VALUES
-('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000006', 75, 'High'),
-('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000015', 80, 'High'),
-('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000007', 80, 'High'),
-('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', 60, 'Medium'),
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000016', 80, 'High'),   -- HTML
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000017', 80, 'High'),   -- CSS
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000015', 80, 'High'),   -- JavaScript
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000006', 75, 'High'),   -- React
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000018', 75, 'Medium'), -- Responsive Design
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', 65, 'Medium'), -- Git/GitHub
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000019', 75, 'Medium'), -- API Integration
+('30000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000020', 70, 'Medium')  -- State Management
+ON CONFLICT (career_target_id, skill_id) DO NOTHING;
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000006', 75, 'High'),
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000015', 80, 'High'),
 ('30000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000001', 75, 'High'),

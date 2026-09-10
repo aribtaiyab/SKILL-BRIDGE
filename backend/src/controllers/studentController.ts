@@ -1,12 +1,108 @@
+import fs from 'fs'
+import path from 'path'
 import { Response, NextFunction } from 'express'
 import { AuthenticatedRequest } from '../middleware/auth.js'
 import { getSupabaseAdmin } from '../config/supabase.js'
-import { calculateOverallReadiness, calculateGap, classifyGap, evaluateCareerReadiness } from '../intelligence/engine.js'
-import { startAssessment, submitAssessment, FALLBACK_QUESTIONS } from '../intelligence/assessment.js'
+import { calculateOverallReadiness, calculateGap, classifyGap, evaluateCareerReadiness, evaluateDiagnosticSkills } from '../intelligence/engine.js'
+import { startAssessment, submitAssessment, FALLBACK_QUESTIONS, sessionAssessmentAttempts, getAssessmentAttempts } from '../intelligence/assessment.js'
 import { CAREER_BENCHMARK_PROFILES, findCareerBenchmark } from '../intelligence/benchmarks.js'
 import { ENV } from '../config/env.js'
 import { AI_CONFIG } from '../ai/config.js'
 import { GeminiService } from '../services/ai/gemini.service.js'
+
+// Persistent store on disk for reliable local and offline guarantees
+export const sessionCareerTargets = new Map<string, string>()
+export const sessionSkills = new Map<string, Map<string, any>>()
+export const sessionSelfRatings = new Map<string, Map<string, string>>()
+
+const PERSISTENT_STORE_PATH = path.resolve(process.cwd(), 'backend', 'data', 'persistent_store.json')
+
+function loadPersistentStore() {
+  try {
+    const candidates = [
+      PERSISTENT_STORE_PATH,
+      path.resolve(process.cwd(), 'data', 'persistent_store.json'),
+    ]
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, 'utf8')
+        const parsed = JSON.parse(raw)
+        if (parsed.careerTargets) {
+          for (const [k, v] of Object.entries(parsed.careerTargets)) sessionCareerTargets.set(k, v as string)
+        }
+        if (parsed.skills) {
+          for (const [userId, skillMap] of Object.entries(parsed.skills)) {
+            const map = new Map<string, any>()
+            for (const [skillId, skillRecord] of Object.entries(skillMap as any)) {
+              map.set(skillId, skillRecord)
+            }
+            sessionSkills.set(userId, map)
+          }
+        }
+        if (parsed.selfRatings) {
+          for (const [userId, ratingMap] of Object.entries(parsed.selfRatings)) {
+            const map = new Map<string, string>()
+            for (const [skillId, rating] of Object.entries(ratingMap as any)) {
+              map.set(skillId, rating as string)
+            }
+            sessionSelfRatings.set(userId, map)
+          }
+        }
+        if (parsed.assessmentAttempts) {
+          for (const [userId, attemptsList] of Object.entries(parsed.assessmentAttempts)) {
+            sessionAssessmentAttempts.set(userId, attemptsList as any[])
+          }
+        }
+        break
+      }
+    }
+  } catch (err) {
+    console.warn('[PersistentStore] Could not load:', err)
+  }
+}
+
+export function savePersistentStore() {
+  try {
+    const dir = path.dirname(PERSISTENT_STORE_PATH)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+
+    const targetsObj: Record<string, string> = {}
+    for (const [k, v] of sessionCareerTargets.entries()) targetsObj[k] = v
+
+    const skillsObj: Record<string, Record<string, any>> = {}
+    for (const [userId, skillMap] of sessionSkills.entries()) {
+      skillsObj[userId] = {}
+      for (const [skillId, record] of skillMap.entries()) {
+        skillsObj[userId][skillId] = record
+      }
+    }
+
+    const ratingsObj: Record<string, Record<string, string>> = {}
+    for (const [userId, ratingMap] of sessionSelfRatings.entries()) {
+      ratingsObj[userId] = {}
+      for (const [skillId, rating] of ratingMap.entries()) {
+        ratingsObj[userId][skillId] = rating
+      }
+    }
+
+    const attemptsObj: Record<string, any[]> = {}
+    for (const [userId, attempts] of sessionAssessmentAttempts.entries()) {
+      attemptsObj[userId] = attempts
+    }
+
+    fs.writeFileSync(PERSISTENT_STORE_PATH, JSON.stringify({
+      careerTargets: targetsObj,
+      skills: skillsObj,
+      selfRatings: ratingsObj,
+      assessmentAttempts: attemptsObj,
+      updatedAt: new Date().toISOString(),
+    }, null, 2))
+  } catch (err) {
+    console.warn('[PersistentStore] Could not save:', err)
+  }
+}
+
+loadPersistentStore()
 
 export async function getStudentProfile(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
@@ -44,7 +140,7 @@ export async function getStudentProfile(req: AuthenticatedRequest, res: Response
         success: true,
         data: {
           profile_id: user.id,
-          target_career_id: '30000000-0000-0000-0000-000000000003',
+          target_career_id: sessionCareerTargets.get(user.id) || null,
           education: 'Undergraduate Computer Science',
           graduation_year: 2026,
           onboarding_completed: true,
@@ -95,40 +191,58 @@ export async function getCareerTarget(req: AuthenticatedRequest, res: Response, 
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('student_profiles')
+          .select('target_career_id, career_targets(id, name, slug, description, category)')
+          .eq('profile_id', user.id)
+          .maybeSingle()
+
+        if (!error && data && data.target_career_id) {
+          return res.status(200).json({ success: true, data })
+        }
+      } catch {}
+    }
+
+    const cachedCareerId = sessionCareerTargets.get(user.id)
+    if (cachedCareerId) {
+      const benchmark = findCareerBenchmark(cachedCareerId)
+      const fallbackCareer = FALLBACK_CAREER_TARGETS.find(c => c.id === cachedCareerId || c.slug === cachedCareerId) || {
+        id: cachedCareerId,
+        name: benchmark?.name || 'Career Target',
+        slug: benchmark?.slug || 'career',
+        category: benchmark?.category || 'Engineering',
+        description: benchmark?.description || ''
+      }
+
       return res.status(200).json({
         success: true,
         data: {
-          target_career_id: '30000000-0000-0000-0000-000000000003',
-          career_targets: FALLBACK_CAREER_TARGETS[2],
+          target_career_id: cachedCareerId,
+          career_targets: fallbackCareer,
         }
       })
     }
 
-    const { data, error } = await supabase
-      .from('student_profiles')
-      .select('target_career_id, career_targets(id, name, slug, description, category)')
-      .eq('profile_id', user.id)
-      .maybeSingle()
-
-    if (error || !data) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          target_career_id: '30000000-0000-0000-0000-000000000003',
-          career_targets: FALLBACK_CAREER_TARGETS[2],
-        }
-      })
-    }
-
-    res.status(200).json({ success: true, data })
+    return res.status(200).json({
+      success: true,
+      data: null
+    })
   } catch (err) {
+    const cachedCareerId = sessionCareerTargets.get(req.user?.id || '')
+    if (cachedCareerId) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          target_career_id: cachedCareerId,
+          career_targets: FALLBACK_CAREER_TARGETS.find(c => c.id === cachedCareerId) || FALLBACK_CAREER_TARGETS[0],
+        }
+      })
+    }
     res.status(200).json({
       success: true,
-      data: {
-        target_career_id: '30000000-0000-0000-0000-000000000003',
-        career_targets: FALLBACK_CAREER_TARGETS[2],
-      }
+      data: null
     })
   }
 }
@@ -169,6 +283,13 @@ const FALLBACK_CAREER_TARGETS = [
     category: 'Operations',
     description: 'Automates CI/CD pipelines, container orchestration, and cloud infrastructure reliability.',
   },
+]
+
+export const FALLBACK_STUDENT_SKILLS = [
+  { id: 'ss-1', skill_id: '40000000-0000-0000-0000-000000000001', current_level: 65, verified_level: 65, verification_status: 'assessment_verified', skills: { id: '40000000-0000-0000-0000-000000000001', name: 'Node.js', category: 'Backend' } },
+  { id: 'ss-2', skill_id: '40000000-0000-0000-0000-000000000002', current_level: 75, verified_level: 75, verification_status: 'assessment_verified', skills: { id: '40000000-0000-0000-0000-000000000002', name: 'React', category: 'Frontend' } },
+  { id: 'ss-3', skill_id: '40000000-0000-0000-0000-000000000003', current_level: 82, verified_level: 82, verification_status: 'evidence_verified', skills: { id: '40000000-0000-0000-0000-000000000003', name: 'SQL', category: 'Databases' } },
+  { id: 'ss-4', skill_id: '40000000-0000-0000-0000-000000000004', current_level: 75, verified_level: 75, verification_status: 'practical_verified', skills: { id: '40000000-0000-0000-0000-000000000004', name: 'Git & Version Control', category: 'Tools' } },
 ]
 
 export async function getCareerTargetsList(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -215,45 +336,54 @@ export async function setCareerTarget(req: AuthenticatedRequest, res: Response, 
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const body = req.body || {}
-    const careerId = body.target_career_id || body.career_id || body.role_id
+    const careerId = body.target_career_id || body.careerTarget || body.targetCareerId || body.career_id || body.role_id
     if (!careerId) return res.status(422).json({ success: false, error: 'target_career_id is required' })
 
-    const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ success: true, data: { target_career_id: careerId } })
+    sessionCareerTargets.set(user.id, careerId)
+    savePersistentStore()
 
-    const { data: careerExists, error: careerCheckError } = await supabase
-      .from('career_targets')
-      .select('id')
-      .eq('id', careerId)
-      .maybeSingle()
-
-    if (careerCheckError || !careerExists) {
-      return res.status(404).json({ success: false, error: 'Invalid career target selected' })
+    const benchmark = findCareerBenchmark(careerId)
+    const fallbackCareer = FALLBACK_CAREER_TARGETS.find(c => c.id === careerId || c.slug === careerId) || {
+      id: careerId,
+      name: benchmark?.name || 'Frontend Developer',
+      slug: benchmark?.slug || 'frontend',
+      category: benchmark?.category || 'Engineering',
+      description: benchmark?.description || ''
     }
 
-    const { data, error } = await supabase
-      .from('student_profiles')
-      .upsert({
-        profile_id: user.id,
-        target_career_id: careerId,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'profile_id' })
-      .select('target_career_id, career_targets(id, name, slug, description, category)')
-      .single()
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('student_profiles')
+          .upsert({
+            profile_id: user.id,
+            target_career_id: careerId,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'profile_id' })
+          .select('target_career_id, career_targets(id, name, slug, description, category)')
+          .maybeSingle()
 
-    if (error) return res.status(500).json({ success: false, error: 'Could not update career target' })
-    res.status(200).json({ success: true, data })
+        if (!error && data) {
+          savePersistentStore()
+          return res.status(200).json({ success: true, data })
+        }
+      } catch {
+        // Fall back to persistent cache
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        target_career_id: careerId,
+        career_targets: fallbackCareer
+      }
+    })
   } catch (err) {
     next(err)
   }
 }
-
-const FALLBACK_STUDENT_SKILLS = [
-  { id: 'ss-1', skill_id: '40000000-0000-0000-0000-000000000001', current_level: 65, verified_level: 65, verification_status: 'assessment_verified', skills: { id: '40000000-0000-0000-0000-000000000001', name: 'Node.js', category: 'Backend' } },
-  { id: 'ss-2', skill_id: '40000000-0000-0000-0000-000000000002', current_level: 75, verified_level: 75, verification_status: 'assessment_verified', skills: { id: '40000000-0000-0000-0000-000000000002', name: 'React', category: 'Frontend' } },
-  { id: 'ss-3', skill_id: '40000000-0000-0000-0000-000000000003', current_level: 82, verified_level: 82, verification_status: 'evidence_verified', skills: { id: '40000000-0000-0000-0000-000000000003', name: 'SQL', category: 'Databases' } },
-  { id: 'ss-4', skill_id: '40000000-0000-0000-0000-000000000004', current_level: 75, verified_level: 75, verification_status: 'practical_verified', skills: { id: '40000000-0000-0000-0000-000000000004', name: 'Git & Version Control', category: 'Tools' } },
-]
 
 export async function getStudentSkills(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
@@ -261,19 +391,31 @@ export async function getStudentSkills(req: AuthenticatedRequest, res: Response,
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ success: true, data: FALLBACK_STUDENT_SKILLS })
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('student_skills')
+          .select('*, skills(id, name, category)')
+          .eq('student_id', user.id)
 
-    const { data, error } = await supabase
-      .from('student_skills')
-      .select('*, skills(id, name, category)')
-      .eq('student_id', user.id)
-
-    if (error || !data || data.length === 0) {
-      return res.status(200).json({ success: true, data: FALLBACK_STUDENT_SKILLS })
+        if (!error && data && data.length > 0) {
+          return res.status(200).json({ success: true, data })
+        }
+      } catch {}
     }
-    res.status(200).json({ success: true, data })
+
+    const userSkillsMap = sessionSkills.get(user.id)
+    if (userSkillsMap && userSkillsMap.size > 0) {
+      return res.status(200).json({ success: true, data: Array.from(userSkillsMap.values()) })
+    }
+
+    return res.status(200).json({ success: true, data: [] })
   } catch (err) {
-    res.status(200).json({ success: true, data: FALLBACK_STUDENT_SKILLS })
+    const userSkillsMap = sessionSkills.get(req.user?.id || '')
+    if (userSkillsMap && userSkillsMap.size > 0) {
+      return res.status(200).json({ success: true, data: Array.from(userSkillsMap.values()) })
+    }
+    res.status(200).json({ success: true, data: [] })
   }
 }
 
@@ -282,31 +424,144 @@ export async function addStudentSkill(req: AuthenticatedRequest, res: Response, 
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
-    const { skill_id, current_level, self_declared_level, verification_status = 'self_declared' } = req.body || {}
-    if (!skill_id) return res.status(422).json({ success: false, error: 'skill_id is required' })
-    const declaredLevel = Number(self_declared_level ?? current_level)
+    const body = req.body || {}
+    // If request contains a declaredSkills or skills array, delegate to bulk declaration
+    if (Array.isArray(body.declaredSkills) || Array.isArray(body.skills) || Array.isArray(body.declarations)) {
+      return bulkDeclareStudentSkills(req, res, next)
+    }
+
+    const skillId = body.skill_id || body.skillId
+    if (!skillId) return res.status(422).json({ success: false, error: 'skill_id is required' })
+
+    let rawDeclared = Number(body.self_declared_level ?? body.selfDeclaredLevel ?? body.current_level ?? body.level ?? 50)
+    const declaredLevel = (rawDeclared > 0 && rawDeclared <= 5) ? Math.round(rawDeclared * 20) : Math.round(rawDeclared)
     if (!Number.isInteger(declaredLevel) || declaredLevel < 0 || declaredLevel > 100) {
       return res.status(422).json({ success: false, error: 'self_declared_level must be an integer from 0 to 100' })
     }
 
+    if (!sessionSkills.has(user.id)) sessionSkills.set(user.id, new Map())
+    const userSkills = sessionSkills.get(user.id)!
+    const existing = userSkills.get(skillId)
+
+    const verificationStatus = body.verification_status || body.verificationStatus || 'self_declared'
+    const isVerified = verificationStatus !== 'self_declared' && verificationStatus !== 'unassessed'
+    const finalVerifiedLevel = isVerified
+      ? Number(body.verified_level ?? body.verifiedLevel ?? body.current_level ?? (existing?.verified_level && existing.verified_level > 0 ? existing.verified_level : declaredLevel))
+      : 0
+    const finalCurrentLevel = isVerified ? Number(body.current_level ?? finalVerifiedLevel) : declaredLevel
+
+    const newSkillRecord = {
+      id: existing?.id || `ss-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      student_id: user.id,
+      skill_id: skillId,
+      self_declared_level: declaredLevel,
+      current_level: finalCurrentLevel,
+      verified_level: finalVerifiedLevel,
+      verification_status: isVerified ? verificationStatus : 'self_declared',
+      skills: {
+        id: skillId,
+        name: body.skill_name || body.skillName || existing?.skills?.name || skillId,
+        category: existing?.skills?.category || 'Technical'
+      }
+    }
+    userSkills.set(skillId, newSkillRecord)
+    savePersistentStore()
+
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(503).json({ success: false, error: 'Skill service is unavailable' })
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('student_skills')
+          .upsert({
+            student_id: user.id,
+            skill_id: skillId,
+            self_declared_level: declaredLevel,
+            current_level: newSkillRecord.current_level,
+            verified_level: newSkillRecord.verified_level,
+            verification_status: newSkillRecord.verification_status,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'student_id,skill_id' })
+          .select('*, skills(id, name, category)')
+          .maybeSingle()
 
-    const { data, error } = await supabase
-      .from('student_skills')
-      .upsert({
+        if (!error && data) return res.status(200).json({ success: true, data })
+      } catch {}
+    }
+
+    res.status(200).json({ success: true, data: newSkillRecord })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function bulkDeclareStudentSkills(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const body = req.body || {}
+    const rawList: any[] = Array.isArray(body.declaredSkills)
+      ? body.declaredSkills
+      : Array.isArray(body.skills)
+      ? body.skills
+      : Array.isArray(body.declarations)
+      ? body.declarations
+      : (body.skill_id || body.skillId)
+      ? [body]
+      : []
+
+    if (rawList.length === 0) {
+      return res.status(400).json({ success: false, error: 'declaredSkills or skills array is required' })
+    }
+
+    if (!sessionSkills.has(user.id)) sessionSkills.set(user.id, new Map())
+    const userSkills = sessionSkills.get(user.id)!
+    const results: any[] = []
+
+    for (const item of rawList) {
+      const skillId = item.skill_id || item.skillId
+      if (!skillId) continue
+      let rawLevel = Number(item.self_declared_level ?? item.selfDeclaredLevel ?? item.current_level ?? item.level ?? 50)
+      const declaredLevel = (rawLevel > 0 && rawLevel <= 5) ? Math.round(rawLevel * 20) : Math.max(0, Math.min(100, Math.round(rawLevel)))
+      const skillName = item.skill_name || item.skillName || item.name
+      const existing = userSkills.get(skillId)
+
+      const isVerified = existing && existing.verification_status !== 'self_declared' && existing.verification_status !== 'unassessed'
+      const record = {
+        id: existing?.id || `ss-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
         student_id: user.id,
-        skill_id,
+        skill_id: skillId,
         self_declared_level: declaredLevel,
-        current_level: declaredLevel,
-        verification_status,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'student_id,skill_id' })
-      .select('*, skills(id, name, category)')
-      .single()
+        current_level: isVerified ? existing.current_level : declaredLevel,
+        verified_level: isVerified ? existing.verified_level : 0,
+        verification_status: isVerified ? existing.verification_status : 'self_declared',
+        skills: {
+          id: skillId,
+          name: skillName || existing?.skills?.name || skillId,
+          category: existing?.skills?.category || 'Technical'
+        }
+      }
+      userSkills.set(skillId, record)
+      results.push(record)
 
-    if (error) return res.status(500).json({ success: false, error: 'Could not add skill' })
-    res.status(200).json({ data })
+      const supabase = getSupabaseAdmin()
+      if (supabase) {
+        try {
+          await supabase.from('student_skills').upsert({
+            student_id: user.id,
+            skill_id: skillId,
+            self_declared_level: declaredLevel,
+            current_level: record.current_level,
+            verified_level: record.verified_level,
+            verification_status: record.verification_status,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'student_id,skill_id' })
+        } catch {}
+      }
+    }
+
+    savePersistentStore()
+    res.status(200).json({ success: true, data: results, count: results.length })
   } catch (err) {
     next(err)
   }
@@ -317,7 +572,7 @@ export async function getStudentReadiness(req: AuthenticatedRequest, res: Respon
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
-    const careerId = (req.query.career_id as string) || null
+    const careerId = (req.query.career_id as string) || (req.query.careerId as string) || (req.query.careerTarget as string) || (req.query.target_career_id as string) || null
     const supabase = getSupabaseAdmin()
 
     let selectedCareerId = careerId
@@ -331,7 +586,15 @@ export async function getStudentReadiness(req: AuthenticatedRequest, res: Respon
     }
 
     if (!selectedCareerId) {
-      selectedCareerId = '30000000-0000-0000-0000-000000000003'
+      selectedCareerId = sessionCareerTargets.get(user.id) || null
+    }
+
+    if (!selectedCareerId) {
+      return res.status(200).json({
+        success: true,
+        data: null,
+        message: 'No career target selected yet'
+      })
     }
 
     // 1. Look up career target (by ID, slug, or name)
@@ -404,9 +667,27 @@ export async function getStudentReadiness(req: AuthenticatedRequest, res: Respon
       if (dbSkills && dbSkills.length > 0) studentSkills = dbSkills
     }
 
-    const scoresFormatted = (studentSkills.length > 0 ? studentSkills : FALLBACK_STUDENT_SKILLS).map(s => ({
+    if (sessionSkills.has(user.id)) {
+      const userSkillsMap = sessionSkills.get(user.id)!
+      if (userSkillsMap.size > 0) {
+        const inMemoryList = Array.from(userSkillsMap.values())
+        const existingIds = new Set(studentSkills.map(s => s.skill_id))
+        inMemoryList.forEach(memSkill => {
+          if (!existingIds.has(memSkill.skill_id)) {
+            studentSkills.push(memSkill)
+          } else {
+            const idx = studentSkills.findIndex(s => s.skill_id === memSkill.skill_id)
+            if (idx >= 0 && memSkill.verification_status === 'assessment_verified') {
+              studentSkills[idx] = memSkill
+            }
+          }
+        })
+      }
+    }
+
+    const scoresFormatted = studentSkills.map(s => ({
       skillId: s.skill_id,
-      skillName: (s.skills as any)?.name || (s as any).skillName || 'Skill',
+      skillName: (s.skills as any)?.name || (s as any).skillName || s.skill_name || 'Skill',
       currentLevel: s.current_level || 0,
       verificationStatus: s.verification_status,
     }))
@@ -441,10 +722,29 @@ export async function getStudentReadiness(req: AuthenticatedRequest, res: Respon
       }
     }
 
+    if (selfRatings.length === 0) {
+      const sessionKey = `${user.id}:${career.id}`
+      const userRatingMap = sessionSelfRatings.get(sessionKey)
+      if (userRatingMap && userRatingMap.size > 0) {
+        selfRatings = Array.from(userRatingMap.entries()).map(([skill_id, self_rating_label]) => {
+          const matchedScore = scoresFormatted.find(s => s.skillId === skill_id)
+          const matchedReq = reqsFormatted.find(r => r.skillId === skill_id)
+          return {
+            skill_id,
+            skill_name: matchedScore?.skillName || matchedReq?.skillName || 'Skill',
+            self_rating_label,
+            verified_score: matchedScore?.currentLevel ?? -1,
+            required_level: matchedReq?.requiredLevel ?? 0,
+          }
+        }).filter(sr => sr.verified_score >= 0)
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
         ...readinessResult,
+        overallReadiness: readinessResult.readinessPercentage,
         careerId: career.id,
         careerName: career.name,
         title: career.name,
@@ -535,8 +835,411 @@ export async function getCareerBenchmark(req: AuthenticatedRequest, res: Respons
   }
 }
 
+export function getAssessmentForSkillName(skillName?: string) {
+  const norm = (skillName || '').toLowerCase()
+  if (norm.includes('react')) return { id: 'assess-l1-react-basics', skill: 'React', title: 'React Component Architecture & Hooks Benchmark' }
+  if (norm.includes('mongo')) return { id: 'assess-l1-mongodb-core', skill: 'MongoDB', title: 'MongoDB Aggregations & Document Modeling Benchmark' }
+  if (norm.includes('express')) return { id: 'assess-l1-express-core', skill: 'Express.js', title: 'Express.js Middleware Architecture & Routing Benchmark' }
+  if (norm.includes('auth') || norm.includes('security')) return { id: 'assess-l1-auth-security', skill: 'Authentication', title: 'Authentication, JWT & Web Security Benchmark' }
+  if (norm.includes('deploy') || norm.includes('cloud') || norm.includes('docker')) return { id: 'assess-l1-deployment-cloud', skill: 'Deployment', title: 'Containerization, Cloud Deployment & CI/CD Benchmark' }
+  if (norm.includes('dsa') || norm.includes('problem') || norm.includes('algorithm')) return { id: 'assess-l1-dsa-core', skill: 'Problem Solving / DSA', title: 'Data Structures & Algorithmic Problem Solving Benchmark' }
+  if (norm.includes('html')) return { id: 'assess-l1-html-basics', skill: 'HTML', title: 'Semantic HTML5 & Web Standards Benchmark' }
+  if (norm.includes('css')) return { id: 'assess-l1-css-layouts', skill: 'CSS', title: 'Modern CSS, Flexbox & Responsive Layouts Benchmark' }
+  if (norm.includes('sql') || norm.includes('database')) return { id: 'assess-l1-sql-indexing', skill: 'SQL', title: 'SQL Joins & Relational Indexing Benchmark' }
+  if (norm.includes('rest') || norm.includes('api')) return { id: 'assess-l1-rest-design', skill: 'REST APIs', title: 'RESTful API Standards & Status Codes Benchmark' }
+  if (norm.includes('git') || norm.includes('version')) return { id: 'assess-l1-git-workflows', skill: 'Git & Version Control', title: 'Git Workflows & Version Control Mastery' }
+  if (norm.includes('js') || norm.includes('javascript')) return { id: 'assess-l1-javascript-core', skill: 'JavaScript', title: 'JavaScript Language Knowledge Benchmark' }
+  if (norm.includes('node') || norm.includes('backend')) return { id: 'assess-l1-nodejs-loop', skill: 'Node.js', title: 'Node.js Event Loop & Concurrency Benchmark' }
+  return { id: 'assess-l1-nodejs-loop', skill: skillName || 'Core Fundamentals', title: 'Knowledge Benchmark' }
+}
+
 export async function getCareerTargetSkills(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  return getCareerBenchmark(req, res, next)
+  try {
+    const rawId = req.params.careerId || req.params.id || req.query.career_id
+    const careerId = Array.isArray(rawId) ? String(rawId[0]) : String(rawId || '')
+    if (!careerId) {
+      return res.status(400).json({ success: false, error: 'Career ID or slug is required' })
+    }
+
+    let career: any = null
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      const { data } = await supabase
+        .from('career_targets')
+        .select('id, name, slug, description, category')
+        .or(`id.eq.${careerId},slug.eq.${careerId}`)
+        .maybeSingle()
+      if (data) career = data
+    }
+
+    const benchmark = findCareerBenchmark(careerId)
+    if (!career && benchmark) {
+      career = benchmark
+    }
+
+    if (!career) {
+      return res.status(404).json({ success: false, error: `Career benchmark for '${careerId}' not found` })
+    }
+
+    let requiredSkills: any[] = []
+    if (supabase) {
+      const { data: dbSkills } = await supabase
+        .from('career_target_skills')
+        .select('skill_id, required_level, importance, skills(id, name, category)')
+        .eq('career_target_id', career.id)
+      if (dbSkills && dbSkills.length > 0) {
+        requiredSkills = dbSkills.map((r: any) => ({
+          skillId: r.skill_id,
+          name: r.skills?.name || 'Skill',
+          skillName: r.skills?.name || 'Skill',
+          category: r.skills?.category || 'Technical',
+          requiredLevel: r.required_level,
+          requiredScore: r.required_level,
+          weight: r.importance === 'High' ? 10 : r.importance === 'Medium' ? 8 : 6,
+          priority: (r.importance || 'High').toLowerCase(),
+          importance: r.importance || 'High',
+        }))
+      }
+    }
+
+    if (requiredSkills.length === 0 && benchmark) {
+      requiredSkills = Object.entries(benchmark.skills).map(([name, b], idx) => ({
+        skillId: b.skillId || `skill-${benchmark.slug}-${idx + 1}`,
+        name: name,
+        skillName: name,
+        category: b.category || 'Technical',
+        requiredLevel: b.required,
+        requiredScore: b.required,
+        weight: Math.round(b.weight * 100),
+        priority: (b.priority || (b.weight >= 0.25 ? 'High' : b.weight >= 0.15 ? 'Medium' : 'Low')).toLowerCase(),
+        importance: b.priority || (b.weight >= 0.25 ? 'High' : b.weight >= 0.15 ? 'Medium' : 'Low'),
+      }))
+    }
+
+    const user = req.user
+    const userSkills = user ? sessionSkills.get(user.id) : null
+
+    const enrichedSkills = requiredSkills.map(s => {
+      let existing = userSkills?.get(s.skillId)
+      if (!existing && userSkills) {
+        for (const [_, record] of userSkills.entries()) {
+          if (record.skills?.name?.toLowerCase() === s.skillName?.toLowerCase() ||
+              record.skill_name?.toLowerCase() === s.skillName?.toLowerCase() ||
+              record.skills?.name?.toLowerCase() === s.name?.toLowerCase()) {
+            existing = record
+            break
+          }
+        }
+      }
+
+      const isVerified = Boolean(
+        existing &&
+        existing.verification_status !== 'self_declared' &&
+        existing.verification_status !== 'unassessed' &&
+        existing.verified_level > 0
+      )
+
+      const selfDeclaredScore = existing?.self_declared_level ?? 0
+      const verifiedScore = isVerified ? existing.verified_level : 0
+      const deficit = Math.max(s.requiredLevel - verifiedScore, 0)
+      const attempts = user ? getAssessmentAttempts(user.id, s.skillId) : []
+
+      return {
+        ...s,
+        selfDeclaredScore,
+        verifiedScore,
+        verificationStatus: existing?.verification_status || (selfDeclaredScore > 0 ? 'self_declared' : 'unassessed'),
+        status: isVerified && deficit === 0 ? 'ready' : deficit > 20 ? 'critical' : 'improve',
+        isAssessed: isVerified,
+        attemptCount: attempts.length,
+        latestScore: attempts.length > 0 ? attempts[attempts.length - 1].score : null,
+      }
+    })
+
+    return res.status(200).json({
+      success: true,
+      career: {
+        id: career.id,
+        name: career.name,
+        slug: career.slug,
+        description: career.description || '',
+        category: career.category || 'Engineering',
+      },
+      skills: enrichedSkills,
+      data: enrichedSkills,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function saveCareerTargetSkills(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const { careerTargetId, career_target_id, careerId, career_id, skills } = req.body || {}
+    const targetCareerId = careerTargetId || career_target_id || careerId || career_id
+    if (!targetCareerId) {
+      return res.status(400).json({ success: false, error: 'careerTargetId is required' })
+    }
+
+    if (!Array.isArray(skills) || skills.length === 0) {
+      return res.status(400).json({ success: false, error: 'skills array is required and must not be empty' })
+    }
+
+    // 1. Validate career exists
+    const benchmark = findCareerBenchmark(targetCareerId)
+    const fallback = FALLBACK_CAREER_TARGETS.find(c => c.id === targetCareerId || c.slug === targetCareerId)
+    const career = benchmark || fallback
+    if (!career) {
+      return res.status(404).json({ success: false, error: `Target career '${targetCareerId}' not found` })
+    }
+
+    // 2. Fetch legitimate required skills for this career
+    let careerReqs: Array<{ skillId: string; skillName: string; requiredScore: number; weight: number; priority: string; category?: string }> = []
+    if (benchmark) {
+      careerReqs = Object.entries(benchmark.skills).map(([name, b], idx) => ({
+        skillId: b.skillId || `skill-${benchmark.slug}-${idx + 1}`,
+        skillName: name,
+        requiredScore: b.required,
+        weight: b.weight,
+        priority: b.priority || (b.weight >= 0.25 ? 'High' : b.weight >= 0.15 ? 'Medium' : 'Low'),
+        category: b.category || 'Technical',
+      }))
+    }
+
+    const allowedSkillIds = new Set(careerReqs.map(r => r.skillId.toLowerCase()))
+    const allowedSkillNames = new Set(careerReqs.map(r => r.skillName.toLowerCase()))
+
+    // 3. Validate each submitted skill
+    for (const item of skills) {
+      const skillId = item.skillId || item.skill_id
+      if (!skillId) {
+        return res.status(400).json({ success: false, error: 'Each skill item must have a skillId' })
+      }
+
+      // Check skill belongs to selected career
+      const matchesId = allowedSkillIds.has(skillId.toLowerCase())
+      const matchesName = allowedSkillNames.has((item.skillName || item.name || skillId).toLowerCase())
+      if (!matchesId && !matchesName) {
+        return res.status(400).json({
+          success: false,
+          error: `Skill '${skillId}' does not belong to the selected career '${career.name}'`,
+        })
+      }
+
+      // Validate score between 0 and 100
+      const rawScore = Number(item.selfScore ?? item.selfDeclaredScore ?? item.self_declared_level ?? item.score ?? item.level)
+      if (isNaN(rawScore) || !Number.isInteger(rawScore) || rawScore < 0 || rawScore > 100) {
+        return res.status(400).json({
+          success: false,
+          error: `Score for skill '${skillId}' must be an integer between 0 and 100`,
+        })
+      }
+    }
+
+    // 4. Save to session and persistent store
+    if (!sessionSkills.has(user.id)) sessionSkills.set(user.id, new Map())
+    const userSkills = sessionSkills.get(user.id)!
+    sessionCareerTargets.set(user.id, targetCareerId)
+
+    const savedRecords: any[] = []
+    const declaredMap = new Map<string, number>()
+
+    for (const item of skills) {
+      const skillId = item.skillId || item.skill_id
+      const rawScore = Math.round(Number(item.selfScore ?? item.selfDeclaredScore ?? item.self_declared_level ?? item.score ?? item.level))
+      const declaredScore = Math.max(0, Math.min(100, rawScore))
+
+      const matchingReq = careerReqs.find(r =>
+        r.skillId.toLowerCase() === skillId.toLowerCase() ||
+        r.skillName.toLowerCase() === (item.skillName || item.name || skillId).toLowerCase()
+      )
+      const canonicalSkillId = matchingReq?.skillId || skillId
+      const skillName = matchingReq?.skillName || item.skillName || item.name || skillId
+
+      declaredMap.set(canonicalSkillId, declaredScore)
+      declaredMap.set(skillName.toLowerCase(), declaredScore)
+
+      const existing = userSkills.get(canonicalSkillId)
+      const isVerified = Boolean(
+        existing &&
+        existing.verification_status !== 'self_declared' &&
+        existing.verification_status !== 'unassessed' &&
+        existing.verified_level > 0
+      )
+
+      const record = {
+        id: existing?.id || `ss-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        student_id: user.id,
+        skill_id: canonicalSkillId,
+        self_declared_level: declaredScore,
+        current_level: isVerified ? existing.current_level : declaredScore,
+        verified_level: isVerified ? existing.verified_level : 0,
+        verification_status: isVerified ? existing.verification_status : 'self_declared',
+        skills: {
+          id: canonicalSkillId,
+          name: skillName,
+          category: matchingReq?.category || existing?.skills?.category || 'Technical',
+        },
+        updated_at: new Date().toISOString(),
+      }
+
+      userSkills.set(canonicalSkillId, record)
+      savedRecords.push(record)
+
+      // Dual write to Supabase if connected
+      const supabase = getSupabaseAdmin()
+      if (supabase) {
+        try {
+          await supabase.from('student_skills').upsert({
+            student_id: user.id,
+            skill_id: canonicalSkillId,
+            self_declared_level: declaredScore,
+            current_level: record.current_level,
+            verified_level: record.verified_level,
+            verification_status: record.verification_status,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'student_id,skill_id' })
+        } catch {}
+      }
+    }
+
+    savePersistentStore()
+
+    // 5. Initial Diagnostic Analysis
+    const reqsForDiagnostic = careerReqs.map(r => ({
+      skillId: r.skillId,
+      skillName: r.skillName,
+      category: r.category,
+      requiredLevel: r.requiredScore,
+      importance: r.priority,
+    }))
+
+    const diagnosticResult = evaluateDiagnosticSkills(career.name, reqsForDiagnostic, declaredMap)
+
+    return res.status(200).json({
+      success: true,
+      diagnostic: diagnosticResult,
+      data: {
+        careerId: targetCareerId,
+        careerName: career.name,
+        savedSkills: savedRecords,
+        diagnostic: diagnosticResult,
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getStudentSkillDetail(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const rawSkillId = req.params.skillId || req.params.id
+    const skillId = Array.isArray(rawSkillId) ? String(rawSkillId[0]) : String(rawSkillId || '')
+    if (!skillId) return res.status(400).json({ success: false, error: 'skillId is required' })
+
+    // Find student's skill record
+    const userSkills = sessionSkills.get(user.id)
+    const existing = userSkills?.get(skillId) ||
+      (userSkills ? Array.from(userSkills.values()).find(s =>
+        s.skill_id?.toLowerCase() === skillId.toLowerCase() ||
+        s.skills?.name?.toLowerCase() === skillId.toLowerCase()
+      ) : null)
+
+    // Find career target requirement
+    const targetCareerId = sessionCareerTargets.get(user.id)
+    const benchmark = targetCareerId ? findCareerBenchmark(targetCareerId) : CAREER_BENCHMARK_PROFILES[0]
+    let matchingReq: any = null
+    if (benchmark) {
+      const foundEntry = Object.entries(benchmark.skills).find(([name, b]) =>
+        b.skillId === skillId || name.toLowerCase() === skillId.toLowerCase() || b.skillId === existing?.skill_id
+      )
+      if (foundEntry) {
+        matchingReq = {
+          skillName: foundEntry[0],
+          requiredScore: foundEntry[1].required,
+          weight: Math.round(foundEntry[1].weight * 100),
+          priority: foundEntry[1].priority || (foundEntry[1].weight >= 0.25 ? 'High' : 'Medium'),
+          category: foundEntry[1].category || 'Technical',
+        }
+      }
+    }
+
+    const skillName = existing?.skills?.name || matchingReq?.skillName || skillId
+    const isVerified = Boolean(
+      existing &&
+      existing.verification_status !== 'self_declared' &&
+      existing.verification_status !== 'unassessed' &&
+      existing.verified_level > 0
+    )
+    const verifiedScore = isVerified ? existing.verified_level : 0
+    const selfDeclaredScore = existing?.self_declared_level ?? 0
+    const requiredScore = matchingReq?.requiredScore || 75
+    const gap = Math.max(requiredScore - (isVerified ? (verifiedScore || 0) : 0), 0)
+
+    // Fetch attempts
+    const attempts = getAssessmentAttempts(user.id, skillId)
+    const targetAssessment = getAssessmentForSkillName(skillName)
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        skillId,
+        skillName,
+        category: matchingReq?.category || existing?.skills?.category || 'Technical',
+        selfDeclaredScore,
+        verifiedScore,
+        verificationStatus: existing?.verification_status || (selfDeclaredScore > 0 ? 'self_declared' : 'unassessed'),
+        requiredScore,
+        requiredLevel: requiredScore,
+        targetCareer: benchmark?.name || 'Full Stack Developer',
+        weight: matchingReq?.weight || 10,
+        priority: matchingReq?.priority || 'High',
+        gap,
+        isVerified,
+        isAssessed: isVerified,
+        status: isVerified ? (gap === 0 ? 'Verified Ready' : 'Almost Ready') : 'Needs Verification',
+        whyItMatters: `Critical competency for ${benchmark?.name || 'modern software engineering'}. Employers evaluate this skill for production reliability.`,
+        whatIsTested: `Foundational theory, practical design patterns, syntax, error handling, and performance optimization in ${skillName}.`,
+        testCurriculum: [
+          `Core architectural concepts and syntax in ${skillName}`,
+          `Practical implementation and common design patterns`,
+          `Production debugging, error handling and resilience`,
+          `Performance optimization and resource efficiency`,
+        ],
+        attempts,
+        improvement: attempts.length > 1 ? (attempts[attempts.length - 1].score - attempts[0].score) : 0,
+        assessment: targetAssessment,
+        targetAssessment,
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getStudentAssessmentHistory(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const rawSkillId = req.params.skillId || (req.query.skillId as any)
+    const skillId = rawSkillId ? (Array.isArray(rawSkillId) ? String(rawSkillId[0]) : String(rawSkillId)) : undefined
+    const attempts = getAssessmentAttempts(user.id, skillId)
+
+    return res.status(200).json({
+      success: true,
+      data: attempts,
+      count: attempts.length,
+    })
+  } catch (err) {
+    next(err)
+  }
 }
 
 const FALLBACK_OPPORTUNITIES_LIST = [
@@ -591,6 +1294,25 @@ const FALLBACK_OPPORTUNITIES_LIST = [
     opportunity_skills: [
       { minimum_level: 75, importance: 'Required', skill_id: '40000000-0000-0000-0000-000000000002', skills: { id: '40000000-0000-0000-0000-000000000002', name: 'React', category: 'Frontend' } },
       { minimum_level: 70, importance: 'Required', skill_id: '40000000-0000-0000-0000-000000000001', skills: { id: '40000000-0000-0000-0000-000000000001', name: 'Node.js', category: 'Backend' } },
+    ],
+  },
+  {
+    id: 'opp-04-modern-frontend',
+    title: 'Junior React & Frontend Engineer',
+    industry_id: 'ind-04',
+    opportunity_type: 'Job',
+    location: 'Remote',
+    work_mode: 'remote',
+    stipend_amount: '₹9,00,000 / year',
+    duration: 'Full-Time',
+    deadline: '2026-12-31T00:00:00Z',
+    status: 'published',
+    created_at: '2026-08-20T00:00:00Z',
+    industry_profiles: { organization_name: 'Vanguard Digital Labs', location: 'Remote' },
+    opportunity_skills: [
+      { minimum_level: 75, importance: 'Required', skill_id: '40000000-0000-0000-0000-000000000002', skills: { id: '40000000-0000-0000-0000-000000000002', name: 'React', category: 'Frontend' } },
+      { minimum_level: 80, importance: 'Required', skill_id: 'skill-frontend-js', skills: { id: 'skill-frontend-js', name: 'JavaScript', category: 'Frontend' } },
+      { minimum_level: 75, importance: 'Required', skill_id: 'skill-frontend-css', skills: { id: 'skill-frontend-css', name: 'CSS', category: 'Frontend' } },
     ],
   },
 ]
@@ -885,138 +1607,8 @@ export async function startStudentAssessment(req: AuthenticatedRequest, res: Res
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
     const id = String(req.params.id)
 
-    try {
-      const result = await startAssessment(user.id, id)
-      if (result && result.attemptId && !result.attemptId.startsWith('attempt-')) {
-        return res.status(200).json({ success: true, data: result })
-      }
-    } catch {
-      // Fall through to canonical benchmark questions
-    }
-
-    const attemptId = `attempt-${Date.now()}`
-    let title = 'Backend Engineering Knowledge Benchmark'
-    let skillName = 'Node.js & Backend Architecture'
-    let questions = FALLBACK_QUESTIONS
-
-    if (id.includes('rest')) {
-      title = 'RESTful API Standards & Status Codes'
-      skillName = 'REST APIs'
-      questions = [
-        {
-          id: 'q-rest-1',
-          questionText: 'Which HTTP method is idempotent and intended for full replacement of a resource?',
-          questionType: 'multiple_choice',
-          points: 34,
-          orderIndex: 1,
-          options: [
-            { id: 'opt-rest-1a', optionText: 'PUT', orderIndex: 1 },
-            { id: 'opt-rest-1b', optionText: 'PATCH', orderIndex: 2 },
-            { id: 'opt-rest-1c', optionText: 'POST', orderIndex: 3 },
-            { id: 'opt-rest-1d', optionText: 'DELETE', orderIndex: 4 },
-          ],
-        },
-        {
-          id: 'q-rest-2',
-          questionText: 'What status code should be returned when client credentials are valid but forbidden from accessing the resource?',
-          questionType: 'multiple_choice',
-          points: 33,
-          orderIndex: 2,
-          options: [
-            { id: 'opt-rest-2a', optionText: '403 Forbidden', orderIndex: 1 },
-            { id: 'opt-rest-2b', optionText: '401 Unauthorized', orderIndex: 2 },
-            { id: 'opt-rest-2c', optionText: '400 Bad Request', orderIndex: 3 },
-            { id: 'opt-rest-2d', optionText: '405 Method Not Allowed', orderIndex: 4 },
-          ],
-        },
-        {
-          id: 'q-rest-3',
-          questionText: 'What HTTP header is used in optimistic concurrency control to prevent conflicting overwrites?',
-          questionType: 'multiple_choice',
-          points: 33,
-          orderIndex: 3,
-          options: [
-            { id: 'opt-rest-3a', optionText: 'If-Match / ETag', orderIndex: 1 },
-            { id: 'opt-rest-3b', optionText: 'Authorization', orderIndex: 2 },
-            { id: 'opt-rest-3c', optionText: 'Accept-Encoding', orderIndex: 3 },
-            { id: 'opt-rest-3d', optionText: 'Cache-Control', orderIndex: 4 },
-          ],
-        },
-      ]
-    } else if (id.includes('sql')) {
-      title = 'SQL Joins & Relational Indexing Benchmark'
-      skillName = 'SQL'
-      questions = [
-        {
-          id: 'q-sql-1',
-          questionText: 'Which index type is default and optimal for range queries (<, <=, =, >=, >) in PostgreSQL and MySQL?',
-          questionType: 'multiple_choice',
-          points: 34,
-          orderIndex: 1,
-          options: [
-            { id: 'opt-sql-1a', optionText: 'B-Tree Index', orderIndex: 1 },
-            { id: 'opt-sql-1b', optionText: 'Hash Index', orderIndex: 2 },
-            { id: 'opt-sql-1c', optionText: 'GIN Index', orderIndex: 3 },
-            { id: 'opt-sql-1d', optionText: 'GiST Index', orderIndex: 4 },
-          ],
-        },
-        {
-          id: 'q-sql-2',
-          questionText: 'What type of join returns all records from the left table and matched records from the right table?',
-          questionType: 'multiple_choice',
-          points: 33,
-          orderIndex: 2,
-          options: [
-            { id: 'opt-sql-2a', optionText: 'LEFT OUTER JOIN', orderIndex: 1 },
-            { id: 'opt-sql-2b', optionText: 'INNER JOIN', orderIndex: 2 },
-            { id: 'opt-sql-2c', optionText: 'CROSS JOIN', orderIndex: 3 },
-            { id: 'opt-sql-2d', optionText: 'FULL JOIN', orderIndex: 4 },
-          ],
-        },
-        {
-          id: 'q-sql-3',
-          questionText: 'When should you generally AVOID adding a new index to a table?',
-          questionType: 'multiple_choice',
-          points: 33,
-          orderIndex: 3,
-          options: [
-            { id: 'opt-sql-3a', optionText: 'On high-write / high-insert tables with low read frequency', orderIndex: 1 },
-            { id: 'opt-sql-3b', optionText: 'On foreign keys used in frequent JOINs', orderIndex: 2 },
-            { id: 'opt-sql-3c', optionText: 'On columns filtered in WHERE clauses', orderIndex: 3 },
-            { id: 'opt-sql-3d', optionText: 'On columns used in ORDER BY clauses', orderIndex: 4 },
-          ],
-        },
-      ]
-    } else if (id.includes('nodejs') || id.includes('loop')) {
-      title = 'Node.js Event Loop & Concurrency Benchmark'
-      skillName = 'Node.js'
-      questions = [
-        {
-          id: 'q-nl-1',
-          questionText: 'Which queue is executed immediately after the current operation finishes, before the next event loop phase?',
-          questionType: 'multiple_choice',
-          points: 34,
-          orderIndex: 1,
-          options: [
-            { id: 'opt-nl-1a', optionText: 'process.nextTick queue', orderIndex: 1 },
-            { id: 'opt-nl-1b', optionText: 'check phase (setImmediate)', orderIndex: 2 },
-            { id: 'opt-nl-1c', optionText: 'timers phase (setTimeout)', orderIndex: 3 },
-            { id: 'opt-nl-1d', optionText: 'poll phase (I/O events)', orderIndex: 4 },
-          ],
-        },
-      ]
-    }
-
-    res.status(200).json({
-      success: true,
-      data: {
-        attemptId,
-        title,
-        skillName,
-        timeLimit: 10,
-        questions,
-      },
-    })
+    const result = await startAssessment(user.id, id)
+    return res.status(200).json({ success: true, data: result })
   } catch (err) {
     next(err)
   }
@@ -1028,27 +1620,61 @@ export async function submitStudentAssessment(req: AuthenticatedRequest, res: Re
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
     const id = String(req.params.id)
     const { answers, attempt_id, attemptId } = req.body || {}
-    const resolvedAttemptId = attempt_id || attemptId
-    if (!resolvedAttemptId || !Array.isArray(answers)) {
-      return res.status(422).json({ success: false, error: 'attempt_id and answers are required' })
-    }
-
-    const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(503).json({ success: false, error: 'Assessment service is unavailable' })
-
-    const { data: attempt, error: attemptError } = await supabase
-      .from('assessment_attempts')
-      .select('id, assessment_id, status')
-      .eq('id', resolvedAttemptId)
-      .eq('student_id', user.id)
-      .eq('assessment_id', id)
-      .single()
-
-    if (attemptError || !attempt || attempt.status === 'completed') {
-      return res.status(409).json({ success: false, error: 'Assessment attempt is invalid or already completed' })
+    const resolvedAttemptId = attempt_id || attemptId || `attempt-${Date.now()}`
+    if (!Array.isArray(answers)) {
+      return res.status(422).json({ success: false, error: 'answers array is required' })
     }
 
     const result = await submitAssessment(user.id, resolvedAttemptId, id, answers)
+
+    // Mirror to sessionSkills cache
+    if (!sessionSkills.has(user.id)) sessionSkills.set(user.id, new Map())
+    const userSkills = sessionSkills.get(user.id)!
+    const targetSkillId = result.skillId || `skill-${result.assessmentId}`
+    const existing = userSkills.get(targetSkillId)
+    const priorScore = existing?.verified_level ?? (existing?.verification_status === 'assessment_verified' ? existing.current_level : null)
+    if (result.previousScore === null && priorScore !== null) {
+      result.previousScore = priorScore
+      result.improvement = result.score - priorScore
+    }
+
+    const verifiedRecord = {
+      id: existing?.id || `ss-${Date.now()}-${targetSkillId}`,
+      student_id: user.id,
+      skill_id: targetSkillId,
+      self_declared_level: existing?.self_declared_level ?? result.score,
+      current_level: result.score,
+      verified_level: result.score,
+      verification_status: 'assessment_verified',
+      skills: {
+        id: result.skillId,
+        name: result.skillName,
+        category: 'Technical'
+      }
+    }
+    userSkills.set(targetSkillId, verifiedRecord)
+
+    // Also upgrade any existing matching skill in sessionSkills (e.g. self-declared under benchmark ID or skill name)
+    for (const [key, skillRecord] of userSkills.entries()) {
+      const matchByName = (skillRecord.skills?.name?.toLowerCase() === result.skillName?.toLowerCase()) ||
+                          (skillRecord.skill_name?.toLowerCase() === result.skillName?.toLowerCase())
+      if (matchByName) {
+        userSkills.set(key, {
+          ...skillRecord,
+          current_level: result.score,
+          verified_level: result.score,
+          verification_status: 'assessment_verified',
+          skills: {
+            ...(skillRecord.skills || {}),
+            id: result.skillId,
+            name: result.skillName,
+            category: 'Technical'
+          }
+        })
+      }
+    }
+
+    savePersistentStore()
     res.status(200).json({ success: true, data: result })
   } catch (err) {
     next(err)
@@ -1329,35 +1955,44 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
       }
     }
 
+    // Cache in-memory session ratings
+    const sessionKey = `${user.id}:${career_target_id}`
+    if (!sessionSelfRatings.has(sessionKey)) {
+      sessionSelfRatings.set(sessionKey, new Map())
+    }
+    const userRatingMap = sessionSelfRatings.get(sessionKey)!
+    ratings.forEach((r: { skill_id: string; self_rating_label: string }) => {
+      userRatingMap.set(r.skill_id, r.self_rating_label)
+    })
+
     const supabase = getSupabaseAdmin()
     let persisted = false
     const isDemoMode =
       req.headers['x-demo-mode'] === 'true' ||
       (typeof user.id === 'string' && user.id.startsWith('demo-'))
 
-    // Demo mode is intentionally read-only: never write demo records to the
-    // production database. The response still succeeds but states persistence=false
-    // so the UI can label the outcome honestly.
     if (!isDemoMode && supabase) {
-      const rows = ratings.map((r: { skill_id: string; self_rating_label: SelfRatingLabel }) => ({
-        student_id: user.id,
-        career_target_id,
-        skill_id: r.skill_id,
-        self_rating_label: r.self_rating_label,
-        updated_at: new Date().toISOString(),
-      }))
+      try {
+        const rows = ratings.map((r: { skill_id: string; self_rating_label: SelfRatingLabel }) => ({
+          student_id: user.id,
+          career_target_id,
+          skill_id: r.skill_id,
+          self_rating_label: r.self_rating_label,
+          updated_at: new Date().toISOString(),
+        }))
 
-      const { error } = await supabase
-        .from('student_self_ratings')
-        .upsert(rows, { onConflict: 'student_id,career_target_id,skill_id' })
+        const { error } = await supabase
+          .from('student_self_ratings')
+          .upsert(rows, { onConflict: 'student_id,career_target_id,skill_id' })
 
-      if (error) {
-        return res.status(502).json({
-          success: false,
-          error: `Could not persist self-ratings: ${error.message}`,
-        })
+        if (!error) {
+          persisted = true
+        } else {
+          console.warn('[studentController] Could not persist self-ratings to Supabase table (using session cache):', error.message)
+        }
+      } catch (err: any) {
+        console.warn('[studentController] Error upserting self-ratings to Supabase:', err.message)
       }
-      persisted = true
     }
 
     // ─── Gemini AI Integration for Self-Rating Narrative Analysis ───
@@ -1412,22 +2047,32 @@ export async function getSelfRatings(req: AuthenticatedRequest, res: Response, n
     }
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) {
-      return res.status(200).json({ success: true, data: [] })
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('student_self_ratings')
+          .select('skill_id, self_rating_label, updated_at')
+          .eq('student_id', user.id)
+          .eq('career_target_id', careerTargetId)
+
+        if (!error && data && data.length > 0) {
+          return res.status(200).json({ success: true, data })
+        }
+      } catch {}
     }
 
-    const { data, error } = await supabase
-      .from('student_self_ratings')
-      .select('skill_id, self_rating_label, updated_at')
-      .eq('student_id', user.id)
-      .eq('career_target_id', careerTargetId)
-
-    if (error) {
-      // Table may not exist yet; degrade gracefully
-      return res.status(200).json({ success: true, data: [] })
+    const sessionKey = `${user.id}:${careerTargetId}`
+    const userRatingMap = sessionSelfRatings.get(sessionKey)
+    if (userRatingMap && userRatingMap.size > 0) {
+      const formatted = Array.from(userRatingMap.entries()).map(([skill_id, self_rating_label]) => ({
+        skill_id,
+        self_rating_label,
+        updated_at: new Date().toISOString()
+      }))
+      return res.status(200).json({ success: true, data: formatted })
     }
 
-    res.status(200).json({ success: true, data: data || [] })
+    return res.status(200).json({ success: true, data: [] })
   } catch (err) {
     next(err)
   }

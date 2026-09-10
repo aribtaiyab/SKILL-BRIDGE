@@ -585,25 +585,43 @@ export class LiveAPIProvider implements AIProvider {
     const gap = Math.max(targetScore - initialScore, 0)
 
     try {
-      const systemPrompt = `${getLearningPlanSystemPrompt(context, skillName)}\n\nRespond ONLY with a JSON object with this exact shape:\n{
+      const systemPrompt = `${getLearningPlanSystemPrompt(context, skillName)}\n\nRespond ONLY with a valid JSON object matching this exact shape:\n{
   "skill": "${skillName}",
+  "careerTarget": "${context.student.targetCareer || 'Career Growth'}",
   "initialScore": ${initialScore},
   "targetScore": ${targetScore},
-  "gap": ${gap},
-  "estimatedHoursTotal": 12,
+  "estimatedTotalHours": 4,
+  "summary": "Concise overview summary of the learning plan",
   "steps": [
-    { "stepNumber": 1, "title": "Step 1", "description": "Desc", "stepType": "understand", "durationMinutes": 45, "actionableTask": "Task", "milestone": "Milestone" },
-    { "stepNumber": 2, "title": "Step 2", "description": "Desc", "stepType": "learn", "durationMinutes": 60, "actionableTask": "Task", "milestone": "Milestone" },
-    { "stepNumber": 3, "title": "Step 3", "description": "Desc", "stepType": "practice", "durationMinutes": 60, "actionableTask": "Task", "milestone": "Milestone" },
-    { "stepNumber": 4, "title": "Step 4", "description": "Desc", "stepType": "build", "durationMinutes": 90, "actionableTask": "Task", "milestone": "Milestone" },
-    { "stepNumber": 5, "title": "Step 5", "description": "Desc", "stepType": "reassess", "durationMinutes": 30, "actionableTask": "Task", "milestone": "Milestone" }
-  ],
-  "milestones": ["Milestone 1", "Milestone 2"]
+    { "stepNumber": 1, "stepType": "understand", "title": "Core Foundations", "description": "Review fundamentals", "estimatedMinutes": 45, "keyConcept": "Fundamentals", "careerRelevance": "Required for benchmark mastery", "isCompleted": false },
+    { "stepNumber": 2, "stepType": "learn", "title": "Advanced Patterns", "description": "Deep dive into techniques", "estimatedMinutes": 60, "keyConcept": "Architecture", "careerRelevance": "Applied in production code", "isCompleted": false },
+    { "stepNumber": 3, "stepType": "practice", "title": "Targeted Drills", "description": "Hands-on exercises", "estimatedMinutes": 45, "keyConcept": "Problem Solving", "careerRelevance": "Assessed in interviews", "isCompleted": false },
+    { "stepNumber": 4, "stepType": "build", "title": "Portfolio Feature", "description": "Implement a real component", "estimatedMinutes": 60, "keyConcept": "Integration", "careerRelevance": "Verifiable proof of skill", "isCompleted": false },
+    { "stepNumber": 5, "stepType": "reassess", "title": "Benchmarking Assessment", "description": "Validate target score", "estimatedMinutes": 30, "keyConcept": "Mastery", "careerRelevance": "Confirms gap closure", "isCompleted": false }
+  ]
 }`
       const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), skillName })
       const parsed = await this.callGemini(systemPrompt, userPrompt)
       if (parsed) {
-        return LearningPlanSchema.parse(parsed)
+        const normalized = {
+          skill: parsed.skill || skillName,
+          careerTarget: parsed.careerTarget || context.student.targetCareer || 'Career Growth',
+          initialScore: typeof parsed.initialScore === 'number' ? parsed.initialScore : initialScore,
+          targetScore: typeof parsed.targetScore === 'number' ? parsed.targetScore : targetScore,
+          estimatedTotalHours: typeof parsed.estimatedTotalHours === 'number' ? parsed.estimatedTotalHours : (typeof parsed.estimatedHoursTotal === 'number' ? parsed.estimatedHoursTotal : 4),
+          summary: parsed.summary || `Personalized learning plan to bridge ${skillName} from ${initialScore} to ${targetScore}.`,
+          steps: Array.isArray(parsed.steps) ? parsed.steps.map((s: any, idx: number) => ({
+            stepNumber: typeof s.stepNumber === 'number' ? s.stepNumber : (idx + 1),
+            stepType: ['understand', 'learn', 'practice', 'build', 'reassess'].includes(s.stepType) ? s.stepType : 'learn',
+            title: s.title || `Step ${idx + 1}`,
+            description: s.description || '',
+            estimatedMinutes: typeof s.estimatedMinutes === 'number' ? s.estimatedMinutes : (typeof s.durationMinutes === 'number' ? s.durationMinutes : 45),
+            keyConcept: s.keyConcept || s.actionableTask || s.title || 'Core Concept',
+            careerRelevance: s.careerRelevance || s.milestone || 'Directly impacts role benchmark.',
+            isCompleted: Boolean(s.isCompleted),
+          })) : [],
+        }
+        return LearningPlanSchema.parse(normalized)
       }
       return this.fallback.createLearningPlan(context, skillName)
     } catch (err) {

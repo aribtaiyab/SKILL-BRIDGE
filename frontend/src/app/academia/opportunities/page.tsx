@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useDemo } from "@/lib/demo/demo-context"
 import { demoService } from "@/lib/demo/demo-service"
+import { apiClient } from "@/lib/api-client"
 
 interface OpportunityItem {
   id: string
@@ -72,8 +73,7 @@ export default function AcademiaOpportunitiesPage() {
         return
       }
 
-      const res = await fetch(`/api/academia/opportunities?type=${typeFilter}`)
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: OpportunityItem[] }>(`/api/academia/opportunities?type=${typeFilter}`)
       if (json.success) {
         setOpportunities(json.data || [])
       }
@@ -112,30 +112,25 @@ export default function AcademiaOpportunitiesPage() {
         return
       }
 
-      const res = await fetch('/api/academia/opportunities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          type: oppType,
-          location,
-          duration,
-          deadline: deadline || null,
-        }),
+      const json = await apiClient.post<{ success: boolean }>('/api/academia/opportunities', {
+        title,
+        description,
+        type: oppType,
+        location,
+        duration,
+        deadline: deadline || null,
       })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to create opportunity')
+      if (!json.success) {
+        throw new Error((json as any).error || 'Failed to create opportunity')
       }
       setShowCreateModal(false)
       setTitle('')
       setDescription('')
-      setToastMessage('Academic project published to Opportunity Hub!')
+      setToastMessage('Opportunity published successfully!')
       fetchOpportunities()
       setTimeout(() => setToastMessage(null), 5000)
     } catch (err: any) {
-      alert(err.message || 'Error publishing opportunity')
+      alert(err.message || 'Error creating opportunity')
     } finally {
       setSubmitting(false)
     }

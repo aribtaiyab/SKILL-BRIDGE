@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useDemo } from "@/lib/demo/demo-context"
 import { demoService } from "@/lib/demo/demo-service"
+import { apiClient } from "@/lib/api-client"
 
 interface NotificationItem {
   id: string
@@ -46,8 +47,7 @@ export default function AcademiaNotificationsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/notifications')
-      const json = await res.json()
+      const json = await apiClient<{ success: boolean; data: NotificationItem[]; unreadCount: number }>('/api/academia/notifications')
       if (json.success) {
         setNotifications(json.data || [])
         setUnreadCount(json.unreadCount || 0)
@@ -72,12 +72,7 @@ export default function AcademiaNotificationsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAllRead: true }),
-      })
-      const json = await res.json()
+      const json = await apiClient.patch<{ success: boolean }>('/api/academia/notifications', { markAllRead: true })
       if (json.success) {
         setNotifications(notifications.map(n => ({ ...n, read: true })))
         setUnreadCount(0)
@@ -96,12 +91,7 @@ export default function AcademiaNotificationsPage() {
         return
       }
 
-      const res = await fetch('/api/academia/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      const json = await res.json()
+      const json = await apiClient.patch<{ success: boolean }>('/api/academia/notifications', { id })
       if (json.success) {
         setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n))
         setUnreadCount(prev => Math.max(0, prev - 1))

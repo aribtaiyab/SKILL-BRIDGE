@@ -136,10 +136,12 @@ export async function getStudentOpportunityReadiness(req: AuthenticatedRequest, 
     ])
 
     const oppToEvaluate = opportunity || fallbackOpp
-    const skillsToEvaluate = (studentSkills && studentSkills.length > 0) ? studentSkills : [
-      { skill_id: '40000000-0000-0000-0000-000000000001', current_level: 65, verification_status: 'assessment_verified', skills: { name: 'Node.js' } },
-      { skill_id: '40000000-0000-0000-0000-000000000002', current_level: 75, verification_status: 'assessment_verified', skills: { name: 'React' } },
-    ]
+    const skillsToEvaluate = (studentSkills && studentSkills.length > 0) ? studentSkills.map((skill: any) => ({
+      skillId: skill.skill_id,
+      skillName: skill.skills?.name || 'Skill',
+      currentLevel: skill.verification_status === 'self_declared' ? 0 : (skill.verified_level || skill.current_level || 0),
+      verificationStatus: skill.verification_status,
+    })) : []
 
     const result = evaluateOpportunityReadiness(
       {
@@ -175,9 +177,7 @@ export async function getStudentOpportunityReadiness(req: AuthenticatedRequest, 
           importance: s.importance as any,
         })),
       },
-      [
-        { skillId: '40000000-0000-0000-0000-000000000001', skillName: 'Node.js', currentLevel: 65, verificationStatus: 'assessment_verified' },
-      ]
+      []
     )
     res.status(200).json({ success: true, data: result })
   }
@@ -190,7 +190,7 @@ export async function getOpportunityProof(req: AuthenticatedRequest, res: Respon
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ data: { proofCoveragePercentage: 100, verifiedCount: 3, totalRequired: 3 } })
+    if (!supabase) return res.status(200).json({ data: { proofCoveragePercentage: 0, verifiedCount: 0, totalRequired: 0 } })
 
     const { data: opp } = await supabase
       .from('opportunities')
