@@ -14,12 +14,12 @@ export function useRequireAuth(requiredRole?: UserRole) {
   const router = useRouter()
 
   useEffect(() => {
-    if (authState === 'unauthenticated') {
+    if (!loading && authState === 'unauthenticated') {
       router.replace('/login')
       return
     }
 
-    if (authState === 'authenticated' && user) {
+    if (!loading && authState === 'authenticated' && user) {
       if (requiredRole && role && role !== requiredRole) {
         const dashboardMap: Record<string, string> = {
           student: '/student',

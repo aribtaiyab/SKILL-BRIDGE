@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Sparkles, Target, Zap } from "lucide-react"
+import { ArrowRight, Zap, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ReadinessNudgeProps {
@@ -11,41 +11,37 @@ interface ReadinessNudgeProps {
 }
 
 export function ReadinessNudge({
-  pointsAway = 8,
+  pointsAway = 21,
   activeInternshipsCount = 3,
-  skillName = "Node.js",
+  skillName = "REST APIs",
 }: ReadinessNudgeProps) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[var(--color-border-primary)] bg-gradient-to-r from-[#FAF6F3] via-white to-[#F2F7F9] p-5 shadow-[var(--shadow-soft)] backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
-      {/* Ambient background glow orbs */}
-      <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-[var(--color-accent-pink)]/20 blur-2xl pointer-events-none" />
-      <div className="absolute -bottom-10 -left-10 h-36 w-36 rounded-full bg-[var(--color-accent-sky)]/25 blur-2xl pointer-events-none" />
-
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-        <div className="flex items-start sm:items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent)] text-white shadow-xs">
+    <div className="relative overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/90 via-white to-white p-4 sm:p-5 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-xs">
             <Zap className="h-5 w-5 fill-white text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-accent)]">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">
                 Actionable Readiness Nudge
               </span>
-              <span className="flex h-2 w-2 rounded-full bg-[var(--color-success)] animate-pulse ring-2 ring-[var(--color-success)]/30" />
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <p className="text-sm font-semibold text-[var(--color-foreground)] leading-snug">
-              You are <span className="font-extrabold text-[var(--color-accent)]">{pointsAway} points</span> away from matching <span className="font-extrabold text-[var(--color-foreground)]">{activeInternshipsCount} active internships</span>.
-              <span className="block sm:inline sm:ml-1.5 font-normal text-[var(--color-text-secondary)]">
-                Recommended today: Complete a 15-minute <strong className="font-semibold text-[var(--color-foreground)]">{skillName}</strong> practical challenge.
+            <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-snug">
+              You are <span className="font-black text-emerald-700">{pointsAway} points</span> away from matching <span className="font-black text-slate-900">{activeInternshipsCount} active internships</span>.
+              <span className="block sm:inline sm:ml-1.5 font-normal text-slate-600">
+                Recommended today: Complete a 15-minute <strong className="font-bold text-slate-900">{skillName}</strong> practical challenge.
               </span>
             </p>
           </div>
         </div>
 
-        <div className="shrink-0">
+        <div className="shrink-0 pt-1 sm:pt-0">
           <Link href="/student/assessment">
-            <Button size="sm" className="w-full sm:w-auto h-9 px-5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold shadow-xs transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98]">
-              Start Practical Task <ArrowRight className="ml-1.5 h-4 w-4" />
+            <Button size="sm" className="w-full sm:w-auto h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all active:scale-[0.98]">
+              Start Practical Task <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
             </Button>
           </Link>
         </div>

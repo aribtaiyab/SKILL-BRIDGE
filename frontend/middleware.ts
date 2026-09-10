@@ -64,6 +64,13 @@ export async function middleware(request: NextRequest) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('redirect', pathname)
+    if (pathname.startsWith('/academia') || pathname.startsWith('/academician') || pathname.startsWith('/institution')) {
+      loginUrl.searchParams.set('role', 'academia')
+    } else if (pathname.startsWith('/industry')) {
+      loginUrl.searchParams.set('role', 'industry')
+    } else if (pathname.startsWith('/student')) {
+      loginUrl.searchParams.set('role', 'student')
+    }
     const redirectResponse = NextResponse.redirect(loginUrl)
     response.cookies.getAll().forEach(cookie => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
@@ -75,7 +82,10 @@ export async function middleware(request: NextRequest) {
   if (isAuthOnly && user) {
     const role = user.user_metadata?.role
     const defaultDash = role ? (role === 'industry' ? '/industry' : (role === 'student' ? '/student' : '/academia')) : '/select-role'
-    const redirectUrl = request.nextUrl.searchParams.get('redirect') || defaultDash
+    const redirectParam = request.nextUrl.searchParams.get('redirect')
+    const redirectUrl = (redirectParam && !redirectParam.startsWith('/login') && !redirectParam.startsWith('/signup'))
+      ? redirectParam
+      : defaultDash
     const targetUrl = new URL(redirectUrl, request.nextUrl)
     const redirectResponse = NextResponse.redirect(targetUrl)
     response.cookies.getAll().forEach(cookie => {

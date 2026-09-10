@@ -3,16 +3,14 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Menu, X, LogOut, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
-
 import { useAuth } from "@/lib/auth/context"
 
 export function Navbar() {
   const [isOpen, setIsOpen] = React.useState(false)
   const pathname = usePathname()
-  const { user, profile } = useAuth()
+  const { user, profile, signOut } = useAuth()
 
   const portals = [
     { label: "Student", href: "/student" },
@@ -20,86 +18,125 @@ export function Navbar() {
     { label: "Industry", href: "/industry" },
   ]
 
+  const handlePortalClick = (href: string) => {
+    const role = href.replace('/', '')
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeRole', role)
+      localStorage.setItem('demo_persona', role)
+      if (role === 'academia') {
+        localStorage.setItem('role', 'faculty')
+      }
+    }
+  }
+
   const getPortalDestination = (href: string) => {
     if (user) {
       if (!profile?.role) return "/select-role"
       return href
     }
-    return `/login?redirect=${encodeURIComponent(href)}`
+    const role = href.replace('/', '')
+    return `/login?role=${encodeURIComponent(role)}&redirect=${encodeURIComponent(href)}`
   }
 
   return (
-    <header className="sticky top-4 z-50 w-full px-4 sm:px-6 pointer-events-none">
-      <nav className="pointer-events-auto mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl border border-[var(--color-border-primary)] bg-white/90 px-5 sm:px-6 shadow-[var(--shadow-soft)] backdrop-blur-xl transition-all">
-        <div className="flex items-center gap-6 sm:gap-8">
-          <Link href="/" className="flex items-center space-x-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-accent)] text-white text-xs font-black shadow-xs group-hover:scale-105 transition-transform">
-              SC
-            </div>
-            <span className="hidden sm:inline-block text-[15px] font-black tracking-tight text-[var(--color-foreground)]">
-              SkillBridge <span className="font-semibold text-[var(--color-accent)]">Connect</span>
-            </span>
-          </Link>
-          
-          {/* Three Main Portal Entry Points */}
-          <div className="flex items-center gap-1 rounded-full border border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] p-1">
-            {portals.map((portal) => {
-              const dest = getPortalDestination(portal.href)
-              const isActive = pathname.startsWith(portal.href)
-              return (
-                <Link
-                  key={portal.label}
-                  href={dest}
-                  className={cn(
-                    "rounded-full px-3 sm:px-4 py-1 text-xs font-bold transition-all",
-                    isActive
-                      ? "bg-white text-[var(--color-accent)] shadow-xs border border-[var(--color-border-primary)]"
-                      : "text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)] hover:bg-white/60"
-                  )}
-                >
-                  {portal.label}
-                </Link>
-              )
-            })}
-          </div>
-        </div>
+    <header className="sticky top-3 z-50 mx-auto max-w-7xl px-4 sm:px-6">
+      <nav className="h-16 px-5 sm:px-6 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-[0_8px_30px_-8px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 transition-all">
         
-        <div className="hidden md:flex items-center space-x-3">
+        {/* Left: Brand Identity */}
+        <Link href="/" className="flex items-center gap-3 shrink-0 group">
+          <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white font-black flex items-center justify-center text-xs shadow-sm shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+            SC
+          </div>
+          <span className="text-base font-extrabold tracking-tight text-slate-900">
+            SkillBridge <span className="text-emerald-600 font-semibold">Connect</span>
+          </span>
+        </Link>
+
+        {/* Center: Segmented Role Selector */}
+        <div className="hidden md:flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/60">
+          {portals.map((portal) => {
+            const dest = getPortalDestination(portal.href)
+            const isActive = pathname.startsWith(portal.href)
+            return (
+              <Link
+                key={portal.label}
+                href={dest}
+                onClick={() => handlePortalClick(portal.href)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                  isActive
+                    ? "font-bold text-slate-900 bg-white shadow-xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                )}
+              >
+                {portal.label}
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Right: Unified Action Buttons (Harmonized h-10 Height & rounded-xl) */}
+        <div className="hidden sm:flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Explore Demo */}
           <Link href="/demo">
-            <Button variant="outline" className="border-[var(--color-accent)]/30 bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] font-medium hover:bg-[var(--color-accent)]/20 text-xs h-8.5 rounded-xl px-3.5 shadow-xs">
-              Explore Demo ✨
-            </Button>
+            <button className="inline-flex items-center gap-1.5 h-10 px-3.5 sm:px-4 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100/80 hover:border-emerald-300 active:scale-[0.98] transition-all cursor-pointer">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Explore Demo</span>
+            </button>
           </Link>
+
           {user ? (
-            <Link href={profile?.role ? (profile.role === 'student' ? '/student' : profile.role === 'industry' ? '/industry' : '/academia') : '/select-role'}>
-              <Button className="px-4 text-xs h-8.5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold shadow-xs">
-                My Portal
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href={profile?.role ? (profile.role === 'student' ? '/student' : profile.role === 'industry' ? '/industry' : '/academia') : '/select-role'}>
+                <button className="h-10 px-4 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer">
+                  My Portal
+                </button>
+              </Link>
+              <button
+                onClick={() => signOut()}
+                className="h-10 w-10 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-all cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           ) : (
             <>
+              {/* Sign In */}
               <Link href="/login">
-                <Button variant="ghost" className="text-[var(--color-text-secondary)] font-semibold text-xs h-8.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)] rounded-xl">Sign In</Button>
+                <button className="h-10 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100 active:scale-[0.98] transition-all cursor-pointer">
+                  Sign In
+                </button>
               </Link>
+
+              {/* Get Started */}
               <Link href="/signup">
-                <Button className="px-4 text-xs h-8.5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold shadow-xs">Get Started</Button>
+                <button className="h-10 px-4 sm:px-5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer">
+                  Get Started
+                </button>
               </Link>
             </>
           )}
         </div>
 
-        <div className="md:hidden">
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="h-5 w-5 text-[var(--color-foreground)]" /> : <Menu className="h-5 w-5 text-[var(--color-foreground)]" />}
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
+        {/* Mobile menu button */}
+        <div className="sm:hidden flex items-center gap-2">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="h-9 w-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100"
+            aria-label="Toggle Menu"
+          >
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
+
       </nav>
 
+      {/* Mobile Drawer */}
       {isOpen && (
-        <div className="pointer-events-auto mt-2 rounded-2xl border border-[var(--color-border-primary)] bg-white/95 p-4 shadow-lg backdrop-blur-xl md:hidden">
+        <div className="mt-2 rounded-2xl border border-slate-200/80 bg-white/98 p-4 shadow-xl backdrop-blur-xl sm:hidden animate-in fade-in duration-200">
           <div className="flex flex-col space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] px-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
               Select Portal
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -107,34 +144,56 @@ export function Navbar() {
                 <Link
                   key={portal.label}
                   href={getPortalDestination(portal.href)}
-                  onClick={() => setIsOpen(false)}
-                  className="text-center py-2 rounded-xl text-xs font-bold border border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-white"
+                  onClick={() => {
+                    handlePortalClick(portal.href)
+                    setIsOpen(false)
+                  }}
+                  className="text-center py-2.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
                 >
                   {portal.label}
                 </Link>
               ))}
             </div>
-            <div className="h-px bg-[var(--color-border-primary)] my-1" />
+
+            <div className="h-px bg-slate-100 my-1" />
+
             <Link href="/demo" onClick={() => setIsOpen(false)}>
-              <Button variant="outline" className="w-full justify-center text-xs h-9 rounded-xl border-[var(--color-accent)]/30 bg-[var(--color-accent-light)] text-[var(--color-accent-hover)]">
-                Explore Demo ✨
-              </Button>
+              <button className="w-full inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Explore Demo</span>
+              </button>
             </Link>
+
             {user ? (
-              <Link href={profile?.role ? (profile.role === 'student' ? '/student' : profile.role === 'industry' ? '/industry' : '/academia') : '/select-role'} onClick={() => setIsOpen(false)}>
-                <Button className="w-full justify-center text-xs h-9 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold">
-                  Open My Workspace
-                </Button>
-              </Link>
+              <div className="space-y-2">
+                <Link
+                  href={profile?.role ? (profile.role === 'student' ? '/student' : profile.role === 'industry' ? '/industry' : '/academia') : '/select-role'}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <button className="w-full h-10 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700">
+                    Open My Portal
+                  </button>
+                </Link>
+                <button
+                  onClick={() => { setIsOpen(false); signOut(); }}
+                  className="w-full h-9 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Sign Out
+                </button>
+              </div>
             ) : (
-              <>
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <Link href="/login" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" className="w-full justify-center text-xs h-9 rounded-xl border-[var(--color-border-primary)]">Sign In</Button>
+                  <button className="w-full h-10 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 hover:bg-slate-100">
+                    Sign In
+                  </button>
                 </Link>
                 <Link href="/signup" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full justify-center text-xs h-9 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold">Get Started</Button>
+                  <button className="w-full h-10 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700">
+                    Get Started
+                  </button>
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -142,3 +201,5 @@ export function Navbar() {
     </header>
   )
 }
+
+export default Navbar

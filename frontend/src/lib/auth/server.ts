@@ -137,9 +137,13 @@ export async function requireRole(requiredRole: UserRole): Promise<{ user: AuthU
       student: '/student',
       industry: '/industry',
       academician: '/academia',
+      academia: '/academia',
+      faculty: '/academia',
       institution: '/academia',
+      professor: '/academia',
     }
-    redirect(dashboardMap[profile.role ?? 'student'] ?? '/login')
+    const roleKey = (profile.role ?? 'student').toLowerCase()
+    redirect(dashboardMap[roleKey] ?? '/login')
   }
 
   if (!profile.onboarding_completed) {
@@ -152,14 +156,18 @@ export async function requireRole(requiredRole: UserRole): Promise<{ user: AuthU
 /**
  * Gets the appropriate dashboard URL for a given role.
  */
-export function getDashboardForRole(role: UserRole | null): string {
+export function getDashboardForRole(role: UserRole | string | null): string {
+  const normalized = (role ?? '').toLowerCase()
   const map: Record<string, string> = {
     student: '/student',
     industry: '/industry',
     academician: '/academia',
+    academia: '/academia',
+    faculty: '/academia',
     institution: '/academia',
+    professor: '/academia',
   }
-  return map[role ?? ''] ?? '/select-role'
+  return map[normalized] ?? '/select-role'
 }
 
 /**

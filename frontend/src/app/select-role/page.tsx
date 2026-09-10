@@ -33,39 +33,39 @@ interface RoleOption {
 const ROLES: RoleOption[] = [
   {
     id: "student",
-    title: "Student & Job Seeker",
-    subtitle: "Undergraduate / Graduate / Learner",
-    description: "Discover career pathways, take verified skill assessments, bridge gap areas, and apply for high-fit industry opportunities.",
+    title: "Student & Candidate",
+    subtitle: "Undergraduate / Graduate / Job Seeker",
+    description: "Discover career pathways, take verified skill assessments, bridge gaps, and share your living verified skill passport.",
     badge: "Most Popular",
     icon: GraduationCap,
     destination: "/student",
-    highlights: ["AI Career Navigator", "Verified Skill Passport", "Direct Job Applications"],
+    highlights: ["AI Career Navigator", "Verified Skill Passport", "Direct Internship Matching"],
   },
   {
     id: "academician",
     title: "Academia & Faculty",
     subtitle: "Professors, Instructors & Mentors",
     description: "Monitor student cohort readiness, track curriculum alignment with industry demands, and launch skill interventions.",
-    badge: "Educator",
+    badge: "Faculty",
     icon: BookOpen,
     destination: "/academia",
-    highlights: ["Cohort Readiness Analytics", "Curriculum Gap Insights", "Student Mentorship"],
+    highlights: ["Cohort Readiness Analytics", "Curriculum Gap Insights", "Workshop Interventions"],
   },
   {
     id: "industry",
     title: "Industry Partner",
-    subtitle: "Recruiters, Hiring Managers & Enterprise Leads",
-    description: "Publish job & internship roles, benchmark candidate readiness scores, and hire pre-verified talent pipelines.",
+    subtitle: "Recruiters, Hiring Managers & Enterprise",
+    description: "Publish opportunity requirements, benchmark candidate verified scores, and hire pre-calibrated engineering talent.",
     badge: "Enterprise",
     icon: Briefcase,
     destination: "/industry",
-    highlights: ["Verified Talent Sourcing", "Job Role Publishing", "Applicant Scorecards"],
+    highlights: ["Verified Talent Sourcing", "Job Role Publishing", "Deterministic Scorecards"],
   },
   {
     id: "institution",
-    title: "Institution & University",
-    subtitle: "Deans, Department Heads & Campus Leadership",
-    description: "Gain campus-wide employment analytics, compare departmental outcomes, and streamline corporate partnerships.",
+    title: "Institution & Campus",
+    subtitle: "Deans, Department Heads & Placement Leads",
+    description: "Gain campus-wide placement analytics, compare departmental outcomes, and streamline corporate hiring partnerships.",
     badge: "Campus",
     icon: Building2,
     destination: "/academia",
@@ -80,7 +80,6 @@ export default function SelectRolePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Protect route and enforce: once role is set, redirect to that role's dashboard
   useEffect(() => {
     if (!loading) {
       if (!user) {
@@ -121,7 +120,6 @@ export default function SelectRolePage() {
         return
       }
 
-      // Refresh AuthContext so client state has the updated role
       await refreshProfile()
 
       const targetDashboard = data.redirectTo || (role === "student" ? "/student" : role === "industry" ? "/industry" : "/academia")
@@ -134,13 +132,12 @@ export default function SelectRolePage() {
     }
   }
 
-  // Loading state while checking user / profile
   if (loading || (user && profile?.role)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <p className="text-xs font-bold text-slate-500">
             {profile?.role ? "Redirecting to your dashboard..." : "Loading your account..."}
           </p>
         </div>
@@ -149,26 +146,26 @@ export default function SelectRolePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
+    <div className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
       <div className="max-w-4xl mx-auto w-full space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border border-[var(--color-accent)]/20 mb-1">
-            <Sparkles className="h-3.5 w-3.5" /> Welcome to SkillBridge Connect
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs mb-1">
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600" /> Welcome to SkillBridge Connect
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--color-foreground)]">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900">
             Choose Your Experience
           </h1>
-          <p className="text-base text-[var(--color-text-secondary)] max-w-xl mx-auto">
-            Select the role that best describes your goals today. We will tailor your workspace, verification tools, and dashboards accordingly.
+          <p className="text-sm text-slate-600 max-w-xl mx-auto">
+            Select your role to tailor your workspace, diagnostic benchmarks, and dashboards.
           </p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="flex items-start gap-2.5 p-4 rounded-lg bg-red-50 text-[var(--color-critical)] text-sm border border-red-200">
-            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-            <div className="flex-1 font-medium">{error}</div>
+          <div className="flex items-start gap-2.5 p-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+            <div className="flex-1">{error}</div>
           </div>
         )}
 
@@ -181,11 +178,11 @@ export default function SelectRolePage() {
             return (
               <Card
                 key={role.id}
-                className={`relative group cursor-pointer transition-all duration-200 border-2 ${
+                className={`relative group cursor-pointer transition-all duration-300 border-2 rounded-2xl ${
                   selectedRole === role.id
-                    ? "border-[var(--color-accent)] shadow-md bg-[var(--color-accent-light)]/20"
-                    : "border-[var(--color-border-primary)] hover:border-[var(--color-accent)]/60 hover:shadow-sm bg-[var(--color-surface-card)]"
-                } ${isSubmitting && selectedRole !== role.id ? "opacity-60 pointer-events-none" : ""}`}
+                    ? "border-emerald-600 shadow-lg bg-emerald-50/30"
+                    : "border-slate-200 hover:border-slate-300 hover:shadow-xl bg-white"
+                } ${isSubmitting && selectedRole !== role.id ? "opacity-50 pointer-events-none" : ""}`}
                 onClick={() => {
                   if (!isSubmitting) handleSelectRole(role.id)
                 }}
@@ -194,34 +191,34 @@ export default function SelectRolePage() {
                   <div className="space-y-4">
                     {/* Top Row: Icon & Badge */}
                     <div className="flex items-center justify-between">
-                      <div className="h-12 w-12 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] flex items-center justify-center transition-transform group-hover:scale-105">
-                        <Icon className="h-6 w-6 text-[var(--color-accent)]" />
+                      <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-transform group-hover:scale-105">
+                        <Icon className="h-6 w-6 text-emerald-600" />
                       </div>
-                      <Badge variant="outline" className="text-xs font-semibold bg-white/80">
+                      <Badge variant="outline" className="text-xs font-bold bg-slate-50 border-slate-200 text-slate-700">
                         {role.badge}
                       </Badge>
                     </div>
 
                     {/* Title & Subtitle */}
                     <div>
-                      <h2 className="text-xl font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-accent)] transition-colors">
+                      <h2 className="text-lg font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
                         {role.title}
                       </h2>
-                      <p className="text-xs font-medium text-[var(--color-text-muted)] mt-0.5">
+                      <p className="text-xs font-bold text-slate-400 mt-0.5">
                         {role.subtitle}
                       </p>
                     </div>
 
                     {/* Description */}
-                    <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                    <p className="text-xs text-slate-600 leading-relaxed">
                       {role.description}
                     </p>
 
                     {/* Highlights */}
-                    <ul className="space-y-1.5 pt-2 border-t border-[var(--color-border-primary)]/50">
+                    <ul className="space-y-1.5 pt-3 border-t border-slate-100">
                       {role.highlights.map((item, idx) => (
-                        <li key={idx} className="flex items-center text-xs text-[var(--color-text-secondary)]">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-accent)] mr-2 shrink-0" />
+                        <li key={idx} className="flex items-center text-xs text-slate-700 font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 mr-2 shrink-0" />
                           <span>{item}</span>
                         </li>
                       ))}
@@ -230,7 +227,7 @@ export default function SelectRolePage() {
 
                   {/* Action Button */}
                   <Button
-                    className="w-full mt-2 font-medium"
+                    className="w-full mt-2 font-bold h-10 rounded-xl"
                     variant={selectedRole === role.id ? "default" : "outline"}
                     disabled={isSubmitting}
                   >
@@ -254,8 +251,8 @@ export default function SelectRolePage() {
 
         {/* Footer Note */}
         <div className="text-center pt-2">
-          <p className="text-xs text-[var(--color-text-muted)]">
-            Logged in as <span className="font-semibold text-[var(--color-foreground)]">{user?.email}</span>. You can change workspace roles in settings later if authorized.
+          <p className="text-xs text-slate-400">
+            Logged in as <span className="font-bold text-slate-700">{user?.email}</span>.
           </p>
         </div>
       </div>

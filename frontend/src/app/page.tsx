@@ -1,201 +1,306 @@
 import Link from "next/link"
 import { Navbar } from "@/components/layout/navbar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ArrowRight, CheckCircle2, TrendingUp, Target, Shield, Briefcase, GraduationCap, Building2, Users } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import {
+  CheckCircle2, ArrowRight, ShieldCheck, Target, Award,
+  Users, Building2, Briefcase, Zap, Sparkles, Check, ChevronRight,
+  TrendingUp, BarChart3, Code2, GraduationCap
+} from "lucide-react"
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
+    <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       <Navbar />
       
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-[1200px]">
-            <div className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 items-center">
-              <div className="space-y-8">
-                <div className="eyebrow">Career intelligence, made tangible</div>
-                <h1 className="text-h1 md:text-[48px] md:leading-[56px] font-semibold tracking-tight">
-                  Know exactly how ready you are for your next opportunity.
+        <section className="relative overflow-hidden px-4 sm:px-6 py-16 sm:py-24 md:py-28">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-14 items-center">
+              
+              {/* Left Column (Typography & Call to Action) */}
+              <div className="space-y-7">
+                <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-2xs">
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Verified Skill Intelligence Engine</span>
+                </div>
+
+                <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-black tracking-tight text-slate-900 leading-[1.12]">
+                  Know exactly how ready you are for your{" "}
+                  <span className="text-emerald-700">next opportunity.</span>
                 </h1>
-                <p className="max-w-[540px] text-[17px] leading-8 text-[var(--color-text-secondary)]">
-                  SkillBridge measures your skills against real career and opportunity requirements, identifies the gaps holding you back, helps you improve, verifies your progress, and connects you with relevant opportunities.
+
+                <p className="max-w-[540px] text-base sm:text-lg text-slate-600 leading-relaxed">
+                  SkillBridge measures your skills against real industry benchmarks, isolates your exact gaps, provides targeted remediation, verifies your proof, and connects you directly with hiring employers.
                 </p>
                 
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-                    <Link href="/signup">
-                      <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base shadow-sm">
-                        Get Started <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </Link>
-                    <Link href="/student?demo=true">
-                      <Button size="lg" variant="secondary" className="w-full sm:w-auto h-12 px-7 text-base border border-[var(--color-accent)]/30 bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] font-medium hover:bg-[var(--color-accent)]/20 shadow-sm">
-                        Explore Demo ✨
-                      </Button>
-                    </Link>
-                  </div>
-                  <div>
-                    <Link href="/how-it-works" className="inline-block">
-                      <Button size="sm" variant="ghost" className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-secondary)] px-3 py-2 h-auto font-medium">
-                        See How It Works <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
-                  </div>
+                {/* CTA Buttons */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-1">
+                  <Link href="/signup">
+                    <Button size="lg" className="w-full sm:w-auto h-12 px-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-600/20 text-sm rounded-xl">
+                      Check Your Readiness <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/student/career">
+                    <Button variant="outline" size="lg" className="w-full sm:w-auto h-12 px-6 border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-sm rounded-xl">
+                      Explore Role Benchmarks
+                    </Button>
+                  </Link>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-[var(--color-border-primary)] pt-5 text-sm text-[var(--color-text-secondary)] font-semibold">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-[var(--color-success)]" />
+                {/* Feature Progression Strip */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-slate-200/80 pt-6 text-xs sm:text-sm text-slate-600 font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     <span>Assess</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-[var(--color-warning)]" />
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     <span>Identify</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-[var(--color-accent)]" />
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     <span>Improve</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-[var(--color-foreground)]" />
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     <span>Prove</span>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Connect</span>
                   </div>
                 </div>
               </div>
 
-              {/* Core Intelligence Hero Preview */}
+              {/* Right Column (Target Role Preview Card) */}
               <div className="relative mx-auto w-full max-w-[560px] lg:ml-auto">
-                <div className="absolute -inset-5 -z-10 rounded-[28px] border border-[var(--color-accent)]/10 bg-[var(--color-accent-light)]/40" />
-                <Card className="overflow-hidden border-[var(--color-border-primary)] shadow-[var(--shadow-float)]">
-                  <div className="border-b border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] px-6 py-4">
-                    <div className="flex items-center justify-between">
+                <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-[0_20px_50px_-15px_rgba(15,23,42,0.09)] backdrop-blur-md">
+                  
+                  {/* Card Header */}
+                  <div className="border-b border-slate-100 pb-5 mb-5">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-small text-[var(--color-text-secondary)] font-medium">Target Role</p>
-                        <p className="font-semibold text-[var(--color-foreground)]">Backend Developer Internship</p>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Target Role Preview</span>
+                        <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">Junior Backend Developer</h3>
                       </div>
-                      <Badge variant="success" className="text-sm px-3 py-1">78% Ready</Badge>
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                        <Check className="h-3.5 w-3.5 text-emerald-600" /> 78% Ready
+                      </span>
                     </div>
                   </div>
-                  
-                  <CardContent className="p-6 space-y-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-medium">Skill Analysis</span>
-                        <span className="text-[var(--color-text-secondary)]">Required vs Verified</span>
+
+                  {/* Animated Skill Score Bars */}
+                  <div className="space-y-4 mb-5">
+                    {/* Node.js (Rose Deficit) */}
+                    <div>
+                      <div className="flex justify-between text-xs font-bold mb-1.5">
+                        <span className="text-slate-800">Node.js</span>
+                        <span className="text-rose-600 font-extrabold">65 / 80 (Deficit -15 pts)</span>
                       </div>
-                      
-                      {[
-                        { name: "Node.js", req: 80, val: 65, status: "gap" },
-                        { name: "REST APIs", req: 75, val: 72, status: "near" },
-                        { name: "SQL", req: 70, val: 82, status: "ready" },
-                        { name: "Git", req: 60, val: 75, status: "ready" },
-                      ].map((skill) => (
-                        <div key={skill.name} className="flex items-center gap-4">
-                          <span className="w-24 text-sm font-medium">{skill.name}</span>
-                          <div className="flex-1 relative h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
-                            <div 
-                              className="absolute top-0 left-0 h-full bg-[var(--color-border-primary)]" 
-                              style={{ width: `${skill.req}%` }}
-                            />
-                            <div 
-                              className={`absolute top-0 left-0 h-full ${
-                                skill.status === 'gap' ? 'bg-[var(--color-critical)]' : 
-                                skill.status === 'near' ? 'bg-[var(--color-warning)]' : 
-                                'bg-[var(--color-success)]'
-                              }`} 
-                              style={{ width: `${skill.val}%` }}
-                            />
-                          </div>
-                          <span className="w-8 text-right text-sm font-medium">{skill.val}</span>
-                        </div>
-                      ))}
+                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full bg-rose-500 rounded-full" style={{ width: "65%" }} />
+                      </div>
                     </div>
 
-                    <div className="rounded-[var(--radius-control)] bg-[var(--color-accent-light)] p-4 border border-[var(--color-accent)]/20">
-                      <p className="text-sm font-semibold text-[var(--color-accent-hover)] mb-1">Priority Gap: Node.js</p>
-                      <p className="text-small text-[var(--color-text-secondary)]">Recommended Action: Complete targeted Node.js practical task to improve readiness by 12%.</p>
-                      <Button variant="outline" size="sm" className="mt-3 w-full border-[var(--color-accent)] text-[var(--color-accent-hover)]">
-                        Start Practice Task
-                      </Button>
+                    {/* REST APIs (Amber Progress) */}
+                    <div>
+                      <div className="flex justify-between text-xs font-bold mb-1.5">
+                        <span className="text-slate-800">REST APIs</span>
+                        <span className="text-amber-600 font-extrabold">72 / 80 (Near Ready -8 pts)</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full bg-amber-500 rounded-full" style={{ width: "72%" }} />
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+
+                    {/* SQL (Emerald Ready) */}
+                    <div>
+                      <div className="flex justify-between text-xs font-bold mb-1.5">
+                        <span className="text-slate-800">SQL & Databases</span>
+                        <span className="text-emerald-600 font-extrabold">82 / 80 (Benchmark Satisfied)</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: "82%" }} />
+                      </div>
+                    </div>
+
+                    {/* Git (Emerald Ready) */}
+                    <div>
+                      <div className="flex justify-between text-xs font-bold mb-1.5">
+                        <span className="text-slate-800">Git & Version Control</span>
+                        <span className="text-emerald-600 font-extrabold">75 / 70 (Benchmark Satisfied)</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: "75%" }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Priority Gap Action Box */}
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200/90 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        <span className="text-xs font-black text-slate-900">Priority Gap: Node.js</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                        Critical Deficit
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-normal">
+                      Complete a 15-minute targeted async/await and streaming practical challenge to raise readiness by 12%.
+                    </p>
+                    <Link href="/student/assessment" className="block pt-1">
+                      <Button size="sm" className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs">
+                        Start Practice Task →
+                      </Button>
+                    </Link>
+                  </div>
+
+                </div>
               </div>
+
             </div>
           </div>
         </section>
 
-        {/* Roles Section */}
-        <section className="border-t border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)] px-6 py-24">
-          <div className="mx-auto max-w-[1200px]">
-            <div className="text-center mb-16">
-              <h2 className="text-h2 font-semibold mb-4">One ecosystem. Three connected experiences.</h2>
-              <p className="text-body text-[var(--color-text-secondary)] max-w-2xl mx-auto">
-                SkillBridge unites students, industry, and academia with actionable intelligence.
+        {/* 3 Pillars Section */}
+        <section className="py-16 sm:py-20 border-t border-slate-200/80 bg-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                Three Integrated Ecosystems
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                Designed for Students, Universities, and Industry.
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600">
+                Bridging the gap between academic curriculum and high-growth technology hiring.
               </p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-8">
-                  <GraduationCap className="h-8 w-8 text-[var(--color-accent)] mb-6" />
-                  <h3 className="text-h3 font-semibold mb-3">For Students</h3>
-                  <p className="text-body text-[var(--color-text-secondary)] mb-6 h-20">
-                    Target a career, assess your current level, find the gaps holding you back, improve with AI coaching, and get matched to real opportunities.
-                  </p>
-                  <Link href="/signup?role=student">
-                    <Button variant="outline" className="w-full">Explore Student Journey</Button>
-                  </Link>
-                </CardContent>
-              </Card>
+              {/* Student Pillar */}
+              <div className="group rounded-3xl border border-slate-200/90 bg-[#F8FAFC] p-7 shadow-xs hover:bg-white hover:border-slate-300 hover:shadow-xl transition-all duration-300">
+                <div className="h-12 w-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold mb-6 group-hover:scale-105 transition-transform">
+                  <GraduationCap className="h-6 w-6 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">For Students</h3>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                  Know exactly where you stand against target jobs. Take assessments, complete practical sandboxes, build verified proof, and apply with confidence.
+                </p>
+                <Link href="/student" className="inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline">
+                  Explore Student Portal <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Link>
+              </div>
 
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-8">
-                  <Briefcase className="h-8 w-8 text-[var(--color-accent)] mb-6" />
-                  <h3 className="text-h3 font-semibold mb-3">For Industry</h3>
-                  <p className="text-body text-[var(--color-text-secondary)] mb-6 h-20">
-                    Define precise skill requirements, publish opportunities, and discover candidates based on verified capabilities rather than just resumes.
-                  </p>
-                  <Link href="/signup?role=industry">
-                    <Button variant="outline" className="w-full">Explore Industry Portal</Button>
-                  </Link>
-                </CardContent>
-              </Card>
+              {/* Academia Pillar */}
+              <div className="group rounded-3xl border border-slate-200/90 bg-[#F8FAFC] p-7 shadow-xs hover:bg-white hover:border-slate-300 hover:shadow-xl transition-all duration-300">
+                <div className="h-12 w-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold mb-6 group-hover:scale-105 transition-transform">
+                  <Building2 className="h-6 w-6 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">For Academia</h3>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                  Aggregate cohort-level skill telemetry. Identify curriculum blindspots, schedule targeted faculty workshops, and verify project submissions.
+                </p>
+                <Link href="/academia" className="inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline">
+                  Explore Academia Portal <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Link>
+              </div>
 
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-8">
-                  <Users className="h-8 w-8 text-[var(--color-accent)] mb-6" />
-                  <h3 className="text-h3 font-semibold mb-3">For Academia</h3>
-                  <p className="text-body text-[var(--color-text-secondary)] mb-6 h-20">
-                    View precise skill gaps in your student cohorts, identify weak areas, and conduct targeted mentorship and interventions.
-                  </p>
-                  <Link href="/signup?role=academician">
-                    <Button variant="outline" className="w-full">Explore Academia Portal</Button>
-                  </Link>
-                </CardContent>
-              </Card>
+              {/* Industry Pillar */}
+              <div className="group rounded-3xl border border-slate-200/90 bg-[#F8FAFC] p-7 shadow-xs hover:bg-white hover:border-slate-300 hover:shadow-xl transition-all duration-300">
+                <div className="h-12 w-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold mb-6 group-hover:scale-105 transition-transform">
+                  <Briefcase className="h-6 w-6 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">For Employers</h3>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                  Eliminate resume guesswork. Filter candidates by deterministic verification scores, review real code evidence, and hire pre-calibrated talent.
+                </p>
+                <Link href="/industry" className="inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline">
+                  Explore Employer Portal <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Link>
+              </div>
             </div>
           </div>
         </section>
 
-      </main>
-      
-      <footer className="border-t border-[var(--color-border-primary)] bg-[var(--color-surface-card)] py-12 px-6">
-        <div className="mx-auto max-w-[1200px] flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-[var(--color-text-secondary)]">
-          <div className="flex items-center gap-2 font-semibold text-[var(--color-foreground)]">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--color-accent)] text-white text-xs">
-              SC
+        {/* 3-Step Workflow Section */}
+        <section className="py-16 sm:py-20 border-t border-slate-200/80 bg-[#F8FAFC]">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                Deterministic Career Readiness
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                How SkillBridge Connect Works
+              </h2>
             </div>
-            SkillBridge Connect
+
+            <div className="grid md:grid-cols-3 gap-8 relative">
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-7 shadow-xs">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white font-black text-sm mb-5">
+                  01
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">1. Select Target & Calibrate</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Choose your target role. SkillBridge loads active industry benchmark thresholds across essential runtime, database, and system skills.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-7 shadow-xs">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white font-black text-sm mb-5">
+                  02
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">2. Verify in 4 Progressive Tiers</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Graduate from self-declaration to structured MCQs, timed interactive sandbox tasks, and verified project GitHub repositories.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-7 shadow-xs">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-950 text-white font-black text-sm mb-5">
+                  03
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">3. Unlock Living Passport</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Share your living verified skill passport directly with employers. Auto-match to internship openings matching your readiness tier.
+                </p>
+              </div>
+            </div>
           </div>
-          <div>
-            &copy; {new Date().getFullYear()} SkillBridge Connect. Prototype Phase 1.
+        </section>
+
+        {/* Final CTA Banner */}
+        <section className="py-16 sm:py-20 bg-emerald-950 text-white">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 text-center space-y-6">
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
+              Ready to verify your skills and unlock your career potential?
+            </h2>
+            <p className="text-base sm:text-lg text-emerald-200/90 max-w-2xl mx-auto leading-relaxed">
+              Join thousands of students and faculty using SkillBridge Connect to turn classroom knowledge into verified, hireable credentials.
+            </p>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/signup">
+                <Button size="lg" className="h-12 px-8 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-xl shadow-lg">
+                  Get Started Free
+                </Button>
+              </Link>
+              <Link href="/demo">
+                <Button variant="outline" size="lg" className="h-12 px-7 border-emerald-700 hover:bg-emerald-900 text-white font-bold text-sm rounded-xl">
+                  Try Interactive Demo
+                </Button>
+              </Link>
+            </div>
           </div>
-        </div>
-      </footer>
+        </section>
+      </main>
     </div>
   )
 }

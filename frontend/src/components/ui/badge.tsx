@@ -3,23 +3,34 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-[0.02em] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2",
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)]",
+          "border-transparent bg-emerald-600 text-white shadow-2xs",
         secondary:
-          "border-transparent bg-[var(--color-surface-secondary)] text-[var(--color-foreground)] hover:bg-[var(--color-border-subtle)]",
+          "border-slate-200 bg-slate-100 text-slate-700",
         destructive:
-          "border-transparent bg-[var(--color-critical)] text-white hover:opacity-90",
+          "border-rose-200 bg-rose-50 text-rose-700",
         critical:
-          "border-transparent bg-[var(--color-critical)] text-white hover:opacity-90",
-        outline: "text-[var(--color-foreground)] border-[var(--color-border-primary)]",
-        success: "border-transparent bg-[var(--color-success)] text-white",
-        warning: "border-transparent bg-[var(--color-warning)] text-white",
-        pink: "border-[var(--color-accent-pink)] bg-[#FAF0F1] text-[#8C3A44]",
-        sky: "border-[var(--color-accent-sky)] bg-[#F0F6F9] text-[#24546D]",
+          "border-rose-200 bg-rose-50 text-rose-700",
+        outline:
+          "border-slate-200 text-slate-700 bg-white",
+        success:
+          "border-emerald-200 bg-emerald-50 text-emerald-700",
+        warning:
+          "border-amber-200 bg-amber-50 text-amber-700",
+        forest:
+          "border-emerald-900 bg-emerald-950 text-emerald-300",
+        slate:
+          "border-slate-200 bg-slate-100 text-slate-700",
+        emerald:
+          "border-emerald-200 bg-emerald-50 text-emerald-700",
+        amber:
+          "border-amber-200 bg-amber-50 text-amber-700",
+        rose:
+          "border-rose-200 bg-rose-50 text-rose-700",
       },
     },
     defaultVariants: {

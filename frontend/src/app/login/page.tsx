@@ -41,6 +41,16 @@ function LoginForm() {
           return
         }
 
+        // Clear any lingering demo state upon authenticating a real account
+        if (typeof window !== 'undefined') {
+          document.cookie = 'sb_demo_mode=; path=/; max-age=0'
+          document.cookie = 'sb_demo_role=; path=/; max-age=0'
+          sessionStorage.removeItem('sb_demo_mode')
+          sessionStorage.removeItem('sb_demo_role')
+          localStorage.removeItem('sb_demo_mode')
+          localStorage.removeItem('sb_demo_role')
+        }
+
         const result = await resolveLoginRedirectAction()
         if (!result.success) {
           setError(result.error || "You're signed in, but we couldn't load your account. Please refresh.")
@@ -48,18 +58,24 @@ function LoginForm() {
         }
 
         let dest = '/select-role'
-        if (result.redirectTo && result.redirectTo !== '/select-role') {
-          // Stored database profile.role is the primary authoritative source
+        // 1. Direct redirect parameter (e.g. user clicked /academia, /industry, or /student in navbar)
+        if (redirectTo && !redirectTo.startsWith('/login') && !redirectTo.startsWith('/signup')) {
+          dest = redirectTo
+        } 
+        // 2. Resolved destination based on user's database role/profile
+        else if (result.redirectTo && result.redirectTo !== '/select-role') {
           dest = result.redirectTo
-        } else if (roleParam) {
+        } 
+        // 3. Role parameter provided in query string
+        else if (roleParam) {
           const normRole = roleParam.toLowerCase()
-          if (normRole === 'academician' || normRole === 'academia' || normRole === 'institution') dest = '/academia'
+          if (normRole === 'academician' || normRole === 'academia' || normRole === 'institution' || normRole === 'faculty') dest = '/academia'
           else if (normRole === 'industry') dest = '/industry'
           else if (normRole === 'student') dest = '/student'
           else dest = '/select-role'
-        } else if (redirectTo) {
-          dest = redirectTo
-        } else {
+        } 
+        // 4. Default fallback
+        else {
           dest = result.redirectTo || '/select-role'
         }
 
@@ -72,33 +88,33 @@ function LoginForm() {
   }
 
   return (
-    <Card>
+    <Card className="border-slate-200 shadow-xl bg-white/95 backdrop-blur-md">
       <CardHeader className="space-y-2 text-center pb-6">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-accent)] text-white font-bold mb-2">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white font-black text-sm mb-2 shadow-sm shadow-emerald-600/20">
           SC
         </div>
-        <CardTitle className="text-h2">Welcome back</CardTitle>
-        <CardDescription>Enter your credentials to access your account.</CardDescription>
+        <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">Welcome back</CardTitle>
+        <CardDescription className="text-xs font-medium text-slate-500">Enter your credentials to access your SkillBridge account.</CardDescription>
       </CardHeader>
       <CardContent>
         {resetSuccess && (
-          <div className="flex items-center gap-2 p-3 mb-4 rounded-md bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] text-sm border border-[var(--color-accent)]/20">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             Password reset successful. Please sign in with your new password.
           </div>
         )}
 
         {error && (
-          <div className="flex items-start gap-2 p-3 mb-4 rounded-md bg-red-50 text-[var(--color-critical)] text-sm border border-red-200">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 p-3 mb-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4" noValidate>
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none" htmlFor="email">
-              Email
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="email">
+              Email Address
             </label>
             <Input
               id="email"
@@ -107,16 +123,17 @@ function LoginForm() {
               placeholder="you@example.com"
               required
               autoComplete="email"
+              className="h-10 text-sm"
               aria-describedby={error ? "login-error" : undefined}
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium leading-none" htmlFor="password">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="password">
                 Password
               </label>
-              <Link href="/auth/forgot-password" className="text-xs font-medium text-[var(--color-accent)] hover:underline">
+              <Link href="/auth/forgot-password" className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -127,12 +144,12 @@ function LoginForm() {
                 type={showPassword ? "text" : "password"}
                 required
                 autoComplete="current-password"
-                className="pr-10"
+                className="pr-10 h-10 text-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -140,16 +157,16 @@ function LoginForm() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full mt-6" disabled={isPending}>
+          <Button type="submit" className="w-full mt-6 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 rounded-xl" disabled={isPending}>
             {isPending ? "Signing in..." : "Sign In"}
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-[var(--color-text-secondary)]">
+        <div className="mt-6 text-center text-xs font-medium text-slate-500">
           Don&apos;t have an account?{" "}
           <Link
             href={roleParam ? `/signup?role=${encodeURIComponent(roleParam)}` : "/signup"}
-            className="text-[var(--color-accent)] font-medium hover:underline"
+            className="text-emerald-700 font-bold hover:text-emerald-800 hover:underline"
           >
             Sign up
           </Link>
@@ -161,13 +178,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)] px-6 py-12">
-      <div className="w-full max-w-[400px]">
-        <Link href="/" className="inline-flex items-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)] mb-6">
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-4 py-12">
+      <div className="w-full max-w-[420px]">
+        <Link href="/" className="inline-flex items-center text-xs font-bold text-slate-500 hover:text-slate-900 mb-6 transition-colors">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Home
         </Link>
-        <Suspense fallback={<Card><CardContent className="p-8 text-center text-sm text-[var(--color-text-secondary)]">Loading login...</CardContent></Card>}>
+        <Suspense fallback={<Card><CardContent className="p-8 text-center text-xs font-medium text-slate-500">Loading login...</CardContent></Card>}>
           <LoginForm />
         </Suspense>
       </div>

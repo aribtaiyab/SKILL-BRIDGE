@@ -107,43 +107,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true
 
-    // 1. Check initial session from storage/cookies
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        setAuthState('authenticated')
-        fetchProfile(session.user.id, session.user).finally(() => {
-          if (isMounted) setLoading(false)
-        })
-      } else {
-        setAuthState('unauthenticated')
-        setLoading(false)
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setAuthState('unauthenticated')
-        setLoading(false)
-      }
-    })
-
-    // 2. Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    // 1. Initial Session Restoration
+    async function restoreSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
         if (!isMounted) return
-        setSession(session)
-        setUser(session?.user ?? null)
 
         if (session?.user) {
+          setSession(session)
+          setUser(session.user)
           setAuthState('authenticated')
           await fetchProfile(session.user.id, session.user)
         } else {
+          setSession(null)
+          setUser(null)
           setProfile(null)
           setAuthState('unauthenticated')
         }
+      } catch (err) {
+        console.warn('Session restoration error:', err)
+        if (isMounted) {
+          setAuthState('unauthenticated')
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
 
-        setLoading(false)
+    restoreSession()
+
+    // 2. Auth State Change Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!isMounted) return
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (session?.user) {
+            setSession(session)
+            setUser(session.user)
+            setAuthState('authenticated')
+            await fetchProfile(session.user.id, session.user)
+          }
+          setLoading(false)
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setAuthState('unauthenticated')
+          setLoading(false)
+        } else if (event === 'INITIAL_SESSION') {
+          if (session?.user) {
+            setSession(session)
+            setUser(session.user)
+            setAuthState('authenticated')
+            await fetchProfile(session.user.id, session.user)
+            setLoading(false)
+          }
+        }
       }
     )
 

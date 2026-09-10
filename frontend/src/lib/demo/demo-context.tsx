@@ -58,14 +58,38 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem('sb_demo_mode', 'true')
         document.cookie = 'sb_demo_mode=true; path=/; max-age=86400; SameSite=Lax'
       }
-      if (storedRole) {
-        setDemoRole(storedRole)
-      } else if (pathname.startsWith('/industry')) {
+      if (pathname.startsWith('/industry')) {
         setDemoRole('industry')
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('sb_demo_role', 'industry')
+          localStorage.setItem('activeRole', 'industry')
+          localStorage.setItem('demo_persona', 'industry')
+        }
       } else if (pathname.startsWith('/academia') || pathname.startsWith('/academician')) {
         setDemoRole('academician')
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('sb_demo_role', 'academician')
+          localStorage.setItem('activeRole', 'academia')
+          localStorage.setItem('demo_persona', 'academia')
+          localStorage.setItem('role', 'faculty')
+        }
       } else if (pathname.startsWith('/institution')) {
         setDemoRole('institution')
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('sb_demo_role', 'institution')
+          localStorage.setItem('activeRole', 'institution')
+          localStorage.setItem('demo_persona', 'institution')
+          localStorage.setItem('role', 'faculty')
+        }
+      } else if (pathname.startsWith('/student')) {
+        setDemoRole('student')
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('sb_demo_role', 'student')
+          localStorage.setItem('activeRole', 'student')
+          localStorage.setItem('demo_persona', 'student')
+        }
+      } else if (storedRole) {
+        setDemoRole(storedRole)
       } else {
         setDemoRole('student')
       }
@@ -179,17 +203,21 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setStudent(INITIAL_DEMO_STUDENT)
     setOpportunities(INITIAL_DEMO_OPPORTUNITIES)
     if (typeof window !== 'undefined') {
+      const activeStr = (role === 'academician' || role === 'institution') ? 'academia' : role
       sessionStorage.setItem('sb_demo_mode', 'true')
       sessionStorage.setItem('sb_demo_role', role)
+      localStorage.setItem('activeRole', activeStr)
+      localStorage.setItem('demo_persona', activeStr)
+      if (role === 'academician' || role === 'institution') {
+        localStorage.setItem('role', 'faculty')
+      }
       document.cookie = 'sb_demo_mode=true; path=/; max-age=86400; SameSite=Lax'
     }
     const targetRoute =
       role === 'industry'
         ? '/industry?demo=true'
-        : role === 'academician'
+        : role === 'academician' || role === 'institution'
         ? '/academia?demo=true'
-        : role === 'institution'
-        ? '/institution?demo=true'
         : '/student?demo=true'
     router.push(targetRoute)
   }, [router])
@@ -199,6 +227,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('sb_demo_mode')
       sessionStorage.removeItem('sb_demo_role')
+      localStorage.removeItem('activeRole')
+      localStorage.removeItem('demo_persona')
       document.cookie = 'sb_demo_mode=; path=/; max-age=0'
     }
     router.push('/')
@@ -207,15 +237,19 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const switchDemoRole = useCallback((role: DemoRole) => {
     setDemoRole(role)
     if (typeof window !== 'undefined') {
+      const activeStr = (role === 'academician' || role === 'institution') ? 'academia' : role
       sessionStorage.setItem('sb_demo_role', role)
+      localStorage.setItem('activeRole', activeStr)
+      localStorage.setItem('demo_persona', activeStr)
+      if (role === 'academician' || role === 'institution') {
+        localStorage.setItem('role', 'faculty')
+      }
     }
     const targetRoute =
       role === 'industry'
         ? '/industry?demo=true'
-        : role === 'academician'
+        : role === 'academician' || role === 'institution'
         ? '/academia?demo=true'
-        : role === 'institution'
-        ? '/institution?demo=true'
         : '/student?demo=true'
     router.push(targetRoute)
   }, [router])

@@ -69,7 +69,7 @@ export default function OnboardingPage() {
       if (profile?.onboarding_completed && profile.role) {
         const dashMap: Record<string, string> = {
           student: '/student', industry: '/industry',
-          academician: '/academician', institution: '/academician'
+          academician: '/academia', institution: '/academia'
         }
         router.replace(dashMap[profile.role] || '/student')
       }
