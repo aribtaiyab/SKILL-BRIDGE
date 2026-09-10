@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Manrope } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/context";
 import { DemoProvider } from "@/lib/demo/demo-context";
 
-const manrope = Manrope({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-manrope",
+  variable: "--font-inter",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "SkillBridge Connect",
-  description: "Assess. Improve. Prove. Connect.",
+  title: "SkillBridge Connect — Career Intelligence Platform",
+  description: "Assess your skills against real career requirements, identify gaps, improve with AI coaching, and connect with verified opportunities.",
+  keywords: ["skill assessment", "career readiness", "skill gap", "career intelligence"],
 };
 
 export default function RootLayout({
@@ -21,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${manrope.variable} antialiased h-full`}>
+    <html lang="en" className={`${inter.variable} antialiased h-full`}>
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
         <Suspense fallback={null}>
           <DemoProvider>

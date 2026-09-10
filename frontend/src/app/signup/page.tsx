@@ -3,10 +3,7 @@
 import { useState, useTransition, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2, GraduationCap, Briefcase, Users } from "lucide-react"
 import { signUpAction } from "@/lib/auth/actions"
 import { supabase } from "@/lib/supabase/client"
 
@@ -18,25 +15,32 @@ function PasswordStrengthBar({ password }: { password: string }) {
 
   if (!password) return null
 
-  const labels = ['Weak', 'Fair', 'Good']
-  const colors = ['bg-[var(--color-critical)]', 'bg-[var(--color-warning)]', 'bg-[var(--color-success)]']
+  const labels = ['Weak', 'Fair', 'Strong']
+  const colors = ['bg-[var(--color-critical)]', 'bg-[var(--color-warning)]', 'bg-emerald-400']
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 mt-1.5">
       <div className="flex gap-1">
         {[0, 1, 2].map(i => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full transition-colors ${i < strength ? colors[strength - 1] : 'bg-[var(--color-border-primary)]'}`}
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${i < strength ? colors[strength - 1] : 'bg-white/10'}`}
           />
         ))}
       </div>
-      <p className="text-xs text-[var(--color-text-secondary)]">
-        Strength: <span className="font-medium">{labels[strength - 1] || 'Too weak'}</span>
-        {!hasMinLength && ' — must be at least 8 characters'}
+      <p className="text-xs text-[var(--color-text-muted)]">
+        Strength: <span className="font-semibold text-[var(--color-text-secondary)]">{labels[strength - 1] || 'Too weak'}</span>
+        {!hasMinLength && ' — at least 8 characters'}
       </p>
     </div>
   )
+}
+
+const roleLabels: Record<string, { label: string; icon: React.ComponentType<{className?: string}>; color: string }> = {
+  student: { label: "Student", icon: GraduationCap, color: "text-emerald-400" },
+  industry: { label: "Industry", icon: Briefcase, color: "text-violet-400" },
+  academician: { label: "Academia", icon: Users, color: "text-sky-400" },
+  academia: { label: "Academia", icon: Users, color: "text-sky-400" },
 }
 
 function SignupForm() {
@@ -50,6 +54,8 @@ function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [password, setPassword] = useState("")
 
+  const roleInfo = roleParam ? roleLabels[roleParam.toLowerCase()] : null
+
   const handleSignup = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
@@ -60,7 +66,6 @@ function SignupForm() {
     const pwd = String(formData.get('password') || '')
     const email = String(formData.get('email') || '').trim()
 
-    // Client-side confirm password check for UX
     if (pwd !== confirmPassword) {
       setFieldErrors({ confirmPassword: 'Passwords do not match.' })
       return
@@ -69,7 +74,6 @@ function SignupForm() {
     startTransition(async () => {
       const result = await signUpAction(formData)
       if (result.success) {
-        // Guarantee browser client singleton has active session immediately
         try {
           await supabase.auth.signInWithPassword({ email, password: pwd })
         } catch {}
@@ -82,17 +86,32 @@ function SignupForm() {
   }
 
   return (
-    <Card>
-      <CardHeader className="space-y-2 text-center pb-6">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-accent)] text-white font-bold mb-2">
-          SC
+    <div className="w-full max-w-[420px] mx-auto">
+      <Link href="/" className="inline-flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-white transition-colors mb-8 group">
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+        Back to Home
+      </Link>
+
+      <div className="glass-strong rounded-2xl border border-white/8 p-8 shadow-[var(--shadow-float)]">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--color-accent)] to-indigo-500 text-white text-sm font-black shadow-lg mb-4">
+            SC
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Create your account</h1>
+          {roleInfo ? (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/6 border border-white/8 px-3 py-1">
+              <roleInfo.icon className={`h-3.5 w-3.5 ${roleInfo.color}`} />
+              <span className="text-xs font-semibold text-[var(--color-text-secondary)]">Signing up as {roleInfo.label}</span>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--color-text-muted)] mt-1.5">Join SkillBridge Connect to get started</p>
+          )}
         </div>
-        <CardTitle className="text-h2">Create an account</CardTitle>
-        <CardDescription>Join SkillBridge Connect to get started.</CardDescription>
-      </CardHeader>
-      <CardContent>
+
+        {/* Error banner */}
         {error && (
-          <div className="flex items-start gap-2 p-3 mb-4 rounded-md bg-red-50 text-[var(--color-critical)] text-sm border border-red-200">
+          <div className="flex items-start gap-2.5 p-3.5 mb-5 rounded-xl bg-[var(--color-critical)]/10 border border-[var(--color-critical)]/20 text-sm text-[var(--color-critical)]">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -100,52 +119,58 @@ function SignupForm() {
 
         <form onSubmit={handleSignup} className="space-y-4" noValidate>
           {roleParam && <input type="hidden" name="role" value={roleParam} />}
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none" htmlFor="fullName">
+
+          {/* Full Name */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider" htmlFor="fullName">
               Full Name
             </label>
-            <Input
+            <input
               id="fullName"
               name="fullName"
               placeholder="Jane Doe"
               required
               autoComplete="name"
+              className="w-full h-11 px-4 text-sm input-dark rounded-xl"
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none" htmlFor="email">
-              Email
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider" htmlFor="email">
+              Email Address
             </label>
-            <Input
+            <input
               id="email"
               name="email"
               type="email"
               placeholder="you@example.com"
               required
               autoComplete="email"
+              className="w-full h-11 px-4 text-sm input-dark rounded-xl"
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none" htmlFor="password">
+          {/* Password */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider" htmlFor="password">
               Password
             </label>
             <div className="relative">
-              <Input
+              <input
                 id="password"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 required
                 autoComplete="new-password"
-                className="pr-10"
+                className="w-full h-11 px-4 pr-11 text-sm input-dark rounded-xl"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -154,23 +179,24 @@ function SignupForm() {
             <PasswordStrengthBar password={password} />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none" htmlFor="confirmPassword">
+          {/* Confirm Password */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider" htmlFor="confirmPassword">
               Confirm Password
             </label>
             <div className="relative">
-              <Input
+              <input
                 id="confirmPassword"
                 name="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 required
                 autoComplete="new-password"
-                className={`pr-10 ${fieldErrors.confirmPassword ? 'border-[var(--color-critical)] focus-visible:ring-[var(--color-critical)]' : ''}`}
+                className={`w-full h-11 px-4 pr-11 text-sm input-dark rounded-xl ${fieldErrors.confirmPassword ? 'border-[var(--color-critical)]/50' : ''}`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-foreground)]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                 aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
               >
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -181,35 +207,44 @@ function SignupForm() {
             )}
           </div>
 
-          <Button type="submit" className="w-full mt-6" disabled={isPending}>
-            {isPending ? "Creating account..." : "Create Account"}
-          </Button>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="w-full h-11 mt-2 rounded-xl btn-gradient text-sm font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span>{isPending ? "Creating account..." : "Create Account"}</span>
+          </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-[var(--color-text-secondary)]">
+        {/* Sign in link */}
+        <div className="mt-6 text-center text-sm text-[var(--color-text-muted)]">
           Already have an account?{" "}
           <Link
             href={roleParam ? `/login?role=${encodeURIComponent(roleParam)}` : "/login"}
-            className="text-[var(--color-accent)] font-medium hover:underline"
+            className="font-semibold text-[var(--color-accent)] hover:text-violet-300 transition-colors"
           >
             Sign in
           </Link>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)] px-6 py-12">
-      <div className="w-full max-w-[400px]">
-        <Link href="/" className="inline-flex items-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)] mb-6">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Link>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)] px-6 py-16 relative overflow-hidden">
+      {/* Background glows */}
+      <div className="pointer-events-none absolute top-1/4 right-1/4 h-96 w-96 rounded-full bg-[var(--color-accent)]/10 blur-[100px]" />
+      <div className="pointer-events-none absolute bottom-1/4 left-1/4 h-64 w-64 rounded-full bg-indigo-500/8 blur-[80px]" />
 
-        <Suspense fallback={<Card><CardContent className="p-8 text-center text-sm text-[var(--color-text-secondary)]">Loading sign up...</CardContent></Card>}>
+      <div className="relative w-full max-w-[420px]">
+        <Suspense fallback={
+          <div className="glass-strong rounded-2xl border border-white/8 p-8 text-center text-sm text-[var(--color-text-muted)]">
+            Loading...
+          </div>
+        }>
           <SignupForm />
         </Suspense>
       </div>

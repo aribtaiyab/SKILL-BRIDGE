@@ -1,30 +1,32 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Sidebar } from "@/components/layout/sidebar"
-import { DemoBar } from "@/components/layout/demo-bar"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
-import { LayoutDashboard, Briefcase, Users, PlusCircle, ListTodo, LineChart, LogOut, Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { LayoutDashboard, Briefcase, Users, PlusCircle, ListTodo, LineChart, LogOut, Loader2, Menu, X, ChevronRight } from "lucide-react"
+import { DemoBar } from "@/components/layout/demo-bar"
 
 export default function IndustryLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, authState, signOut } = useAuth()
   const { isDemo } = useDemo()
   const router = useRouter()
+  const pathname = usePathname()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
     if (authState === 'unauthenticated' && !isDemo) router.replace('/login')
   }, [authState, isDemo, router])
 
   const navItems = [
-    { href: "/industry", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
-    { href: "/industry/opportunities", label: "Opportunities", icon: <Briefcase size={20} /> },
-    { href: "/industry/candidates", label: "Candidates", icon: <Users size={20} /> },
-    { href: "/industry/opportunities/create", label: "Create Opportunity", icon: <PlusCircle size={20} /> },
-    { href: "/industry/applications", label: "Applications", icon: <ListTodo size={20} /> },
-    { href: "/industry/insights", label: "Insights", icon: <LineChart size={20} /> },
+    { href: "/industry", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { href: "/industry/opportunities", label: "Opportunities", icon: Briefcase },
+    { href: "/industry/candidates", label: "Candidates", icon: Users },
+    { href: "/industry/opportunities/create", label: "Post Opportunity", icon: PlusCircle },
+    { href: "/industry/applications", label: "Applications", icon: ListTodo },
+    { href: "/industry/insights", label: "Insights", icon: LineChart },
   ]
 
   const displayName = isDemo ? 'TechNova Solutions' : (profile?.full_name || user?.email?.split('@')[0] || 'Industry')
@@ -34,70 +36,135 @@ export default function IndustryLayout({ children }: { children: React.ReactNode
   if ((loading || authState === 'checking') && !isDemo) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--color-background)]">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 text-white animate-spin" />
+          </div>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)] tracking-wider uppercase">Loading</p>
+        </div>
       </div>
     )
   }
+
+  const NavContent = () => (
+    <>
+      {/* Brand */}
+      <div className="h-16 flex items-center px-4 border-b border-white/6 shrink-0">
+        <Link href="/industry" className="flex items-center gap-3 group">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-black shadow-lg group-hover:scale-105 transition-transform">
+            SC
+          </div>
+          <div>
+            <div className="text-[13px] font-bold text-white">SkillBridge</div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-amber-400">Industry Portal</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+        {navItems.map((item) => {
+          const Icon = item.icon
+          const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href) && item.href !== '/industry'
+          const isDashActive = item.exact && pathname === item.href
+          const active = item.exact ? isDashActive : isActive
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                active
+                  ? 'bg-amber-500/15 border border-amber-500/25 text-amber-300'
+                  : 'text-[var(--color-text-muted)] hover:text-white hover:bg-white/6'
+              }`}
+            >
+              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-amber-400' : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]'}`} />
+              <span className="flex-1">{item.label}</span>
+              {active && <ChevronRight className="h-3 w-3 text-amber-400" />}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User Footer */}
+      <div className="p-4 border-t border-white/6 shrink-0">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-8 w-8 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-xs font-bold text-amber-300 shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-white truncate">{displayName}</div>
+            <div className="text-[10px] text-[var(--color-text-muted)] truncate">{displayEmail}</div>
+          </div>
+        </div>
+        {!isDemo && (
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[var(--color-text-muted)] hover:text-rose-400 hover:bg-rose-400/8 transition-all"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign Out
+          </button>
+        )}
+      </div>
+    </>
+  )
 
   return (
     <div className="flex flex-col h-screen bg-[var(--color-background)] overflow-hidden">
       <DemoBar />
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <aside className="w-64 hidden md:flex flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-surface-card)]">
-          <div className="h-20 flex items-center px-6 border-b border-[var(--color-border-primary)]">
-            <div className="flex items-center gap-3 font-bold tracking-tight">
-              <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-accent)] text-white text-xs shadow-sm">SC</div>
-              <div><div>Industry</div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Portal</div></div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <Sidebar items={navItems} />
-          </div>
-          <div className="border-t border-[var(--color-border-primary)] bg-[var(--color-surface-secondary)]/60 p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-8 w-8 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] flex items-center justify-center text-xs font-semibold text-[var(--color-text-secondary)]">
-                {initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{displayName}</div>
-                <div className="text-xs text-[var(--color-text-secondary)] truncate">{displayEmail}</div>
-              </div>
-            </div>
-            {!isDemo && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-[var(--color-text-secondary)] hover:text-[var(--color-critical)] hover:bg-red-50 text-xs"
-                onClick={signOut}
-              >
-                <LogOut className="mr-2 h-3.5 w-3.5" /> Sign Out
-              </Button>
-            )}
-          </div>
+        {/* Desktop Sidebar */}
+        <aside className="w-60 hidden md:flex flex-col bg-[var(--color-surface)] border-r border-white/6">
+          <NavContent />
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-20 flex items-center justify-between px-5 sm:px-8 border-b border-[var(--color-border-primary)] bg-[var(--color-surface-card)]/90 backdrop-blur">
-            <div className="flex items-center gap-2 font-semibold md:hidden">
-              <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-accent)] text-white text-xs">SC</div>
-              Industry Portal
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="md:hidden fixed inset-0 z-40 flex">
+            <div className="w-64 flex flex-col bg-[var(--color-surface)] border-r border-white/8 shadow-2xl">
+              <NavContent />
             </div>
-            <div className="ml-auto flex items-center gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <div className="h-8 w-8 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)] flex items-center justify-center text-xs font-semibold text-[var(--color-text-secondary)]">
+            <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          </div>
+        )}
+
+        {/* Main content */}
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <header className="h-16 flex items-center justify-between px-5 sm:px-8 border-b border-white/6 bg-[var(--color-surface)]/80 backdrop-blur shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                className="md:hidden p-2 rounded-xl text-[var(--color-text-muted)] hover:text-white hover:bg-white/8 transition-colors"
+                onClick={() => setMobileOpen(!mobileOpen)}
+              >
+                {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </button>
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Portal:</span>
+                <span className="text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-full">Industry</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-[10px] font-bold text-amber-300">
                   {initials}
                 </div>
-                <span className="hidden sm:block">{displayName}</span>
+                <span className="hidden sm:block text-sm font-medium text-white">{displayName}</span>
               </div>
               {!isDemo && (
-                <Button variant="ghost" size="sm" onClick={signOut} className="text-[var(--color-text-secondary)]">
+                <button
+                  onClick={signOut}
+                  className="p-2 rounded-xl text-[var(--color-text-muted)] hover:text-rose-400 hover:bg-rose-400/8 transition-colors"
+                  title="Sign Out"
+                >
                   <LogOut className="h-4 w-4" />
-                  <span className="sr-only">Sign Out</span>
-                </Button>
+                </button>
               )}
             </div>
           </header>
-          <div className="flex-1 overflow-y-auto p-5 sm:p-8 lg:p-10">
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div className="mx-auto max-w-6xl">
               {children}
             </div>
