@@ -1,759 +1,697 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import Link from "next/link"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Compass,
-  Search,
+  Send,
   Sparkles,
   ArrowRight,
-  TrendingUp,
-  AlertTriangle,
   CheckCircle2,
+  AlertCircle,
   Loader2,
-  Clock,
-  ExternalLink,
-  History,
-  Bot,
-  HelpCircle,
-  Briefcase,
-  ChevronRight,
-  Check,
-  Zap,
-  Target,
   BookOpen,
-  Calendar,
-  ShieldCheck,
+  Code,
   Layers,
-  Award,
-  BarChart3,
+  TrendingUp,
+  HelpCircle,
+  RotateCcw,
+  Check,
+  ChevronRight,
+  Lightbulb,
+  ShieldAlert,
+  Terminal,
 } from "lucide-react"
-import { apiClient } from "@/lib/api-client"
-import { CareerNavigatorResponse } from "@/lib/career-navigator/types"
-import { CareerComparisonItem } from "@/lib/career-navigator/comparison-engine"
-import { useDemo } from "@/lib/demo/demo-context"
+import ReactMarkdown from "react-markdown"
+
+interface ComparisonOption {
+  option: string
+  learningCurve?: string
+  marketDemand?: string
+  pros: string[]
+  cons: string[]
+  bestFor?: string
+}
+
+interface RoadmapStage {
+  stage: string
+  title: string
+  description?: string
+  topics: string[]
+  projects: string[]
+}
+
+interface ContextSection {
+  title: string
+  content: string
+}
+
+interface StructuredCareerResponse {
+  question: string
+  headline: string
+  answer: string
+  recommendation: string
+  intent: string
+  sections: ContextSection[]
+  comparison: ComparisonOption[]
+  roadmap: RoadmapStage[]
+  next_steps: string[]
+  what_to_avoid: string[]
+  follow_up_questions: string[]
+}
+
+interface ConversationTurn {
+  role: 'user' | 'assistant'
+  content: string
+  structuredData?: StructuredCareerResponse
+}
+
+function toStringArray(val: unknown): string[] {
+  if (!val) return []
+  if (Array.isArray(val)) {
+    return val
+      .map((item) => {
+        if (typeof item === 'string') return item.trim()
+        if (typeof item === 'number' || typeof item === 'boolean') return String(item)
+        if (typeof item === 'object' && item !== null) {
+          const record = item as Record<string, unknown>
+          const candidate = record.text || record.name || record.title || record.value || record.point || record.desc
+          if (typeof candidate === 'string') return candidate.trim()
+          return JSON.stringify(item)
+        }
+        return ''
+      })
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
+  }
+
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (!trimmed) return []
+    if (trimmed.includes('\n')) {
+      return trimmed
+        .split('\n')
+        .map(line => line.replace(/^[-*•\d.)\s]+/, '').trim())
+        .filter(line => line.length > 0)
+    }
+    if (trimmed.includes(',') && !trimmed.includes('{')) {
+      const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean)
+      if (parts.length > 1) return parts
+    }
+    return [trimmed]
+  }
+
+  if (typeof val === 'object' && val !== null) {
+    const values = Object.values(val as Record<string, unknown>)
+    return values
+      .map(v => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean)
+  }
+
+  return []
+}
+
+function normalizeCareerData(raw: unknown, queryText = ''): StructuredCareerResponse {
+  const obj = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+
+  const rawSections = Array.isArray(obj.sections) ? obj.sections : []
+  const sections: ContextSection[] = rawSections
+    .filter((sec): sec is Record<string, unknown> => typeof sec === 'object' && sec !== null)
+    .map((sec) => ({
+      title: typeof sec.title === 'string' ? sec.title.trim() : 'Overview',
+      content: typeof sec.content === 'string' ? sec.content.trim() : (typeof sec.description === 'string' ? sec.description.trim() : ''),
+    }))
+    .filter(sec => sec.title.length > 0 || sec.content.length > 0)
+
+  const rawComparison = Array.isArray(obj.comparison)
+    ? obj.comparison
+    : Array.isArray(obj.options)
+    ? obj.options
+    : Array.isArray(obj.comparisons)
+    ? obj.comparisons
+    : []
+
+  const comparison: ComparisonOption[] = rawComparison
+    .filter((opt): opt is Record<string, unknown> => typeof opt === 'object' && opt !== null)
+    .map((opt) => {
+      const optName = typeof opt.option === 'string'
+        ? opt.option.trim()
+        : typeof opt.name === 'string'
+        ? opt.name.trim()
+        : typeof opt.title === 'string'
+        ? opt.title.trim()
+        : 'Option'
+
+      return {
+        option: optName,
+        learningCurve: typeof opt.learningCurve === 'string' ? opt.learningCurve.trim() : undefined,
+        marketDemand: typeof opt.marketDemand === 'string' ? opt.marketDemand.trim() : undefined,
+        pros: toStringArray(opt.pros),
+        cons: toStringArray(opt.cons),
+        bestFor: typeof opt.bestFor === 'string' ? opt.bestFor.trim() : (typeof opt.target === 'string' ? opt.target.trim() : undefined),
+      }
+    })
+
+  const rawRoadmap = Array.isArray(obj.roadmap)
+    ? obj.roadmap
+    : Array.isArray(obj.stages)
+    ? obj.stages
+    : Array.isArray(obj.steps)
+    ? obj.steps
+    : []
+
+  const roadmap: RoadmapStage[] = rawRoadmap
+    .filter((stage): stage is Record<string, unknown> => typeof stage === 'object' && stage !== null)
+    .map((stg, idx) => {
+      const stageName = typeof stg.stage === 'string'
+        ? stg.stage.trim()
+        : typeof stg.phase === 'string'
+        ? stg.phase.trim()
+        : `Stage ${idx + 1}`
+
+      const stageTitle = typeof stg.title === 'string'
+        ? stg.title.trim()
+        : typeof stg.name === 'string'
+        ? stg.name.trim()
+        : 'Milestone'
+
+      return {
+        stage: stageName,
+        title: stageTitle,
+        description: typeof stg.description === 'string' ? stg.description.trim() : undefined,
+        topics: toStringArray(stg.topics || stg.skills || stg.concepts),
+        projects: toStringArray(stg.projects || stg.practical || stg.tasks),
+      }
+    })
+
+  const headline = typeof obj.headline === 'string' && obj.headline.trim().length > 0
+    ? obj.headline.trim()
+    : typeof obj.answer === 'string' && obj.answer.trim().length > 0
+    ? obj.answer.trim()
+    : 'Career Guidance Overview'
+
+  const answer = typeof obj.answer === 'string' && obj.answer.trim().length > 0
+    ? obj.answer.trim()
+    : headline
+
+  const recommendation = typeof obj.recommendation === 'string'
+    ? obj.recommendation.trim()
+    : ''
+
+  const intent = typeof obj.intent === 'string' && obj.intent.trim().length > 0
+    ? obj.intent.trim()
+    : 'general'
+
+  return {
+    question: typeof obj.question === 'string' && obj.question.trim().length > 0 ? obj.question.trim() : queryText,
+    headline,
+    answer,
+    recommendation,
+    intent,
+    sections,
+    comparison,
+    roadmap,
+    next_steps: toStringArray(obj.next_steps || obj.nextSteps || obj.action_items),
+    what_to_avoid: toStringArray(obj.what_to_avoid || obj.whatToAvoid || obj.pitfalls),
+    follow_up_questions: toStringArray(obj.follow_up_questions || obj.followUpQuestions || obj.suggested_questions),
+  }
+}
 
 export default function CareerNavigatorPage() {
-  const { isDemo, student } = useDemo()
   const [query, setQuery] = useState("")
   const [analyzing, setAnalyzing] = useState(false)
-  const [result, setResult] = useState<CareerNavigatorResponse['data'] | null>(null)
-  const [historyItems, setHistoryItems] = useState<any[]>([])
-  const [historyOpen, setHistoryOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [conversation, setConversation] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([])
+  const [conversation, setConversation] = useState<ConversationTurn[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load decision history on mount
-  useEffect(() => {
-    async function loadHistory() {
-      if (isDemo) {
-        setHistoryItems([
-          {
-            id: 'demo-h1',
-            question: 'Should I choose Full Stack or AI/ML?',
-            recommended_career_name: 'Full Stack Engineer',
-            confidence: 84,
-            created_at: '2026-09-01T10:00:00Z',
-          },
-          {
-            id: 'demo-h2',
-            question: 'Backend Developer vs Frontend Developer',
-            recommended_career_name: 'Backend Developer',
-            confidence: 80,
-            created_at: '2026-08-25T14:30:00Z',
-          },
-        ])
-        return
-      }
+  const quickPrompts = [
+    "What should I learn after HTML, CSS & JavaScript?",
+    "AI vs Frontend: Which should I choose?",
+    "Roadmap to become a Backend Developer",
+    "I know Python. What should I learn next?",
+    "Java or Python for 2026?",
+    "DSA or Web Development for placements?",
+    "Can I switch from frontend to AI?",
+    "How do I get my first tech internship?",
+  ]
 
-      try {
-        const json = await apiClient<{ success: boolean; data: any[] }>('/api/career-navigator/history')
-        if (json.success && Array.isArray(json.data)) {
-          setHistoryItems(json.data)
-        }
-      } catch (err) {
-        console.warn('Could not load career navigator history:', err)
-      }
-    }
-    loadHistory()
-  }, [isDemo])
-
-  // Core Analyze Function
-  const handleAnalyze = async (searchQuery: string) => {
-    const q = searchQuery.trim()
+  const handleAsk = async (text: string) => {
+    const q = text.trim()
     if (!q || analyzing) return
 
     setAnalyzing(true)
     setErrorMsg(null)
     setQuery(q)
 
-    const updatedHistory = [...conversation, { role: 'user' as const, content: q }]
+    // Append user message immediately
+    const updatedHistory: ConversationTurn[] = [
+      ...conversation,
+      { role: 'user', content: q },
+    ]
     setConversation(updatedHistory)
 
     try {
-      const response = await apiClient<CareerNavigatorResponse>('/api/career-navigator/analyze', {
+      // Build lightweight payload with prior turns
+      const historyPayload = conversation.map(c => ({
+        role: c.role,
+        content: c.role === 'user' ? c.content : (c.structuredData ? JSON.stringify(c.structuredData) : c.content),
+      }))
+
+      const res = await fetch('/api/career-navigator/analyze', {
         method: 'POST',
-        timeoutMs: 40000,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: q,
-          query: q,
-          history: updatedHistory.slice(-4),
+          conversation: historyPayload,
         }),
       })
 
-      if (response.success && response.data) {
-        setResult(response.data)
-        setConversation(prev => [
-          ...prev,
-          { role: 'assistant' as const, content: response.data.directAnswer || response.data.summary },
-        ])
-        // Add to history items if not present
-        setHistoryItems(prev => [
-          {
-            id: `decision-${Date.now()}`,
-            question: q,
-            recommended_career_name: response.data.recommendation?.careerName || response.data.headline,
-            confidence: response.data.recommendation?.confidence || 75,
-            created_at: new Date().toISOString(),
-          },
-          ...prev.slice(0, 9),
-        ])
-      } else {
-        throw new Error(response.error || 'Career Navigator could not analyze this question. Please try again.')
+      const data = await res.json()
+
+      if (!res.ok || !data.success || !data.data) {
+        throw new Error(data.error || "Career Navigator couldn't process that request right now. Please try again.")
       }
+
+      const structured: StructuredCareerResponse = normalizeCareerData(data.data, q)
+
+      // Append AI response turn
+      setConversation(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: structured.headline || structured.recommendation || 'Career analysis completed.',
+          structuredData: structured,
+        },
+      ])
+      setQuery("")
     } catch (err: any) {
-      console.error('Career Navigator error:', err)
-      setErrorMsg(err.message || 'Analysis temporarily unavailable — please try again')
-      setResult(null)
+      console.error("Career Navigator error:", err)
+      setErrorMsg(err.message || "Failed to connect to Groq AI. Please check your connection and try again.")
     } finally {
       setAnalyzing(false)
     }
   }
 
-  return (
-    <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
-      {/* Ambient background glow orbs */}
-      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
-      <div className="absolute top-96 -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
+  const handleReset = () => {
+    setConversation([])
+    setQuery("")
+    setErrorMsg(null)
+  }
 
-      {/* ─── HEADER ────────────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-2xl bg-[var(--color-accent)] text-white shadow-xs">
-              <Compass className="h-6 w-6" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Career Navigator</h1>
-                <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border-[var(--color-border-primary)] text-xs font-semibold px-2.5 py-0.5">
-                  <Sparkles className="h-3 w-3 mr-1 inline text-[var(--color-accent)]" /> Career Decision Engine
-                </Badge>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                Compare careers. Understand your fit. Decide your next move.
-              </p>
-            </div>
+  const latestTurn = conversation.slice().reverse().find(t => t.role === 'assistant')
+  const activeResult = latestTurn?.structuredData
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-16">
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-b border-slate-200/80 pb-6">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold tracking-tight">
+            <Compass className="h-3.5 w-3.5 text-emerald-600" />
+            <span>AI Career Guidance • Groq Powered</span>
           </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Career Navigator
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
+            Ask anything about your career. Get practical advice, compare paths, explore tech stacks, and build your next roadmap with AI.
+          </p>
         </div>
 
-        {historyItems.length > 0 && (
+        {conversation.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setHistoryOpen(!historyOpen)}
-            className="h-9 px-3.5 rounded-xl border-slate-200 bg-white/90 text-slate-700 font-semibold shadow-xs hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:-translate-y-0.5 transition-all self-start sm:self-auto"
+            onClick={handleReset}
+            className="h-9 text-xs font-semibold rounded-xl text-slate-600 hover:text-slate-900 border-slate-200 shrink-0 self-start sm:self-center cursor-pointer"
           >
-            <History className="h-3.5 w-3.5 mr-1.5 text-[var(--color-accent)]" />
-            Previous Decisions ({historyItems.length})
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            New Conversation
           </Button>
         )}
       </div>
 
-      {/* ─── HERO & ASK BOX ────────────────────────────────────────────────── */}
-      <div className="relative z-10 overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-white/95 p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-6">
-        <div className="max-w-2xl">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-3 py-0.5 rounded-full inline-block mb-2">
-            Deterministic Match + Real Market Intelligence + AI Reasoning
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
-            Don't guess your career. Compare your paths.
-          </h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Ask any question about your target career tracks, switch feasibility, skill choices, or real market demand.
-          </p>
-        </div>
-
-        {/* Quick Action Pills */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {[
-            { label: "AI or Web Development?", prompt: "AI or Web Development?" },
-            { label: "Which career fits me?", prompt: "Which career fits me?" },
-            { label: "Can I switch to AI?", prompt: "Can I switch to AI?" },
-            { label: "What should I learn next?", prompt: "What should I learn next?" },
-            { label: "Java or Python?", prompt: "Should I learn Java or Python?" },
-            { label: "DSA or Development?", prompt: "Should I focus on DSA or Web Development?" },
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={() => {
-                setQuery(action.prompt)
-                handleAnalyze(action.prompt)
-              }}
-              className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-slate-200/80 bg-slate-50/80 text-slate-700 hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-foreground)] transition-all shadow-2xs"
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search Input */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleAnalyze(query)
-          }}
-          className="relative flex items-center"
-        >
-          <Search className="absolute left-4 h-5 w-5 text-slate-400 pointer-events-none" />
+      {/* Input Section */}
+      <Card className="border border-slate-200/90 shadow-[0_12px_35px_-12px_rgba(15,23,42,0.08)] bg-white/95 backdrop-blur-xl rounded-3xl overflow-hidden">
+        <CardContent className="p-2 sm:p-2.5 flex items-center gap-2">
+          <div className="pl-3 text-slate-400">
+            <Compass className="h-5 w-5 text-emerald-600 shrink-0" />
+          </div>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask anything about your career (e.g., 'Web Development vs AI?', 'Which career fits me?')..."
-            className="w-full pl-12 pr-28 py-3.5 rounded-2xl border border-slate-200 bg-white text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)] transition-all shadow-xs"
+            onKeyDown={(e) => e.key === 'Enter' && handleAsk(query)}
+            placeholder="Ask any career question (e.g. 'What should I learn after Python?', 'AI vs Web Dev?', 'Roadmap for Backend')..."
+            className="flex-1 h-12 px-2 sm:px-3 bg-transparent border-none focus:ring-0 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm outline-none"
+            disabled={analyzing}
           />
           <Button
-            type="submit"
-            disabled={!query.trim() || analyzing}
-            className="absolute right-2 h-9 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-sm transition-all"
+            onClick={() => handleAsk(query)}
+            disabled={analyzing || !query.trim()}
+            className="h-11 px-5 sm:px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer shrink-0"
           >
-            {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Analyze"}
+            {analyzing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                <span className="hidden sm:inline">Analyzing...</span>
+              </>
+            ) : (
+              <>
+                <span>Ask Navigator</span>
+                <Send className="h-3.5 w-3.5 ml-1.5" />
+              </>
+            )}
           </Button>
-        </form>
+        </CardContent>
+      </Card>
 
-        {/* Suggested Prompts below input */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
-          <span className="font-semibold text-slate-700">Quick questions:</span>
-          {[
-            "AI or Web Development?",
-            "Which career fits me?",
-            "Can I switch to AI?",
-            "What should I learn next?",
-            "Java or Python?",
-            "DSA or Development?"
-          ].map((sample) => (
-            <button
-              key={sample}
-              type="button"
-              onClick={() => {
-                setQuery(sample)
-                handleAnalyze(sample)
-              }}
-              className="text-[var(--color-accent)] hover:text-[var(--color-foreground)] hover:underline font-medium"
-            >
-              "{sample}"
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ─── HISTORY DRAWER / MODAL ────────────────────────────────────────── */}
-      {historyOpen && (
-        <div className="relative z-10 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <History className="h-4 w-4 text-[var(--color-accent)]" /> Recent Career Decisions
-            </h3>
-            <button
-              onClick={() => setHistoryOpen(false)}
-              className="text-xs text-slate-400 hover:text-slate-700 font-semibold"
-            >
-              Close
-            </button>
+      {/* Quick Questions Chips (Visible when no conversation yet) */}
+      {conversation.length === 0 && !analyzing && (
+        <div className="space-y-3 pt-2">
+          <div className="text-center text-xs font-bold uppercase tracking-wider text-slate-400">
+            Suggested Career Questions
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {historyItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => {
-                  setQuery(item.question)
-                  handleAnalyze(item.question)
-                  setHistoryOpen(false)
-                }}
-                className="cursor-pointer p-3.5 rounded-2xl border border-slate-200/70 bg-slate-50/50 hover:bg-[var(--color-surface-secondary)] hover:border-[var(--color-accent)]/40 transition-all"
+          <div className="flex flex-wrap justify-center gap-2 max-w-4xl mx-auto">
+            {quickPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleAsk(prompt)}
+                className="px-3.5 py-2 rounded-2xl border border-slate-200/90 bg-white text-xs font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/50 transition-all shadow-xs hover:shadow-sm cursor-pointer text-left"
               >
-                <span className="text-xs font-bold text-slate-900 block line-clamp-1">"{item.question}"</span>
-                <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1">
-                  <span>Recommended: <strong className="text-[var(--color-accent-hover)]">{item.recommended_career_name}</strong></span>
-                  <span>{item.confidence}% confidence</span>
-                </div>
-              </div>
+                {prompt}
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* ─── LOADING STATE ─────────────────────────────────────────────────── */}
+      {/* Error Alert */}
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-3 animate-in fade-in">
+          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1 space-y-2">
+            <p className="font-semibold">{errorMsg}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => query && handleAsk(query)}
+              className="h-8 text-xs font-bold border-rose-300 text-rose-700 hover:bg-rose-100"
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
       {analyzing && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-12 text-center backdrop-blur-xl shadow-sm space-y-4 animate-in fade-in">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] text-[var(--color-accent)] shadow-sm">
-            <Compass className="h-7 w-7 animate-spin" />
+        <Card className="border border-slate-200 bg-white/90 shadow-sm rounded-3xl p-8 text-center space-y-4 animate-in fade-in duration-300">
+          <div className="h-10 w-10 mx-auto rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center animate-pulse">
+            <Sparkles className="h-5 w-5 animate-spin text-emerald-600" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900">Analyzing your career path...</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Synthesizing your assessed skills, career requirements, and live market intelligence.
-            </p>
+            <h3 className="text-base font-bold text-slate-900">Thinking through your career question with Groq AI...</h3>
+            <p className="text-xs text-slate-500">Evaluating pathways, analyzing real-world tech requirements, and structuring your actionable next steps.</p>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* ─── ERROR STATE ───────────────────────────────────────────────────── */}
-      {errorMsg && !analyzing && (
-        <div className="rounded-2xl bg-amber-50 border border-amber-200/80 p-4 text-xs font-medium text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          {query && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleAnalyze(query)}
-              className="h-8 px-3 rounded-xl border-amber-300 text-amber-900 hover:bg-amber-100 text-xs shrink-0 self-start sm:self-auto"
-            >
-              Try again
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* ─── RESULTS CONTAINER ─────────────────────────────────────────────── */}
-      {result && !analyzing && (
-        <div className="space-y-8 animate-in fade-in duration-300">
-          {/* AI Fallback Notice Banner if Gemini unavailable / quota exhausted */}
-          {result.isFromFallback && (
-            <div className="rounded-2xl bg-amber-50/90 border border-amber-200/90 p-4 text-xs font-medium text-amber-900 flex items-center gap-3 shadow-xs">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-              <div>
-                <strong className="font-bold text-amber-950 block">SkillBridge Deterministic Intelligence Active</strong>
-                <span>{result.fallbackNotice || 'AI analysis is currently operating in deterministic mode — displaying SkillBridge benchmark standards and profile intelligence.'}</span>
-              </div>
-            </div>
-          )}
-
-          {/* ─── 1. DIRECT ANSWER ─────────────────────────────────────────────── */}
-          <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-gradient-to-br from-[#FAF6F3] via-white to-[#F2F7F9] p-6 sm:p-8 shadow-[var(--shadow-soft)] backdrop-blur-xl space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
-              <div className="space-y-2 flex-1">
+      {/* Active AI Structured Result */}
+      {activeResult && !analyzing && (
+        <div className="space-y-6 animate-in slide-in-from-bottom-3 duration-500">
+          
+          {/* Top Verdict & Direct Answer */}
+          <Card className="border border-emerald-100/80 bg-gradient-to-br from-white via-emerald-50/20 to-white shadow-sm rounded-3xl overflow-hidden">
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-3 py-0.5 rounded-full">
-                    <Sparkles className="h-3 w-3" /> 1. Direct Answer
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+                    AI Mentor Verdict • {activeResult.intent.toUpperCase()}
                   </span>
-                  {result.extractedQuery?.intent && (
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                      Intent: {result.extractedQuery.intent}
-                    </span>
-                  )}
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  {result.headline}
-                </h3>
-                <div className="p-4 rounded-2xl bg-white/90 border border-[var(--color-border-primary)] text-sm sm:text-base font-semibold text-slate-800 leading-relaxed shadow-xs">
-                  {result.directAnswer || result.summary}
-                </div>
+                <Badge variant="outline" className="text-[10px] font-semibold text-slate-500 border-slate-200">
+                  Question: &quot;{activeResult.question}&quot;
+                </Badge>
               </div>
+              <CardTitle className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight pt-2">
+                {activeResult.headline}
+              </CardTitle>
+            </CardHeader>
 
-              {result.recommendation?.confidence !== undefined && (
-                <div className="p-4 rounded-2xl bg-white border border-[var(--color-border-primary)] shrink-0 text-center sm:text-right shadow-xs min-w-[130px]">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Confidence</span>
-                  <div className="text-3xl font-black text-[var(--color-accent)]">{result.recommendation.confidence}%</div>
-                  <span className="text-[10px] font-semibold text-slate-500">SkillBridge Verified</span>
+            {activeResult.recommendation && (
+              <CardContent className="pt-4 pb-5">
+                <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 flex items-start gap-3">
+                  <Lightbulb className="h-5 w-5 text-emerald-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-900">Recommended Path</span>
+                    <p className="text-xs sm:text-sm font-semibold text-emerald-950 leading-relaxed">
+                      {activeResult.recommendation}
+                    </p>
+                  </div>
                 </div>
-              )}
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Structured Context Sections */}
+          {activeResult.sections && activeResult.sections.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeResult.sections.map((sec, idx) => (
+                <Card key={idx} className="border border-slate-200/80 bg-white shadow-xs rounded-3xl overflow-hidden flex flex-col">
+                  <CardHeader className="pb-2 bg-slate-50/60 border-b border-slate-100">
+                    <CardTitle className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-emerald-600" />
+                      {sec.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 flex-1 prose prose-slate max-w-none text-xs sm:text-sm text-slate-700 leading-relaxed prose-headings:font-bold prose-headings:text-slate-900 prose-ul:my-2 prose-li:my-0.5">
+                    <ReactMarkdown>{sec.content}</ReactMarkdown>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* ─── 2. WHY THIS IS BETTER FOR YOU & 4. YOUR CURRENT FIT ───────────── */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* 2. Why This Is Better For You */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
-                  <CheckCircle2 className="h-4 w-4" />
-                </span>
-                <h4 className="text-base font-bold text-slate-900">2. Why This Is Better For You</h4>
-              </div>
-              <ul className="space-y-2.5">
-                {(result.why && result.why.length > 0 ? result.why : [result.summary]).map((reason, idx) => (
-                  <li key={idx} className="text-xs text-slate-700 leading-relaxed flex items-start gap-2.5 p-2 rounded-xl bg-slate-50/60 border border-slate-100">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 mt-1 shrink-0" />
-                    <span className="font-medium">{reason}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {/* Comparison Matrix (When comparing options) */}
+          {activeResult.comparison && activeResult.comparison.length > 0 && (
+            <Card className="border border-slate-200/80 bg-white shadow-xs rounded-3xl overflow-hidden">
+              <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-3">
+                <CardTitle className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-emerald-600" />
+                  Direct Path Comparison
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Side-by-side trade-offs, learning curve, and market relevance to help you decide.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {activeResult.comparison.map((opt, idx) => (
+                    <div
+                      key={idx}
+                      className="p-5 rounded-2xl border border-slate-200/90 bg-slate-50/50 hover:bg-white hover:border-emerald-300 transition-all space-y-4 shadow-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+                        <span className="text-base font-black text-slate-900">{opt.option}</span>
+                        {opt.bestFor && (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-none text-[10px] font-bold">
+                            Best for: {opt.bestFor}
+                          </Badge>
+                        )}
+                      </div>
 
-            {/* 4. Your Current Fit */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-border-primary)]">
-                    <Target className="h-4 w-4" />
-                  </span>
-                  <h4 className="text-base font-bold text-slate-900">4. Your Current Fit</h4>
-                </div>
-                {result.currentFit && (
-                  <Badge className="bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border-[var(--color-border-primary)] text-xs font-bold">
-                    {result.currentFit.fitLevel}
-                  </Badge>
-                )}
-              </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {opt.learningCurve && (
+                          <div className="p-2.5 rounded-xl bg-white border border-slate-200/70">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Learning Curve</span>
+                            <span className="font-semibold text-slate-800">{opt.learningCurve}</span>
+                          </div>
+                        )}
+                        {opt.marketDemand && (
+                          <div className="p-2.5 rounded-xl bg-white border border-slate-200/70">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Market Demand</span>
+                            <span className="font-semibold text-slate-800">{opt.marketDemand}</span>
+                          </div>
+                        )}
+                      </div>
 
-              {result.currentFit ? (
-                <div className="space-y-3">
-                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Target Career</span>
-                      <strong className="text-sm font-black text-slate-900">{result.currentFit.targetCareer}</strong>
+                      {Array.isArray(opt.pros) && opt.pros.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                            <Check className="h-3 w-3 text-emerald-600" /> Key Strengths
+                          </span>
+                          <ul className="space-y-1 text-xs text-slate-600 pl-4 list-disc">
+                            {opt.pros.map((p, pIdx) => (
+                              <li key={pIdx}>{p}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {Array.isArray(opt.cons) && opt.cons.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 text-amber-600" /> Challenges / Trade-offs
+                          </span>
+                          <ul className="space-y-1 text-xs text-slate-600 pl-4 list-disc">
+                            {opt.cons.map((c, cIdx) => (
+                              <li key={cIdx}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">Readiness Score</span>
-                      <strong className="text-xl font-black text-[var(--color-accent)] font-mono">{result.currentFit.score}%</strong>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Interactive Step-by-Step Roadmap (When roadmap requested) */}
+          {Array.isArray(activeResult.roadmap) && activeResult.roadmap.length > 0 && (
+            <Card className="border border-slate-200/80 bg-white shadow-xs rounded-3xl overflow-hidden">
+              <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-3">
+                <CardTitle className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                  Practical Progression Roadmap
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Follow this structured sequence to build verified competency without getting overwhelmed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 space-y-4">
+                {activeResult.roadmap.map((stage, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-2xl border border-slate-200/80 bg-white hover:border-emerald-200 hover:shadow-sm transition-all"
+                  >
+                    <div className="flex h-9 w-9 rounded-xl bg-emerald-600 text-white font-black text-xs items-center justify-center shrink-0 shadow-xs">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 space-y-2.5 min-w-0">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                            {stage.stage}
+                          </span>
+                          <span className="text-sm font-black text-slate-900">• {stage.title}</span>
+                        </div>
+                        {stage.description && (
+                          <p className="text-xs text-slate-500 mt-0.5">{stage.description}</p>
+                        )}
+                      </div>
+
+                      {Array.isArray(stage.topics) && stage.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 items-center pt-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Topics:</span>
+                          {stage.topics.map((top, tIdx) => (
+                            <span
+                              key={tIdx}
+                              className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200/60"
+                            >
+                              {top}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {Array.isArray(stage.projects) && stage.projects.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
+                          <span className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mr-1">
+                            <Terminal className="h-3 w-3" /> Project:
+                          </span>
+                          {stage.projects.map((proj, pIdx) => (
+                            <span
+                              key={pIdx}
+                              className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200"
+                            >
+                              {proj}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    {result.currentFit.summary}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500 italic">Profile fit calculation active for your configured career targets.</p>
-              )}
-            </div>
-          </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-          {/* ─── 3. MARKET OUTLOOK ────────────────────────────────────────────── */}
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-200">
-                <TrendingUp className="h-4 w-4" />
-              </span>
-              <h4 className="text-base font-bold text-slate-900">3. Market Outlook</h4>
-            </div>
+          {/* Bottom Grid: What to Avoid & Immediate Next Steps */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* What to Avoid */}
+            {Array.isArray(activeResult.what_to_avoid) && activeResult.what_to_avoid.length > 0 && (
+              <Card className="border border-amber-200/70 bg-amber-50/20 shadow-xs rounded-3xl overflow-hidden">
+                <CardHeader className="pb-2 border-b border-amber-100">
+                  <CardTitle className="text-sm sm:text-base font-bold text-amber-900 flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-amber-600" />
+                    Pitfalls to Avoid
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2">
+                  {activeResult.what_to_avoid.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5 text-xs text-amber-950 font-medium">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
-            {result.marketOutlook && result.marketOutlook.available && !result.marketOutlook.demand?.includes('unavailable') ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
-                  <span className="text-slate-500 block mb-1">Demand Level</span>
-                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.demand}</strong>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
-                  <span className="text-slate-500 block mb-1">Projected Growth</span>
-                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.growth}</strong>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
-                  <span className="text-slate-500 block mb-1">Opportunity Volume</span>
-                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.opportunityVolume || 'Active'}</strong>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
-                  <span className="text-slate-500 block mb-1">Industry Relevance</span>
-                  <strong className="text-slate-900 font-bold text-sm">{result.marketOutlook.industryRelevance || 'High'}</strong>
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 space-y-1">
-                <div className="flex items-center gap-2 text-slate-800 font-bold">
-                  <BarChart3 className="h-4 w-4 text-slate-500" />
-                  <span>Market Data Availability Notice</span>
-                </div>
-                <p className="italic">
-                  {result.marketOutlook?.note || 'Market data unavailable for this specific comparison request. General technical recommendations are derived from verified engineering roadmaps and career target benchmarks.'}
-                </p>
-              </div>
+            {/* Actionable Next Steps */}
+            {Array.isArray(activeResult.next_steps) && activeResult.next_steps.length > 0 && (
+              <Card className="border border-emerald-200/70 bg-emerald-50/20 shadow-xs rounded-3xl overflow-hidden">
+                <CardHeader className="pb-2 border-b border-emerald-100">
+                  <CardTitle className="text-sm sm:text-base font-bold text-emerald-900 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    Your Actionable Next Steps
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2">
+                  {activeResult.next_steps.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5 text-xs text-emerald-950 font-semibold">
+                      <span className="flex h-5 w-5 rounded-full bg-emerald-600 text-white items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span className="pt-0.5">{step}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             )}
           </div>
 
-          {/* ─── OPTIONAL: SIDE-BY-SIDE PATH COMPARISON (IF MULTI-TRACK) ────── */}
-          {result.comparison && result.comparison.length > 1 && (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-base font-bold text-slate-900">Side-by-Side Path Comparison</h4>
-                <p className="text-xs text-slate-500">Benchmark compliance and fit comparison</p>
+          {/* Clickable Follow-up Questions */}
+          {Array.isArray(activeResult.follow_up_questions) && activeResult.follow_up_questions.length > 0 && (
+            <div className="space-y-2.5 pt-2">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <HelpCircle className="h-3.5 w-3.5" /> Follow-up Questions
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {result.comparison.map((item) => {
-                  const isWinner = item.careerSlug === result.recommendation?.careerSlug
-                  return (
-                    <div
-                      key={item.careerSlug}
-                      className={`rounded-2xl border p-5 flex flex-col justify-between transition-all ${
-                        isWinner
-                          ? 'border-[var(--color-accent)] bg-white ring-2 ring-[var(--color-accent)]/20 shadow-xs'
-                          : 'border-slate-200/80 bg-white/90 shadow-sm'
-                      }`}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            {isWinner && (
-                              <span className="text-[10px] font-bold uppercase text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] px-2 py-0.5 rounded-full mb-1 inline-block">
-                                Best Fit
-                              </span>
-                            )}
-                            <h5 className="text-base font-bold text-slate-900">{item.careerName}</h5>
-                          </div>
-                          <span className="text-xl font-black text-slate-900 font-mono">{item.fitScore}%</span>
-                        </div>
-                        <div className="text-xs space-y-1.5 text-slate-600">
-                          <div className="flex justify-between">
-                            <span>Market Outlook:</span>
-                            <strong className="text-slate-800">{item.marketOutlook}</strong>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Difficulty:</span>
-                            <strong className="text-slate-800">{item.transitionDifficulty}</strong>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="pt-3 mt-3 border-t border-slate-100">
-                        <Link href="/student/career">
-                          <Button variant={isWinner ? "default" : "outline"} size="sm" className="w-full text-xs rounded-xl">
-                            Select Career →
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ─── 5. SKILLS YOU ALREADY HAVE & 6. SKILLS YOU ARE MISSING ───────── */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* 5. Skills You Already Have */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
-                  <ShieldCheck className="h-4 w-4" />
-                </span>
-                <h4 className="text-base font-bold text-slate-900">5. Skills You Already Have</h4>
-              </div>
-
-              {result.skillsHave && result.skillsHave.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {result.skillsHave.map((skill, idx) => (
-                    <div
-                      key={idx}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
-                        skill.isVerified
-                          ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                          : 'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {skill.isVerified ? (
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <span className="h-2 w-2 rounded-full bg-slate-400" />
-                      )}
-                      <span>{skill.name}</span>
-                      <span className="text-[10px] opacity-75 font-mono">
-                        ({skill.isVerified ? `Verified Lvl ${skill.level}` : `Self-Declared Lvl ${skill.level}`})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 text-xs text-slate-500">
-                  No skills declared or assessed yet on your profile. Declare skills in Career Target to calibrate your fit.
-                </div>
-              )}
-            </div>
-
-            {/* 6. Skills You Are Missing */}
-            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-200">
-                  <AlertTriangle className="h-4 w-4" />
-                </span>
-                <h4 className="text-base font-bold text-slate-900">6. Skills You Are Missing</h4>
-              </div>
-
-              {result.skillsMissing && result.skillsMissing.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {result.skillsMissing.map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-50/70 text-amber-900 border border-amber-200/80"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-800 font-medium">
-                  No critical missing benchmarks identified for your active track!
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ─── 7. SKILL GAPS ─────────────────────────────────────────────────── */}
-          {result.skillGaps && result.skillGaps.length > 0 && (
-            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
-                  <Layers className="h-4 w-4" />
-                </span>
-                <h4 className="text-base font-bold text-slate-900">7. Skill Gaps Diagnostic</h4>
-              </div>
-
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {result.skillGaps.map((gap, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-1.5 text-xs">
-                    <div className="flex justify-between items-center">
-                      <strong className="font-bold text-slate-900">{gap.skillName}</strong>
-                      <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                        -{gap.deficit} Level Gap
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-slate-500 text-[11px]">
-                      <span>Current: Level {gap.currentLevel}</span>
-                      <span>Target: Level {gap.requiredLevel}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── 8. WHAT YOU SHOULD LEARN ──────────────────────────────────────── */}
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200">
-                <BookOpen className="h-4 w-4" />
-              </span>
-              <h4 className="text-base font-bold text-slate-900">8. What You Should Learn</h4>
-            </div>
-
-            <div className="space-y-2.5">
-              {(result.whatToLearn && result.whatToLearn.length > 0
-                ? result.whatToLearn
-                : result.nextSteps || ['Explore core benchmarks', 'Take skill assessment']
-              ).map((step, idx) => (
-                <div key={idx} className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3 text-xs">
-                  <span className="h-6 w-6 rounded-xl bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                    {idx + 1}
-                  </span>
-                  <span className="font-semibold text-slate-800 pt-0.5 leading-relaxed">{step}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ─── 9. RECOMMENDED ROADMAP ────────────────────────────────────────── */}
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-border-primary)]">
-                  <Calendar className="h-4 w-4" />
-                </span>
-                <h4 className="text-base font-bold text-slate-900">9. Recommended Roadmap</h4>
-              </div>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">7 / 30 / 60 / 90 Days</span>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { period: 'Day 7', title: 'Diagnostic', content: result.roadmap?.day7 || 'Complete initial diagnostic assessments.' },
-                { period: 'Day 30', title: 'Core Foundations', content: result.roadmap?.day30 || 'Close top missing benchmark with project.' },
-                { period: 'Day 60', title: 'Verification', content: result.roadmap?.day60 || 'Earn Level 1/2 verification badge.' },
-                { period: 'Day 90', title: 'Opportunity Ready', content: result.roadmap?.day90 || 'Qualify for matching partner opportunities.' },
-              ].map((phase, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase text-[var(--color-accent)] bg-[var(--color-accent-light)] px-2 py-0.5 rounded-md">
-                      {phase.period}
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-400">{phase.title}</span>
-                  </div>
-                  <p className="text-xs font-semibold text-slate-800 leading-relaxed pt-1">
-                    {phase.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ─── 10. FINAL RECOMMENDATION & ACTIONS ─────────────────────────────── */}
-          <div className="rounded-3xl border border-[var(--color-border-primary)] bg-gradient-to-r from-[#FAF6F3] via-white to-[#F2F7F9] p-6 sm:p-8 shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-              <div className="space-y-1 flex-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] block">
-                  10. Final Recommendation
-                </span>
-                <h4 className="text-xl font-black text-slate-900 tracking-tight">Your Next Strategic Move</h4>
-                <p className="text-sm font-semibold text-slate-800 leading-relaxed max-w-2xl pt-1">
-                  {result.finalRecommendation || result.recommendation?.reason || result.directAnswer}
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
-                <Link href="/student/career">
-                  <Button className="h-10 px-5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-semibold text-xs shadow-sm w-full sm:w-auto">
-                    Go to Career Target <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                  </Button>
-                </Link>
-                <Link href="/student/career?action=assess">
-                  <Button variant="outline" className="h-10 px-4 rounded-xl text-xs font-semibold w-full sm:w-auto">
-                    Take Skill Assessments
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* ─── MARKET DATA CITATION ───────────────────────────────────────── */}
-          {result.marketSummary && (
-            <div className="text-center text-[11px] text-slate-400 max-w-xl mx-auto space-y-1">
-              <p>
-                Market intelligence sources: <span className="text-slate-600 font-medium">{result.marketSummary.source}</span> ({result.marketSummary.freshness}).
-              </p>
-              <p className="italic">
-                Decision framework combines verified student skills, requirement benchmarks, and current market demand.
-              </p>
-            </div>
-          )}
-
-          {/* ─── FOLLOW-UP PROMPT SUGGESTIONS ──────────────────────────────── */}
-          {result.followUpQuestion && (
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-2.5">
-              <span className="text-xs font-bold text-slate-900 block">{result.followUpQuestion.questionText}</span>
-              <div className="flex justify-center gap-2 flex-wrap">
-                {result.followUpQuestion.options.map((opt) => (
-                  <Button
-                    key={opt}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setQuery(opt)
-                      handleAnalyze(opt)
-                    }}
-                    className="rounded-xl text-xs"
+              <div className="flex flex-wrap gap-2">
+                {activeResult.follow_up_questions.map((fq, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleAsk(fq)}
+                    className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/40 text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
-                    {opt}
-                  </Button>
+                    <span>{fq}</span>
+                    <ArrowRight className="h-3 w-3 text-emerald-600 shrink-0" />
+                  </button>
                 ))}
               </div>
             </div>
           )}
+
         </div>
       )}
+
     </div>
   )
 }

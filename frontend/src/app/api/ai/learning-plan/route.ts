@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenAI } from '@google/genai'
 import { getAIConfig } from '@/lib/ai/config'
 
 export async function POST(request: NextRequest) {
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
       },
     ]
 
-    // Attempt Gemini enhancement if configured
+    // Attempt Groq enhancement if configured
     const aiConfig = getAIConfig()
     if (aiConfig.apiKey) {
       try {
@@ -97,36 +96,48 @@ Generate a concise 5-step learning roadmap in valid JSON matching this schema:
 }
 Ensure exactly 5 steps: step 1 understand, step 2 learn, step 3 practice, step 4 build, step 5 reassess.`
 
-        const ai = new GoogleGenAI({ apiKey: aiConfig.apiKey })
-        const response = await ai.models.generateContent({
-          model: aiConfig.model,
-          contents: prompt,
-          config: {
-            temperature: 0.2,
-            responseMimeType: 'application/json',
+        const response = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${aiConfig.apiKey}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            model: aiConfig.model,
+            messages: [
+              { role: 'system', content: 'You are the SkillBridge Connect AI Roadmap Architect. Return valid JSON only.' },
+              { role: 'user', content: prompt },
+            ],
+            temperature: 0.2,
+            max_tokens: 1024,
+            response_format: { type: 'json_object' },
+          }),
+          signal: AbortSignal.timeout(Math.min(aiConfig.timeoutMs, 10000)),
         })
 
-        const text = response.text
-        if (text) {
-          const clean = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim()
-          const parsed = JSON.parse(clean)
-          if (parsed.summary) summary = parsed.summary
-          if (Array.isArray(parsed.steps) && parsed.steps.length === 5) {
-            steps = parsed.steps.map((s: any, idx: number) => ({
-              stepNumber: idx + 1,
-              stepType: s.stepType || steps[idx].stepType,
-              title: s.title || steps[idx].title,
-              description: s.description || steps[idx].description,
-              estimatedMinutes: Number(s.estimatedMinutes) || 45,
-              keyConcept: s.keyConcept || steps[idx].keyConcept,
-              careerRelevance: s.careerRelevance || steps[idx].careerRelevance,
-              isCompleted: idx === 0 && isHighScore,
-            }))
+        if (response.ok) {
+          const data = await response.json()
+          const text = data?.choices?.[0]?.message?.content
+          if (text) {
+            const clean = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim()
+            const parsed = JSON.parse(clean)
+            if (parsed.summary) summary = parsed.summary
+            if (Array.isArray(parsed.steps) && parsed.steps.length === 5) {
+              steps = parsed.steps.map((s: any, idx: number) => ({
+                stepNumber: idx + 1,
+                stepType: s.stepType || steps[idx].stepType,
+                title: s.title || steps[idx].title,
+                description: s.description || steps[idx].description,
+                estimatedMinutes: Number(s.estimatedMinutes) || 45,
+                keyConcept: s.keyConcept || steps[idx].keyConcept,
+                careerRelevance: s.careerRelevance || steps[idx].careerRelevance,
+                isCompleted: idx === 0 && isHighScore,
+              }))
+            }
           }
         }
-      } catch (geminiErr) {
-        console.warn('Gemini roadmap generation fallback to deterministic steps:', geminiErr)
+      } catch (groqErr) {
+        console.warn('Groq roadmap generation fallback to deterministic steps:', groqErr)
       }
     }
 

@@ -138,10 +138,12 @@ export default function SkillPassportView() {
     ? profile.skills
     : profile.skills.filter(s => s.category === activeCategory);
 
-  const getTierStyle = (tier: SkillItem['verificationLevel']) => {
+  const getTierStyle = (tier: SkillItem['verificationLevel'] | string) => {
     switch (tier) {
+      case 'Institution Verified':
+        return 'bg-emerald-100 text-emerald-900 border-emerald-300 ring-1 ring-emerald-500/30 font-bold';
       case 'Evidence Verified':
-        return 'bg-[#F0F6F9] text-[var(--color-accent-hover)] border-[#A8C9D9]/70 ring-1 ring-[#A8C9D9]/30';
+        return 'bg-emerald-50 text-emerald-800 border-emerald-200 ring-1 ring-emerald-300/30';
       case 'Practical Verified':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200/80 ring-1 ring-emerald-400/20';
       case 'Assessment Verified':

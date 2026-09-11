@@ -51,6 +51,32 @@ export async function GET() {
       if (profile && (profile as any).full_name) {
         defaultPassportData.name = (profile as any).full_name
       }
+
+      // Merge verified skills from student_skills table
+      try {
+        const { data: verifiedSkills } = await (supabase as any)
+          .from('student_skills')
+          .select('skill_name, score, verification_level, last_evaluated')
+          .eq('student_id', user.id)
+
+        if (verifiedSkills && verifiedSkills.length > 0) {
+          for (const v of verifiedSkills) {
+            const idx = defaultPassportData.skills.findIndex(s => s.name.toLowerCase() === v.skill_name.toLowerCase())
+            if (idx >= 0) {
+              defaultPassportData.skills[idx].score = Number(v.score) || defaultPassportData.skills[idx].score
+              defaultPassportData.skills[idx].verificationLevel = v.verification_level || defaultPassportData.skills[idx].verificationLevel
+            } else {
+              defaultPassportData.skills.unshift({
+                name: v.skill_name,
+                category: "Backend",
+                score: Number(v.score) || 85,
+                verificationLevel: v.verification_level || "Institution Verified",
+                lastEvaluated: "Just Now",
+              })
+            }
+          }
+        }
+      } catch {}
     }
   } catch {
     // Graceful fallback to default passport data

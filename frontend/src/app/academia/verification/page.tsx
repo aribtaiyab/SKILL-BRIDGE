@@ -83,6 +83,34 @@ export default function AcademiaVerificationPage() {
   // Fetch Verification Requests
   const loadRequests = async () => {
     try {
+      // 1. Try dedicated live Supabase verification list
+      const liveRes = await fetch('/api/verification/list')
+      if (liveRes.ok) {
+        const liveJson = await liveRes.json()
+        if (liveJson.requests && Array.isArray(liveJson.requests) && liveJson.requests.length > 0) {
+          const mapped = liveJson.requests.map((r: any) => ({
+            id: r.id,
+            student_id: r.student_id,
+            student_name: r.student_name,
+            student_email: r.student_email || 'student@dtu.ac.in',
+            academician_id: 'faculty-001',
+            academician_name: 'Dr. Sarah Mitchell',
+            skill_name: r.skill_name,
+            current_skill_score: r.score || 85,
+            assessment_score: r.score || 85,
+            status: r.status === 'approved' ? 'verified' : (r.status === 'rejected' ? 'rejected' : 'request_sent'),
+            verification_tier: r.verification_tier,
+            supporting_evidence: r.proof_url ? [{ title: 'Repository Evidence', type: 'github', url: r.proof_url, description: r.proof_notes }] : [],
+            student_notes: r.proof_notes || 'Student benchmark assessment submitted for verified Living Skill Passport upgrade.',
+            created_at: r.created_at || new Date().toISOString(),
+          }))
+          setRequests(mapped as any)
+          setLoading(false)
+          return
+        }
+      }
+
+      // 2. Fallback to academician requests endpoint
       const res = await apiClient<{ success: boolean; data: VerificationRequestItem[] }>('/api/verification/academician/requests')
       if (res?.success && Array.isArray(res.data)) {
         setRequests(res.data)
@@ -98,7 +126,35 @@ export default function AcademiaVerificationPage() {
     loadRequests()
   }, [])
 
-  // Action: Accept Request
+  // 1-Click Approve Verification Action
+  const handleQuickApprove = async (id: string) => {
+    try {
+      const res = await fetch('/api/verification/action', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: id, action: 'approved', facultyFeedback: 'Verified with high technical competence.' })
+      })
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'verified' as any } : r))
+    } catch (err) {
+      console.error('Quick approve error:', err)
+    }
+  }
+
+  // 1-Click Quick Reject Action
+  const handleQuickReject = async (id: string) => {
+    try {
+      const res = await fetch('/api/verification/action', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: id, action: 'rejected', facultyFeedback: 'Evidence insufficient to warrant endorsement.' })
+      })
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected' as any } : r))
+    } catch (err) {
+      console.error('Quick reject error:', err)
+    }
+  }
+
+  // Action: Accept Request (Scheduling route)
   const handleAccept = async (id: string) => {
     try {
       const res = await apiClient<{ success: boolean; data: VerificationRequestItem }>(`/api/verification/requests/${id}/accept`, {
@@ -353,19 +409,24 @@ export default function AcademiaVerificationPage() {
                       <>
                         <Button
                           size="sm"
-                          onClick={() => handleAccept(req.id)}
-                          className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-xs"
+                          onClick={() => handleQuickApprove(req.id)}
+                          className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
                         >
-                          <Check className="h-3.5 w-3.5" /> Accept Request
+                          <ShieldCheck className="h-3.5 w-3.5" /> Approve Verification
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAccept(req.id)}
+                          className="h-9 px-3 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs gap-1.5 cursor-pointer"
+                        >
+                          <Calendar className="h-3.5 w-3.5 text-blue-600" /> Schedule
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setDecisionRequest(req)
-                            setRejectionReason('Evidence insufficient to warrant live verification')
-                          }}
-                          className="h-9 px-3 rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs"
+                          onClick={() => handleQuickReject(req.id)}
+                          className="h-9 px-3 rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs cursor-pointer"
                         >
                           Reject
                         </Button>

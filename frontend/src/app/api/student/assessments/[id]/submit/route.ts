@@ -133,6 +133,22 @@ export async function POST(
             source: 'assessment',
             recorded_at: new Date().toISOString(),
           })
+
+        // 7. Create ticket in verification_requests
+        await (supabase as any)
+          .from('verification_requests')
+          .insert({
+            student_id: user.id,
+            student_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
+            student_email: user.email || 'student@dtu.ac.in',
+            department: 'Computer Science & Engineering',
+            skill_name: assessment.skill,
+            verification_tier: 'Assessment Verified',
+            score: normalizedScore,
+            proof_notes: `Completed official benchmarking assessment for ${assessment.skill} scoring ${normalizedScore}/100.`,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          })
       }
     } catch (dbErr) {
       console.warn('Database persistence note on assessment submission:', dbErr)

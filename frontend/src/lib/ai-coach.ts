@@ -61,7 +61,7 @@ export async function getCareerReadinessDiagnosis(
   // 1. Calculate deterministic fallback values first
   const fallbackResult = calculateRuleBasedReadiness(targetRole, studentScores, benchmark)
 
-  const apiKey = (process.env.GEMINI_API_KEY || '').trim()
+  const apiKey = (process.env.GROQ_API_KEY || '').trim()
 
   if (!apiKey) {
     return fallbackResult
@@ -86,21 +86,25 @@ Respond ONLY with valid JSON having this exact structure:
   "recommendedTask": "${fallbackResult.recommendedTask}"
 }`
 
-    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash'
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+    const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+    const baseUrl = (process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, '')
+    const url = `${baseUrl}/chat/completions`
 
     const response = await fetch(url, {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 1024,
-          responseMimeType: "application/json",
-        },
+        model,
+        messages: [
+          { role: "system", content: "You are the SkillBridge Diagnostic AI. Return valid JSON only." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 1024,
+        response_format: { type: "json_object" },
       }),
       signal: controller.signal,
     })
@@ -112,9 +116,9 @@ Respond ONLY with valid JSON having this exact structure:
     }
 
     const data: any = await response.json()
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text
+    const content = data.choices?.[0]?.message?.content
     if (content) {
-      const parsed = JSON.parse(content.replace(/```json|```/g, "").trim())
+      const parsed = JSON.parse(content.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim())
       return {
         readinessScore: typeof parsed.readinessScore === "number" ? parsed.readinessScore : fallbackResult.readinessScore,
         priorityGap: parsed.priorityGap || fallbackResult.priorityGap,

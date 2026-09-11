@@ -258,3 +258,24 @@ export function getAssessmentRouteForSkill(skillName: string): string {
   }
   return `/student/assessment?skill=${encodeURIComponent(skill)}&assessmentId=${assessmentId}&autostart=true`
 }
+
+// Global in-memory storage for opportunities created during session
+type GlobalWithOpps = typeof globalThis & { __skillbridge_dynamic_opps?: OpportunityItem[] }
+const oppGlobal = globalThis as GlobalWithOpps
+if (!oppGlobal.__skillbridge_dynamic_opps) {
+  oppGlobal.__skillbridge_dynamic_opps = []
+}
+
+export function addDynamicOpportunity(opp: OpportunityItem) {
+  if (!oppGlobal.__skillbridge_dynamic_opps) {
+    oppGlobal.__skillbridge_dynamic_opps = []
+  }
+  // Prepend so newly created opportunities appear first
+  oppGlobal.__skillbridge_dynamic_opps.unshift(opp)
+}
+
+export function getAllCombinedOpportunities(): OpportunityItem[] {
+  const dynamic = oppGlobal.__skillbridge_dynamic_opps || []
+  return [...dynamic, ...SEED_OPPORTUNITIES]
+}
+

@@ -187,6 +187,21 @@ export async function POST(request: NextRequest) {
           score: newVerifiedLvl,
           metadata: { evidenceId: insertedEvidence.id, title, url },
         })
+
+        // Create pending verification request for faculty review
+        await (supabase as any).from('verification_requests').insert({
+          student_id: user.id,
+          student_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
+          student_email: user.email || 'student@dtu.ac.in',
+          department: 'Computer Science & Engineering',
+          skill_name: skillName,
+          verification_tier: 'Evidence Verified',
+          score: newVerifiedLvl,
+          proof_url: url || null,
+          proof_notes: description || `Submitted project evidence: ${title}`,
+          status: 'pending',
+          created_at: now,
+        })
       } catch (upsertErr) {
         console.warn('[Evidence API] Student skill elevation warning:', upsertErr)
       }

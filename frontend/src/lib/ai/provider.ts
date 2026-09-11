@@ -502,34 +502,39 @@ export class DeterministicSkillBridgeAIProvider implements AIProvider {
 }
 
 /**
- * Live OpenAI/Compatible API Provider
-* Falls back to DeterministicSkillBridgeAIProvider if key missing or request fails.
+/**
+ * Live Groq API Provider
+ * Falls back to DeterministicSkillBridgeAIProvider if key missing or request fails.
  */
 export class LiveAPIProvider implements AIProvider {
   private fallback = new DeterministicSkillBridgeAIProvider()
 
-  private async callGemini(systemPrompt: string, userPrompt: string): Promise<any> {
+  private async callGroq(systemPrompt: string, userPrompt: string): Promise<any> {
     const apiKey = AI_CONFIG.apiKey
     if (!apiKey) return null
-    const url = `${AI_CONFIG.baseUrl}/models/${AI_CONFIG.model}:generateContent?key=${apiKey}`
+    const url = `${AI_CONFIG.baseUrl}/chat/completions`
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-          generationConfig: {
-            temperature: AI_CONFIG.temperature,
-            maxOutputTokens: AI_CONFIG.maxTokens,
-            responseMimeType: 'application/json',
-          },
+          model: AI_CONFIG.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: AI_CONFIG.temperature,
+          max_tokens: AI_CONFIG.maxTokens,
+          response_format: { type: 'json_object' },
         }),
         signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
       })
       if (!response.ok) return null
       const data = (await response.json()) as any
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+      const text = data.choices?.[0]?.message?.content?.trim()
       if (!text) return null
       return JSON.parse(text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim())
     } catch {
@@ -563,9 +568,29 @@ export class LiveAPIProvider implements AIProvider {
   "confidence": "high"
 }`
       const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), requestedSkill: skillName })
-      const parsed = await this.callGemini(systemPrompt, userPrompt)
+      const parsed = await this.callGroq(systemPrompt, userPrompt)
       if (parsed) {
-        return DiagnosticOutputSchema.parse(parsed)
+        const normalized = {
+          ...parsed,
+          skill: parsed.skill || skillName,
+          currentScore: typeof parsed.currentScore === 'number' ? parsed.currentScore : currentScore,
+          targetScore: typeof parsed.targetScore === 'number' ? parsed.targetScore : targetScore,
+          gap: typeof parsed.gap === 'number' ? parsed.gap : gap,
+          summary: parsed.summary || `Diagnosis for ${skillName}`,
+          weakAreas: Array.isArray(parsed.weakAreas) ? parsed.weakAreas : [`${skillName} core mechanics`],
+          strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ['Foundational understanding'],
+          commonMistakes: Array.isArray(parsed.commonMistakes) ? parsed.commonMistakes : ['Edge case error handling'],
+          prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : ['Core concepts'],
+          recommendedSequence: Array.isArray(parsed.recommendedSequence) ? parsed.recommendedSequence : ['Review fundamentals', 'Practice practical challenge'],
+          nextAction: parsed.nextAction && typeof parsed.nextAction === 'object' ? parsed.nextAction : {
+            title: `Practice ${skillName} challenge`,
+            estimatedMinutes: 30,
+            actionType: 'practice',
+            description: `Complete practical challenge for ${skillName}`,
+          },
+          confidence: parsed.confidence || 'high',
+        }
+        return DiagnosticOutputSchema.parse(normalized)
       }
       return this.fallback.diagnose(context, skillName)
     } catch (err) {
@@ -601,7 +626,7 @@ export class LiveAPIProvider implements AIProvider {
   ]
 }`
       const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), skillName })
-      const parsed = await this.callGemini(systemPrompt, userPrompt)
+      const parsed = await this.callGroq(systemPrompt, userPrompt)
       if (parsed) {
         const normalized = {
           skill: parsed.skill || skillName,
@@ -659,34 +684,37 @@ export class LiveAPIProvider implements AIProvider {
 
     try {
       const apiKey = AI_CONFIG.apiKey
-      const url = `${AI_CONFIG.baseUrl}/models/${AI_CONFIG.model}:generateContent?key=${apiKey}`
-      const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+      const url = `${AI_CONFIG.baseUrl}/chat/completions`
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'system', content: getCoachChatSystemPrompt(context) },
+      ]
 
       history.slice(-4).forEach(h => {
-        contents.push({
-          role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.content }],
+        messages.push({
+          role: h.role === 'assistant' ? 'assistant' : 'user',
+          content: h.content,
         })
       })
-      contents.push({ role: 'user', parts: [{ text: message }] })
+      messages.push({ role: 'user', content: message })
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: getCoachChatSystemPrompt(context) }] },
-          contents,
-          generationConfig: {
-            temperature: AI_CONFIG.temperature,
-            maxOutputTokens: 1024,
-          },
+          model: AI_CONFIG.model,
+          messages,
+          temperature: AI_CONFIG.temperature,
+          max_tokens: 1024,
         }),
         signal: AbortSignal.timeout(AI_CONFIG.timeoutMs),
       })
 
-      if (!response.ok) throw new Error(`Gemini returned HTTP ${response.status}`)
+      if (!response.ok) throw new Error(`Groq returned HTTP ${response.status}`)
       const data = (await response.json()) as any
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'I am ready to help you improve your skills.'
+      const reply = data.choices?.[0]?.message?.content?.trim() || 'I am ready to help you improve your skills.'
       return {
         reply,
         suggestedQuestions: [
