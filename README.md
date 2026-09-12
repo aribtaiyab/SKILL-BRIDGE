@@ -92,8 +92,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `FRONTEND_URL` | Allowed frontend origin for CORS (e.g. `http://localhost:3000`) |
 | `SUPABASE_URL` | Supabase project API URL |
 | `SUPABASE_ANON_KEY` | Supabase anonymous public key |
-| `GEMINI_API_KEY` | Optional Google Gemini API key (server-only) |
-| `GEMINI_MODEL` | Preferred Gemini model (default `gemini-2.5-flash`) |
+
 
 ### Frontend (`frontend/.env.local`)
 
