@@ -518,14 +518,14 @@
           "name": "Node.js",
           "category": "Backend"
         },
-        "updated_at": "2026-09-12T05:54:01.439Z"
+        "updated_at": "2026-09-12T06:17:19.151Z"
       },
       "40000000-0000-0000-0000-000000000002": {
         "id": "ss-1788968427926-fjvdhg",
         "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
         "skill_id": "40000000-0000-0000-0000-000000000002",
-        "self_declared_level": 90,
-        "current_level": 90,
+        "self_declared_level": 0,
+        "current_level": 0,
         "verified_level": 0,
         "verification_status": "self_declared",
         "skills": {
@@ -533,14 +533,14 @@
           "name": "REST APIs",
           "category": "Backend"
         },
-        "updated_at": "2026-09-12T05:54:01.695Z"
+        "updated_at": "2026-09-12T06:17:19.460Z"
       },
       "40000000-0000-0000-0000-000000000003": {
         "id": "ss-1788968428386-k9povh",
         "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
         "skill_id": "40000000-0000-0000-0000-000000000003",
-        "self_declared_level": 30,
-        "current_level": 30,
+        "self_declared_level": 70,
+        "current_level": 70,
         "verified_level": 0,
         "verification_status": "self_declared",
         "skills": {
@@ -548,7 +548,7 @@
           "name": "SQL",
           "category": "Databases"
         },
-        "updated_at": "2026-09-12T05:54:01.990Z"
+        "updated_at": "2026-09-12T06:17:19.654Z"
       },
       "40000000-0000-0000-0000-000000000004": {
         "id": "ss-1788968428581-8lqwio",
@@ -563,7 +563,7 @@
           "name": "Git & Version Control",
           "category": "Tools"
         },
-        "updated_at": "2026-09-12T05:54:02.248Z"
+        "updated_at": "2026-09-12T06:17:19.849Z"
       }
     }
   },
@@ -694,5 +694,5 @@
       }
     ]
   },
-  "updatedAt": "2026-09-12T05:54:02.466Z"
+  "updatedAt": "2026-09-12T06:17:20.049Z"
 }
