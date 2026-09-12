@@ -1,5 +1,5 @@
 import { AI_CONFIG } from './config.js'
-import { GeminiService } from '../services/ai/gemini.service.js'
+import { GroqService } from '../services/ai/groq.service.js'
 import {
   StudentAIContext,
   DiagnosticOutput,
@@ -509,8 +509,8 @@ export class DeterministicSkillBridgeAIProvider implements AIProvider {
 export class LiveAPIProvider implements AIProvider {
   private fallback = new DeterministicSkillBridgeAIProvider()
 
-  private async callGemini(systemPrompt: string, userPrompt: string): Promise<any> {
-    return GeminiService.generateStructured({
+  private async callGroq(systemPrompt: string, userPrompt: string): Promise<any> {
+    return GroqService.generateStructured({
       systemInstruction: systemPrompt,
       userPrompt,
     })
@@ -542,9 +542,29 @@ export class LiveAPIProvider implements AIProvider {
   "confidence": "high"
 }`
       const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), requestedSkill: skillName })
-      const parsed = await this.callGemini(systemPrompt, userPrompt)
+      const parsed = await this.callGroq(systemPrompt, userPrompt)
       if (parsed) {
-        return DiagnosticOutputSchema.parse(parsed)
+        const normalized = {
+          ...parsed,
+          skill: parsed.skill || skillName,
+          currentScore: typeof parsed.currentScore === 'number' ? parsed.currentScore : currentScore,
+          targetScore: typeof parsed.targetScore === 'number' ? parsed.targetScore : targetScore,
+          gap: typeof parsed.gap === 'number' ? parsed.gap : gap,
+          summary: parsed.summary || `Diagnosis for ${skillName}`,
+          weakAreas: Array.isArray(parsed.weakAreas) ? parsed.weakAreas : [`${skillName} core mechanics`],
+          strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ['Foundational understanding'],
+          commonMistakes: Array.isArray(parsed.commonMistakes) ? parsed.commonMistakes : ['Edge case error handling'],
+          prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : ['Core concepts'],
+          recommendedSequence: Array.isArray(parsed.recommendedSequence) ? parsed.recommendedSequence : ['Review fundamentals', 'Practice practical challenge'],
+          nextAction: parsed.nextAction && typeof parsed.nextAction === 'object' ? parsed.nextAction : {
+            title: `Practice ${skillName} challenge`,
+            estimatedMinutes: 30,
+            actionType: 'practice',
+            description: `Complete practical challenge for ${skillName}`,
+          },
+          confidence: parsed.confidence || 'high',
+        }
+        return DiagnosticOutputSchema.parse(normalized)
       }
       return this.fallback.diagnose(context, skillName)
     } catch (err) {
@@ -580,7 +600,7 @@ export class LiveAPIProvider implements AIProvider {
   ]
 }`
       const userPrompt = JSON.stringify({ context: formatSkillBridgeContext(context), skillName })
-      const parsed = await this.callGemini(systemPrompt, userPrompt)
+      const parsed = await this.callGroq(systemPrompt, userPrompt)
       if (parsed) {
         const normalized = {
           skill: parsed.skill || skillName,
@@ -637,7 +657,7 @@ export class LiveAPIProvider implements AIProvider {
     }
 
     try {
-      const reply = await GeminiService.generateText({
+      const reply = await GroqService.generateText({
         systemInstruction: getCoachChatSystemPrompt(context),
         userPrompt: message,
       })

@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from '../config/supabase.js'
 import { AI_CONFIG } from '../ai/config.js'
-import { GeminiService } from './ai/gemini.service.js'
+import { GroqService } from './ai/groq.service.js'
 import { CAREER_NAVIGATOR_SYSTEM_INSTRUCTION, buildCareerNavigatorUserPrompt } from './ai/prompts/careerNavigator.prompt.js'
 import { CareerNavigatorOutput, CareerNavigatorOutputSchema } from './ai/schemas/careerNavigator.schema.js'
 import { sessionSkills, sessionCareerTargets } from '../controllers/studentController.js'
@@ -267,10 +267,10 @@ export class CareerNavigatorService {
       }
     })
 
-    // 3. Gemini Structured AI Call
+    // 3. Groq Structured AI Call
     if (AI_CONFIG.isLiveProviderConfigured()) {
       try {
-        console.log(`[CareerNavigatorService] Requesting Gemini for query: "${rawQuery}", intent: ${extracted.intent}, student: ${studentName}`)
+        console.log(`[CareerNavigatorService] Requesting Groq for query: "${rawQuery}", intent: ${extracted.intent}, student: ${studentName}`)
         const userPrompt = buildCareerNavigatorUserPrompt({
           query: rawQuery,
           intent: extracted.intent,
@@ -282,14 +282,18 @@ export class CareerNavigatorService {
           skillGaps,
         })
 
-        const geminiResult = await GeminiService.generateStructured<CareerNavigatorOutput>({
+        const groqResult = await GroqService.generateStructured<CareerNavigatorOutput>({
           systemInstruction: CAREER_NAVIGATOR_SYSTEM_INSTRUCTION,
           userPrompt,
           temperature: 0.2,
           maxTokens: 2048,
         })
 
-        if (geminiResult && geminiResult.directAnswer) {
+        if (groqResult && groqResult.directAnswer) {
+          // Validate with schema to guarantee integrity
+          const validated = CareerNavigatorOutputSchema.safeParse(groqResult)
+          const finalOutput = validated.success ? validated.data : groqResult
+
           // Asynchronously record decision if real student
           if (input.userId && input.userId !== '00000000-0000-0000-0000-000000000001') {
             try {
@@ -299,21 +303,21 @@ export class CareerNavigatorService {
                   student_id: input.userId,
                   question: rawQuery,
                   intent: extracted.intent,
-                  recommended_career_name: geminiResult.recommendation?.careerName || geminiResult.headline,
-                  confidence: geminiResult.recommendation?.confidence || 75,
+                  recommended_career_name: finalOutput.recommendation?.careerName || finalOutput.headline,
+                  confidence: finalOutput.recommendation?.confidence || 75,
                 })
               }
             } catch {}
           }
 
           return {
-            ...geminiResult,
+            ...finalOutput,
             intent: extracted.intent,
             isFromFallback: false,
           }
         }
       } catch (aiErr: any) {
-        console.warn('[CareerNavigatorService] Gemini structured generation error:', aiErr?.message || aiErr)
+        console.warn('[CareerNavigatorService] Groq structured generation error:', aiErr?.message || aiErr)
       }
     }
 

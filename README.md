@@ -92,8 +92,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `FRONTEND_URL` | Allowed frontend origin for CORS (e.g. `http://localhost:3000`) |
 | `SUPABASE_URL` | Supabase project API URL |
 | `SUPABASE_ANON_KEY` | Supabase anonymous public key |
-| `GEMINI_API_KEY` | Optional Google Gemini API key (server-only) |
-| `GEMINI_MODEL` | Preferred Gemini model (default `gemini-2.5-flash`) |
+| `GROQ_API_KEY` | Optional Groq AI API key (server-only) |
+| `GROQ_MODEL` | Preferred Groq model (default `openai/gpt-oss-120b`) |
+| `GROQ_BASE_URL` | Groq API base URL (`https://api.groq.com/openai/v1`) |
 
 ### Frontend (`frontend/.env.local`)
 

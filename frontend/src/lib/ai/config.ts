@@ -1,18 +1,29 @@
 /**
- * Server-only AI Layer Configuration — Groq API
+ * Server-only AI Layer Configuration — Grok / Groq API
  *
- * Primary Provider: Groq API (https://api.groq.com/openai/v1)
- * Preferred Model: openai/gpt-oss-120b (or configurable via GROQ_MODEL)
+ * Supports Grok (xAI API) and Groq API via standard OpenAI-compatible endpoints.
+ * Never exposed client-side.
  */
 
 export const AI_CONFIG = {
   get apiKey(): string {
-    return (process.env.GROQ_API_KEY || '').trim()
+    return (process.env.GROK_API_KEY || process.env.GROQ_API_KEY || '').trim()
+  },
+  get provider(): 'grok' | 'groq' | 'unconfigured' {
+    if ((process.env.GROK_API_KEY || '').trim().length > 0) return 'grok'
+    if ((process.env.GROQ_API_KEY || '').trim().length > 0) return 'groq'
+    return 'unconfigured'
   },
   get model(): string {
-    return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+    if ((process.env.GROK_API_KEY || '').trim().length > 0) {
+      return process.env.GROK_MODEL || 'grok-beta'
+    }
+    return process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
   },
   get baseUrl(): string {
+    if ((process.env.GROK_API_KEY || '').trim().length > 0) {
+      return (process.env.GROK_BASE_URL || 'https://api.x.ai/v1').replace(/\/$/, '')
+    }
     return (process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, '')
   },
   get maxTokens(): number {
@@ -25,7 +36,7 @@ export const AI_CONFIG = {
     return Number(process.env.AI_TIMEOUT_MS) || 45000
   },
   isLiveProviderConfigured(): boolean {
-    return (process.env.GROQ_API_KEY || '').trim().length > 0
+    return (process.env.GROK_API_KEY || process.env.GROQ_API_KEY || '').trim().length > 0
   },
 }
 
@@ -38,15 +49,14 @@ export function getAIConfig() {
  */
 export function getAIConfigurationStatus(): {
   configured: boolean
-  provider: 'groq'
+  provider: 'grok' | 'groq' | 'unconfigured'
   model: string
 } {
   const isConfigured = AI_CONFIG.isLiveProviderConfigured()
 
   return {
     configured: isConfigured,
-    provider: 'groq',
+    provider: AI_CONFIG.provider,
     model: AI_CONFIG.model,
   }
 }
-

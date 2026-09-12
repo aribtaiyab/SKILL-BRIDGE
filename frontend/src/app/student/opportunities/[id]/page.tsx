@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,285 +8,180 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   ArrowLeft, Building, MapPin, Briefcase, Calendar, CheckCircle2,
-  AlertTriangle, Bot, AlertCircle, Loader2, Bookmark, BookmarkCheck,
-  Clock, TrendingUp, ChevronRight, Sparkles
+  AlertTriangle, AlertCircle, Loader2, Bookmark, BookmarkCheck,
+  Clock, TrendingUp, ChevronRight, Check, X, ArrowRight, ShieldCheck, DollarSign
 } from "lucide-react"
-import { buildMatchExplanation } from "@/lib/intelligence/matching"
 import { apiClient } from "@/lib/api-client"
-import { useDemo } from "@/lib/demo/demo-context"
+import {
+  SEED_OPPORTUNITIES,
+  calculateOpportunityMatch,
+  getAssessmentRouteForSkill,
+  OpportunityItem,
+  OpportunityMatchResult
+} from "@/lib/opportunities-seed"
 
-interface OpportunityDetail {
-  id: string
-  title: string
-  company: string
-  type: string
-  location: string
-  workMode: string
-  duration: string
-  deadline: string | null
-  deadlineLabel: string
-  isDeadlineSoon: boolean
-  isDeadlinePassed: boolean
-  description: string
-  matchPercentage: number
-  readinessCategory: string
-  skillsMetCount: number
-  totalSkillsCount: number
-  mainBlocker: string | null
-  skills: { name: string; met: boolean; currentLevel: number; requiredLevel: number; gap: number; importance: string }[]
-  verifiedSkills: { name: string; score: string }[]
-  missingSkills: { name: string; reqLevel: number; gap: number }[]
-  readinessSummary: string
-  recommendedAction: string
-  nextSteps: { action: string; href: string }[]
-  eligibilityDescription: string | null
-}
-
-function getDeadlineInfo(deadline: string | null): { label: string; isSoon: boolean; isPassed: boolean } {
-  if (!deadline) return { label: 'Rolling Applications', isSoon: false, isPassed: false }
-  const now = new Date()
-  const d = new Date(deadline)
-  const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return { label: 'Closed', isSoon: false, isPassed: true }
-  if (diffDays <= 7) return { label: `${diffDays} day${diffDays !== 1 ? 's' : ''} left`, isSoon: true, isPassed: false }
-  return {
-    label: d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-    isSoon: false,
-    isPassed: false,
-  }
+const DEMO_STUDENT_SKILLS_BASELINE: Record<string, number> = {
+  "HTML": 80,
+  "CSS": 80,
+  "JavaScript": 85,
+  "React": 60,
+  "Git": 75,
+  "Python": 80,
+  "SQL": 75,
+  "DSA": 80,
+  "Problem Solving": 75,
+  "OOP": 75,
+  "Java": 70,
+  "C++": 70,
+  "Machine Learning": 60,
+  "Data Structures": 80,
+  "Linear Algebra": 65,
+  "NumPy": 65,
+  "Excel": 75,
+  "Communication": 75,
 }
 
 export default function OpportunityDetailsPage() {
-  const { isDemo, opportunities: demoOpps } = useDemo()
   const params = useParams()
   const opportunityId = typeof params?.id === 'string' ? params.id : ''
 
-  const [opp, setOpp] = useState<OpportunityDetail | null>(null)
+  const [opp, setOpp] = useState<OpportunityItem | null>(null)
+  const [matchResult, setMatchResult] = useState<OpportunityMatchResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [isApplying, setIsApplying] = useState(false)
   const [hasApplied, setHasApplied] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
-  const [savingState, setSavingState] = useState(false)
-  const [error, setError] = useState("")
+  const [togglingSave, setTogglingSave] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")
+  const [showApplyModal, setShowApplyModal] = useState(false)
+  const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const [proofCoverage, setProofCoverage] = useState<any>(null)
-
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!opportunityId) return
     setLoading(true)
 
-    if (isDemo) {
-      const demoMatch = demoOpps.find(o => o.id === opportunityId) || demoOpps[0]
-      const skills = demoMatch.skills.map(s => {
-        const gap = Math.max(0, s.requiredLevel - s.currentLevel)
-        return {
-          name: s.name,
-          met: s.met,
-          currentLevel: s.currentLevel,
-          requiredLevel: s.requiredLevel,
-          gap,
-          importance: 'High',
-        }
-      })
+    let foundOpp: OpportunityItem | null = null
 
-      const verifiedSkills = skills.filter(s => s.met).map(s => ({
-        name: s.name,
-        score: `${s.currentLevel} / ${s.requiredLevel} Req`,
-      }))
-      const missingSkills = skills.filter(s => !s.met).map(s => ({
-        name: s.name,
-        reqLevel: s.requiredLevel,
-        gap: s.gap,
-      }))
-
-      setOpp({
-        id: demoMatch.id,
-        title: demoMatch.title,
-        company: demoMatch.company,
-        type: demoMatch.type,
-        location: demoMatch.location,
-        workMode: demoMatch.workMode,
-        duration: demoMatch.duration,
-        deadline: demoMatch.deadline,
-        deadlineLabel: demoMatch.deadlineLabel,
-        isDeadlineSoon: demoMatch.isDeadlineSoon,
-        isDeadlinePassed: demoMatch.isDeadlinePassed,
-        description:
-          demoMatch.id === 'opp-technova-fullstack'
-            ? 'Join TechNova Labs as a Full Stack Developer Intern. You will design and implement high-performance web components using Next.js and build scalable, secure RESTful APIs with Node.js. Mentorship provided by Senior Staff Engineers.'
-            : 'Explore this opportunity and prove your skills against enterprise benchmarks.',
-        matchPercentage: demoMatch.matchPercentage,
-        readinessCategory: demoMatch.readinessCategory,
-        skillsMetCount: demoMatch.skillsMetCount,
-        totalSkillsCount: demoMatch.totalSkillsCount,
-        mainBlocker: demoMatch.mainBlocker,
-        skills,
-        verifiedSkills,
-        missingSkills,
-        readinessSummary: `You are at ${demoMatch.matchPercentage}% Opportunity-Specific Readiness for this role. Primary blocker: ${demoMatch.mainBlocker}.`,
-        recommendedAction: `Focus on closing the gap in ${demoMatch.mainBlocker?.split(' ')[0] || 'core skills'} to cross the 80% readiness threshold.`,
-        nextSteps: [
-          { action: 'Take Diagnostic Assessment', href: '/student/assessments' },
-          { action: 'Attend Faculty Workshop', href: '/academia/workshops' },
-          { action: 'Submit Practical Proof in Passport', href: '/student/skill-passport' },
-        ],
-        eligibilityDescription: 'Open to graduating 2026 CS / IT undergraduates with verified fundamentals in web architecture.',
-      })
-      setIsSaved(demoMatch.isSaved)
-      setHasApplied(demoMatch.hasApplied)
-      setLoading(false)
-      return
+    // 1. Fetch Opportunity details
+    try {
+      const res = await apiClient<{ success: boolean; data: OpportunityItem }>(`/api/opportunities/${opportunityId}`)
+      if (res.success && res.data) {
+        foundOpp = res.data
+      }
+    } catch {
+      // Fallback
     }
 
-    Promise.all([
-      apiClient(`/api/opportunities/${opportunityId}`).catch(() => null),
-      apiClient(`/api/student/opportunities/${opportunityId}/readiness`).catch(() => null),
-      apiClient('/api/applications').catch(() => null),
-      apiClient('/api/student/opportunities/saved').catch(() => null),
-      apiClient(`/api/opportunities/${opportunityId}/proof`).catch(() => null),
-    ]).then(([oppRes, readRes, appsRes, savedRes, proofRes]) => {
-      const d = oppRes?.success ? oppRes.data : null
-      const readData = readRes?.success ? readRes.data : null
-      if (proofRes?.success && proofRes.data?.coverage) {
-        setProofCoverage(proofRes.data.coverage)
-      }
+    if (!foundOpp) {
+      foundOpp = SEED_OPPORTUNITIES.find(o => o.id === opportunityId) || null
+    }
 
-      // Check if already applied
-      if (appsRes?.success && appsRes.data) {
-        const alreadyApplied = (appsRes.data as any[]).some(
-          (a: any) => a.opportunities?.id === opportunityId
+    setOpp(foundOpp)
+
+    // 2. Fetch Student Skills for Match Calculation
+    let studentScores: Record<string, number> = { ...DEMO_STUDENT_SKILLS_BASELINE }
+    try {
+      const skillsRes = await apiClient<{ success: boolean; data: any[] }>('/api/student/skills')
+      if (skillsRes.success && Array.isArray(skillsRes.data) && skillsRes.data.length > 0) {
+        skillsRes.data.forEach((s: any) => {
+          const name = s.skills?.name || s.name || s.skillName
+          const level = Number(s.verified_level ?? s.current_level ?? s.self_declared_level ?? 0)
+          if (name && level > 0) {
+            studentScores[name] = level
+            studentScores[name.toLowerCase()] = level
+          }
+        })
+      }
+    } catch {
+      // Use baseline
+    }
+
+    if (foundOpp) {
+      const match = calculateOpportunityMatch(foundOpp, studentScores)
+      setMatchResult(match)
+    }
+
+    // 3. Check if Applied
+    try {
+      const appsRes = await apiClient<{ success: boolean; data?: any[] }>('/api/applications')
+      if (appsRes.success && Array.isArray(appsRes.data)) {
+        const already = appsRes.data.some(
+          (a: any) => String(a.opportunities?.id || a.opportunity_id) === String(opportunityId)
         )
-        if (alreadyApplied) setHasApplied(true)
+        setHasApplied(already)
       }
+    } catch {
+      // Non-blocking
+    }
 
-      // Check if saved
-      if (savedRes?.success && savedRes.data) {
-        const alreadySaved = (savedRes.data as any[]).some((s: any) => s.id === opportunityId)
-        if (alreadySaved) setIsSaved(true)
+    // 4. Check if Saved
+    try {
+      const savedRes = await apiClient<{ success: boolean; data?: string[]; savedOpportunityIds?: string[] }>(
+        '/api/student/saved-opportunities'
+      )
+      const ids = savedRes.data || savedRes.savedOpportunityIds || []
+      if (Array.isArray(ids)) {
+        setIsSaved(ids.includes(opportunityId))
       }
+    } catch {
+      // Non-blocking
+    }
 
-      const deadline = d?.deadline || null
-      const deadlineInfo = getDeadlineInfo(deadline)
-
-      const skills = readData
-        ? readData.skills.map((s: any) => ({
-            name: s.skillName,
-            met: s.met,
-            currentLevel: s.currentLevel,
-            requiredLevel: s.requiredLevel,
-            gap: s.gap,
-            importance: s.importance || 'High',
-          }))
-        : (d?.opportunity_skills || []).map((os: any) => ({
-            name: os.skills?.name || 'Skill',
-            met: false,
-            currentLevel: 0,
-            requiredLevel: os.minimum_level || 60,
-            gap: os.minimum_level || 60,
-            importance: os.importance || 'High',
-          }))
-
-      const verifiedSkills = skills.filter((s: any) => s.met).map((s: any) => ({
-        name: s.name,
-        score: `${s.currentLevel} / ${s.requiredLevel} Req`,
-      }))
-      const missingSkills = skills.filter((s: any) => !s.met).map((s: any) => ({
-        name: s.name,
-        reqLevel: s.requiredLevel,
-        gap: s.gap,
-      }))
-
-      // Build explanation using Phase 6 matching service
-      let readinessSummary = 'View your readiness below.'
-      let recommendedAction = ''
-      let nextSteps: { action: string; href: string }[] = []
-
-      if (readData) {
-        const explanation = buildMatchExplanation(readData, opportunityId)
-        readinessSummary = explanation.summary
-        recommendedAction = explanation.recommendedAction
-        nextSteps = explanation.nextSteps
-      }
-
-      setOpp({
-        id: opportunityId,
-        title: d?.title || 'Opportunity',
-        company: d?.industry_profiles?.organization_name || 'Enterprise Partner',
-        type: d?.opportunity_type || 'Internship',
-        location: d?.location || 'Remote',
-        workMode: d?.work_mode || 'hybrid',
-        duration: d?.duration || 'Flexible',
-        deadline,
-        deadlineLabel: deadlineInfo.label,
-        isDeadlineSoon: deadlineInfo.isSoon,
-        isDeadlinePassed: deadlineInfo.isPassed,
-        description: d?.description || 'Opportunity details provided by the host organization.',
-        matchPercentage: readData?.matchPercentage || 0,
-        readinessCategory: readData?.readinessCategory || '',
-        skillsMetCount: readData?.skillsMetCount || 0,
-        totalSkillsCount: readData?.totalSkillsCount || skills.length,
-        mainBlocker: readData?.mainBlocker || null,
-        skills,
-        verifiedSkills,
-        missingSkills,
-        readinessSummary,
-        recommendedAction,
-        nextSteps,
-        eligibilityDescription: d?.eligibility_description || null,
-      })
-    }).finally(() => setLoading(false))
+    setLoading(false)
   }, [opportunityId])
 
-  const handleApply = async () => {
-    setIsApplying(true)
-    setError("")
-    if (isDemo) {
-      setTimeout(() => {
-        setHasApplied(true)
-        setIsApplying(false)
-      }, 400)
-      return
-    }
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleToggleSave = async () => {
+    if (!opportunityId || togglingSave) return
+    setTogglingSave(true)
+    const nextSaved = !isSaved
+    setIsSaved(nextSaved)
 
     try {
-      const json = await apiClient('/api/applications', {
+      await apiClient('/api/student/saved-opportunities', {
         method: 'POST',
-        body: JSON.stringify({ opportunity_id: opportunityId, cover_letter: coverLetter }),
+        body: JSON.stringify({ opportunityId }),
       })
-      if (json.success) {
-        setHasApplied(true)
-      } else if (json.error?.code === 'DUPLICATE') {
-        setHasApplied(true)
-      } else if (json.error?.code === 'DEADLINE_PASSED') {
-        setError('The deadline for this opportunity has passed.')
-      } else if (json.error?.code === 'UNAUTHORIZED') {
-        setError('Please sign in to apply for opportunities.')
-      } else {
-        setError(json.error?.message || 'Could not submit application. Please try again.')
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Network error. Please check your connection and try again.')
+    } catch {
+      setIsSaved(!nextSaved)
     } finally {
-      setIsApplying(false)
+      setTogglingSave(false)
     }
   }
 
-  const handleSave = async () => {
-    if (isDemo) {
-      setIsSaved(!isSaved)
-      return
-    }
+  const handleApply = async () => {
+    if (!opportunityId) return
+    setIsApplying(true)
+    setErrorMsg(null)
 
-    setSavingState(true)
     try {
-      const method = isSaved ? 'DELETE' : 'POST'
-      await apiClient(`/api/opportunities/${opportunityId}/save`, { method })
-      setIsSaved(!isSaved)
-    } catch {
-      // noop
+      const res = await apiClient<{ success: boolean; error?: { message?: string } }>('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({
+          opportunity_id: opportunityId,
+          cover_letter: coverLetter.trim() || undefined,
+        }),
+      })
+
+      if (res.success) {
+        setHasApplied(true)
+        setApplySuccessMsg('Application submitted successfully! The employer can now review your skill profile.')
+        setTimeout(() => {
+          setShowApplyModal(false)
+          setApplySuccessMsg(null)
+          setCoverLetter("")
+        }, 1800)
+      } else {
+        setErrorMsg(res.error?.message || 'Failed to submit application.')
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Network error submitting application.')
     } finally {
-      setSavingState(false)
+      setIsApplying(false)
     }
   }
 
@@ -295,7 +190,7 @@ export default function OpportunityDetailsPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading opportunity...</p>
+          <p className="text-xs font-medium text-slate-500">Loading opportunity details...</p>
         </div>
       </div>
     )
@@ -303,253 +198,365 @@ export default function OpportunityDetailsPage() {
 
   if (!opp) {
     return (
-      <div className="text-center py-20">
-        <AlertCircle className="h-10 w-10 text-[var(--color-critical)] mx-auto mb-3" />
-        <h2 className="text-xl font-semibold mb-2">Opportunity Not Found</h2>
-        <p className="text-[var(--color-text-secondary)] mb-6">This opportunity may have been removed or is no longer available.</p>
+      <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 max-w-md mx-auto p-8 space-y-4">
+        <AlertCircle className="h-10 w-10 text-rose-500 mx-auto" />
+        <h2 className="text-lg font-bold text-slate-900">Opportunity Not Found</h2>
+        <p className="text-xs text-slate-500">
+          This opportunity may have been closed or is temporarily unavailable.
+        </p>
         <Link href="/student/opportunities">
-          <Button>Back to Opportunities</Button>
+          <Button size="sm" className="rounded-xl font-bold text-xs">
+            Back to Opportunities
+          </Button>
         </Link>
       </div>
     )
   }
 
-  const matchVariant = opp.matchPercentage >= 85 ? 'success' : opp.matchPercentage >= 65 ? 'warning' : 'critical'
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      <Link href="/student/opportunities" className="inline-flex items-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)]">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Opportunities
+    <div className="space-y-6 animate-in fade-in duration-500 pb-16 max-w-5xl mx-auto">
+      {/* ─── BREADCRUMB ──────────────────────────────────────────────────────── */}
+      <Link
+        href="/student/opportunities"
+        className="inline-flex items-center text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+      >
+        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back to Opportunity Hub
       </Link>
 
-      {error && (
-        <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 text-[var(--color-critical)] text-sm border border-red-200">
-          <AlertCircle className="h-4 w-4 shrink-0" /> {error}
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* ─── LEFT COLUMN: OPPORTUNITY CONTENT (2 cols) ────────────────────── */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="border border-slate-200/80 rounded-3xl shadow-sm bg-white overflow-hidden">
+            <CardContent className="p-6 sm:p-8 space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+                    {opp.company}
+                  </span>
+                  <h1 className="text-2xl font-bold text-slate-900 mt-0.5">
+                    {opp.title}
+                  </h1>
+                </div>
 
-      <div className="flex flex-col md:flex-row gap-6 items-start">
-        {/* LEFT: Opportunity Details */}
-        <div className="flex-1 space-y-6">
-          <Card className="border-[var(--color-border-primary)] shadow-sm">
-            <CardContent className="p-6 md:p-8 space-y-6">
-              <div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Badge variant="outline">{opp.type}</Badge>
-                  {opp.isDeadlinePassed && <Badge variant="secondary">Closed</Badge>}
-                  {opp.isDeadlineSoon && !opp.isDeadlinePassed && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200">
-                      <Clock className="h-3 w-3" /> {opp.deadlineLabel}
-                    </span>
+                <button
+                  onClick={handleToggleSave}
+                  disabled={togglingSave}
+                  className="p-2.5 rounded-xl border border-slate-200 text-slate-400 hover:text-[var(--color-accent)] hover:bg-slate-50 transition-all shrink-0"
+                  title={isSaved ? 'Saved to bookmarks' : 'Save opportunity'}
+                >
+                  {isSaved ? (
+                    <BookmarkCheck className="h-5 w-5 text-[var(--color-accent)] fill-[var(--color-accent)]" />
+                  ) : (
+                    <Bookmark className="h-5 w-5" />
                   )}
-                </div>
-                <h1 className="text-2xl md:text-3xl font-bold">{opp.title}</h1>
-                <p className="text-lg text-[var(--color-text-secondary)] mt-1">{opp.company}</p>
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-4 border-y border-[var(--color-border-primary)] text-sm">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-[var(--color-text-muted)]" />
-                  <span>{opp.location}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-[var(--color-text-muted)]" />
-                  <span>{opp.duration}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[var(--color-text-muted)]" />
-                  <span>Deadline: {opp.deadlineLabel}</span>
-                </div>
+              {/* Tag Badges */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-900 text-white">
+                  {opp.type}
+                </span>
+                <span className="text-xs font-semibold px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200">
+                  <MapPin className="inline h-3.5 w-3.5 mr-1 text-slate-400" /> {opp.location}
+                </span>
+                <span className="text-xs font-semibold px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 capitalize">
+                  {opp.workMode}
+                </span>
+                <span className="text-xs font-semibold px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200">
+                  <Briefcase className="inline h-3.5 w-3.5 mr-1 text-slate-400" /> {opp.experience || '0–1 years'}
+                </span>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">About the Opportunity</h3>
-                <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{opp.description}</p>
+              {/* About Description */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  About the Opportunity
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+                  {opp.description}
+                </p>
               </div>
 
-              {/* Skill Breakdown Table */}
-              {opp.skills.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold">Required Skills</h3>
-                  <div className="space-y-2">
-                    {opp.skills.map((skill, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--color-surface-secondary)] border border-[var(--color-border-primary)]">
-                        <div className={`shrink-0 h-6 w-6 rounded-full flex items-center justify-center ${skill.met ? 'bg-[var(--color-success)]/10' : 'bg-[var(--color-warning)]/10'}`}>
-                          {skill.met
-                            ? <CheckCircle2 className="h-4 w-4 text-[var(--color-success)]" />
-                            : <AlertTriangle className="h-4 w-4 text-[var(--color-warning)]" />}
+              {/* Key Responsibilities */}
+              {opp.responsibilities && opp.responsibilities.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Key Responsibilities
+                  </h3>
+                  <ul className="space-y-1.5 pl-1">
+                    {opp.responsibilities.map((r, idx) => (
+                      <li key={idx} className="text-xs sm:text-sm text-slate-600 flex items-start gap-2">
+                        <span className="text-[var(--color-accent)] font-bold shrink-0 mt-0.5">•</span>
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Eligibility */}
+              {opp.eligibility && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Eligibility Criteria
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {opp.eligibility}
+                  </p>
+                </div>
+              )}
+
+              {/* Required Skills Table */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Required Competencies & Benchmarks
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {matchResult?.skills.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-2xl border flex justify-between items-center text-xs ${
+                        s.met
+                          ? 'bg-emerald-50/60 border-emerald-200/90 text-emerald-900'
+                          : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-bold flex items-center gap-1.5">
+                          {s.met ? (
+                            <span className="text-emerald-600 font-bold">✓</span>
+                          ) : (
+                            <span className="text-amber-500 font-bold">×</span>
+                          )}
+                          <span>{s.name}</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{skill.name}</span>
-                            <span className="text-xs text-[var(--color-text-secondary)]">
-                              {skill.currentLevel > 0 ? `${skill.currentLevel} / ${skill.requiredLevel}` : `Req: ${skill.requiredLevel}`}
-                            </span>
-                          </div>
-                          <div className="relative h-1.5 w-full bg-[var(--color-border-primary)] rounded-full overflow-hidden">
-                            <div
-                              className={`absolute top-0 left-0 h-full rounded-full transition-all ${skill.met ? 'bg-[var(--color-success)]' : 'bg-[var(--color-warning)]'}`}
-                              style={{ width: `${skill.currentLevel > 0 ? Math.min(skill.currentLevel, 100) : 0}%` }}
-                            />
-                            <div className="absolute top-0 h-full w-0.5 bg-[var(--color-foreground)]/30" style={{ left: `${skill.requiredLevel}%` }} />
-                          </div>
-                        </div>
-                        <Badge variant="secondary" className="text-xs shrink-0">{skill.importance}</Badge>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          Benchmark: {s.requiredLevel} pts
+                        </span>
                       </div>
+
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-xs">
+                          {s.currentLevel > 0 ? `${s.currentLevel} pts` : 'Unassessed'}
+                        </span>
+                        {!s.met && (
+                          <Link
+                            href={getAssessmentRouteForSkill(s.name)}
+                            className="block text-[10px] font-bold text-[var(--color-accent)] hover:underline mt-0.5"
+                          >
+                            Take Benchmark →
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ─── RIGHT COLUMN: MATCH INTELLIGENCE & APPLY (1 col) ──────────────── */}
+        <div className="space-y-6">
+          {/* Match Intelligence Card */}
+          <Card className="border border-slate-200/80 rounded-3xl shadow-sm bg-white overflow-hidden">
+            <CardContent className="p-6 space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Your Skill Match
+                </span>
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                  {matchResult?.readyStatus}
+                </span>
+              </div>
+
+              {/* Large Score */}
+              <div className="text-center py-2 space-y-1">
+                <div className="text-4xl font-black text-slate-900 tracking-tight">
+                  {matchResult?.matchPercentage}%
+                </div>
+                <div className="text-xs font-bold text-slate-600">
+                  {matchResult?.matchStatus} ({matchResult?.skillsMetCount} of {matchResult?.totalSkillsCount} Skills Met)
+                </div>
+              </div>
+
+              {/* Why you match */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                <span className="font-bold text-slate-700 block">Why You Match:</span>
+                <p className="text-slate-600 leading-relaxed font-medium">
+                  {matchResult?.matchExplanation}
+                </p>
+              </div>
+
+              {/* Matched list */}
+              {matchResult && matchResult.matchedSkillNames.length > 0 && (
+                <div className="space-y-1.5 text-xs">
+                  <span className="font-bold text-emerald-700 flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> You already match:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 pl-4">
+                    {matchResult.matchedSkillNames.map((name, idx) => (
+                      <span key={idx} className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                        ✓ {name}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
 
-              {opp.eligibilityDescription && (
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Eligibility</h3>
-                  <p className="text-sm text-[var(--color-text-secondary)]">{opp.eligibilityDescription}</p>
+              {/* Missing list */}
+              {matchResult && matchResult.missingSkillNames.length > 0 && (
+                <div className="space-y-1.5 text-xs pt-2">
+                  <span className="font-bold text-amber-700 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Skills to improve:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 pl-4">
+                    {matchResult.missingSkillNames.map((name, idx) => (
+                      <span key={idx} className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                        × {name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* RIGHT: Readiness Sidebar */}
-        <div className="w-full md:w-80 space-y-4">
-          {/* Readiness Score Card */}
-          <Card className="border-[var(--color-border-primary)] shadow-sm">
-            <CardContent className="p-6 space-y-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-                  Opportunity Readiness
-                </p>
-                {opp.matchPercentage > 0 ? (
-                  <>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-4xl font-bold ${opp.matchPercentage >= 65 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>
-                        {opp.matchPercentage}%
-                      </span>
-                      <Badge variant={matchVariant}>{opp.readinessCategory || 'Match'}</Badge>
-                    </div>
-                    <p className="text-xs text-[var(--color-text-secondary)] mt-2 leading-relaxed">{opp.readinessSummary}</p>
-                  </>
-                ) : (
-                  <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                    Sign in to see your personalized readiness score.
-                  </p>
+              {/* Deadline & Compensation */}
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span>Application Deadline:</span>
+                  <strong className="text-slate-900 font-bold">{opp.deadlineLabel}</strong>
+                </div>
+                {opp.stipend && (
+                  <div className="flex justify-between items-center">
+                    <span>Stipend / CTC:</span>
+                    <strong className="text-slate-900 font-bold">{opp.stipend}</strong>
+                  </div>
                 )}
+                <div className="flex justify-between items-center">
+                  <span>Duration:</span>
+                  <strong className="text-slate-900 font-bold">{opp.duration}</strong>
+                </div>
               </div>
 
-              {opp.verifiedSkills.length > 0 && (
-                <div className="space-y-1.5 pt-3 border-t border-[var(--color-border-primary)]">
-                  <p className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Satisfied</p>
-                  {opp.verifiedSkills.map((s, i) => (
-                    <div key={i} className="flex justify-between items-center text-xs">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" /> {s.name}
-                      </span>
-                      <span className="text-[var(--color-text-secondary)]">{s.score}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {opp.missingSkills.length > 0 && (
-                <div className="space-y-1.5 pt-3 border-t border-[var(--color-border-primary)]">
-                  <p className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Skill Gaps</p>
-                  {opp.missingSkills.map((s, i) => (
-                    <div key={i} className="flex justify-between items-center text-xs">
-                      <span className="flex items-center gap-1.5 font-medium text-[var(--color-warning)]">
-                        <AlertTriangle className="h-3.5 w-3.5" /> {s.name}
-                      </span>
-                      <span className="text-[var(--color-text-secondary)]">Gap: {s.gap} pts</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Apply Section */}
-              <div className="pt-3 space-y-3 border-t border-[var(--color-border-primary)]">
-                {!hasApplied && !opp.isDeadlinePassed && (
-                  <textarea
-                    value={coverLetter}
-                    onChange={e => setCoverLetter(e.target.value)}
-                    placeholder="Optional: Add a message to the employer..."
-                    className="w-full min-h-[70px] rounded-md border border-[var(--color-border-primary)] p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] resize-none bg-transparent"
-                  />
-                )}
+              {/* Actions */}
+              <div className="pt-2 space-y-2">
                 {hasApplied ? (
-                  <div className="p-3 bg-green-50 text-[var(--color-success)] rounded-lg text-center text-sm font-medium border border-green-200">
-                    <CheckCircle2 className="inline-block mr-1.5 h-4 w-4" /> Application Submitted
-                  </div>
-                ) : opp.isDeadlinePassed ? (
-                  <div className="p-3 bg-gray-50 text-gray-500 rounded-lg text-center text-sm border border-gray-200">
-                    This opportunity is closed
-                  </div>
+                  <Button
+                    disabled
+                    className="w-full h-10 rounded-xl text-xs font-bold bg-slate-100 text-emerald-700 border border-emerald-200 cursor-default"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1.5 text-emerald-600" /> Applied ✓
+                  </Button>
                 ) : (
                   <Button
-                    className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white"
-                    onClick={handleApply}
-                    disabled={isApplying}
+                    onClick={() => setShowApplyModal(true)}
+                    className="w-full h-10 rounded-xl text-xs font-bold bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-xs"
                   >
-                    {isApplying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : 'Apply with Skill Passport'}
+                    Apply for this Opportunity
                   </Button>
                 )}
 
-                <button
-                  onClick={handleSave}
-                  disabled={savingState}
-                  className="w-full flex items-center justify-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-foreground)] transition-colors"
+                <Button
+                  variant="outline"
+                  onClick={handleToggleSave}
+                  className="w-full h-10 rounded-xl text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50"
                 >
-                  {isSaved
-                    ? <><BookmarkCheck className="h-4 w-4 text-[var(--color-accent)]" /> Saved</>
-                    : <><Bookmark className="h-4 w-4" /> Save for later</>}
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* What to Do Next */}
-          {opp.nextSteps.length > 0 && !hasApplied && (
-            <Card className="border-[var(--color-border-primary)] shadow-sm">
-              <CardContent className="p-5 space-y-3">
-                <p className="text-sm font-semibold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[var(--color-accent)]" /> What to do next
-                </p>
-                <p className="text-xs text-[var(--color-text-secondary)]">{opp.recommendedAction}</p>
-                <div className="space-y-2">
-                  {opp.nextSteps.map((step, i) => (
-                    <Link key={i} href={step.href} className="flex items-center justify-between text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] font-medium group">
-                      <span>{step.action}</span>
-                      <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* AI Coach CTA */}
-          <Card className="border-[var(--color-border-primary)] shadow-sm bg-[var(--color-surface-secondary)]">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3">
-                <div className="h-9 w-9 rounded-full bg-[var(--color-accent)]/10 flex items-center justify-center shrink-0">
-                  <Bot className="h-5 w-5 text-[var(--color-accent)]" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Ask Career Navigator</p>
-                  <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                    Compare your skill fit and get a personalized preparation strategy for this opportunity.
-                  </p>
-                  <Link href={`/student/career-navigator?opportunity=${opp.id}`} className="mt-3 block">
-                    <Button variant="outline" size="sm" className="w-full text-xs">
-                      <TrendingUp className="mr-1.5 h-3.5 w-3.5" /> Compare Career Fit
-                    </Button>
-                  </Link>
-                </div>
-
+                  {isSaved ? 'Saved in Bookmarks' : 'Save Opportunity'}
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* ─── MODAL: APPLY TO OPPORTUNITY ───────────────────────────────────── */}
+      {showApplyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Application Submission</span>
+                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  Apply to {opp.company}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Role: <strong className="text-slate-800">{opp.title}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowApplyModal(false)
+                  setErrorMsg(null)
+                  setApplySuccessMsg(null)
+                }}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {applySuccessMsg ? (
+              <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto" />
+                <h4 className="font-bold text-emerald-900 text-sm">Application Sent!</h4>
+                <p className="text-xs text-emerald-700">{applySuccessMsg}</p>
+              </div>
+            ) : (
+              <>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span>Your Match:</span>
+                    <strong className="text-slate-900 font-bold">{matchResult?.matchPercentage}% ({matchResult?.matchStatus})</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Deadline:</span>
+                    <strong className="text-slate-900 font-bold">{opp.deadlineLabel}</strong>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Candidate Cover Note (Optional)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    placeholder="Highlight your key verified skills, projects, and why you are interested in this position..."
+                    className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                {errorMsg && (
+                  <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowApplyModal(false)}
+                    disabled={isApplying}
+                    className="rounded-xl text-xs font-semibold"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleApply}
+                    disabled={isApplying}
+                    className="rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold px-5"
+                  >
+                    {isApplying ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Submitting...</> : 'Confirm & Submit Application'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

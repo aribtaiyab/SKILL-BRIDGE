@@ -65,35 +65,35 @@ export default function CreateOpportunityPage() {
           title,
           description,
           type: formData.get('type') || 'internship',
-          location: formData.get('location') || '',
-          work_mode: formData.get('work_mode') || 'hybrid',
-          duration: formData.get('duration') || '',
-          application_deadline: formData.get('deadline') || null,
+          location: formData.get('location') || 'Remote',
+          work_setting: formData.get('work_mode') || 'hybrid',
+          duration: formData.get('duration') || '6 Months',
+          deadline: formData.get('deadline') || null,
           stipend: formData.get('stipend') ? Number(formData.get('stipend')) : null,
-          spots_available: 1,
+          company_name: 'TechNova Solutions',
+          status: publishMode === 'published' ? 'published' : 'draft',
+          skills: skills.map(s => ({
+            skill_name: s.name,
+            required_score: s.level,
+          })),
         }
 
-        const json = await apiClient('/api/industry/opportunities', {
+        const res = await fetch('/api/opportunities', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
 
-        if (!json.success) {
-          setError(json.error?.message || 'Could not create opportunity. Please try again.')
-          return
-        }
+        const json = await res.json()
 
-        // If publishing (not draft), update status
-        if (publishMode === 'published') {
-          await apiClient(`/api/industry/opportunities/${json.data.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ status: 'published' }),
-          })
+        if (!res.ok || !json.success) {
+          setError(json.error || 'Could not create opportunity. Please try again.')
+          return
         }
 
         setIsSuccess(true)
       } catch {
-        setError('Network error. Please try again.')
+        setError('Network error. Please check your connection and try again.')
       }
     })
   }
@@ -109,12 +109,12 @@ export default function CreateOpportunityPage() {
         </h1>
         <p className="text-[var(--color-text-secondary)] text-center max-w-md">
           {publishMode === 'published'
-            ? 'Your opportunity is now live. SkillBridge will match and notify qualified candidates.'
+            ? 'Your opportunity is now live. SkillBridge has calculated match percentages and notified qualified candidates in their opportunity feed.'
             : 'Your draft has been saved. Publish it when you\'re ready.'}
         </p>
         <div className="pt-6 flex gap-4">
           <Button variant="outline" onClick={() => router.push('/industry/opportunities')}>View Opportunities</Button>
-          <Button onClick={() => router.push('/industry/candidates')}>View Matched Candidates</Button>
+          <Button onClick={() => router.push('/student/opportunities')}>View in Student Feed</Button>
         </div>
       </div>
     )

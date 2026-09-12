@@ -4,40 +4,107 @@ import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import {
-  Search, Filter, User, Shield, CheckCircle2, AlertTriangle,
+  Filter, User, Shield, CheckCircle2, AlertTriangle,
   Loader2, TrendingUp, Building, ChevronDown, ChevronUp, Users
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { useDemo } from "@/lib/demo/demo-context"
 
-interface CandidateResult {
+export interface CandidateSkill {
+  name: string
+  met: boolean
+  currentLevel: number
+  requiredLevel: number
+}
+
+export interface CandidateInfo {
+  id: string
+  name: string
+  institution: string
+}
+
+export interface CandidateOpportunity {
+  id: string
+  title: string
+  type: string
+}
+
+export interface CandidateReadiness {
+  matchPercentage: number
+  readinessCategory: string
+  skillsMetCount: number
+  totalSkillsCount: number
+  mainBlocker: string | null
+  skills: CandidateSkill[]
+}
+
+export interface CandidateResult {
   applicationId: string
   applicationStatus: string
   appliedAt: string
-  candidate: {
-    id: string
-    name: string
-    institution: string
-  }
-  opportunity: {
-    id: string
-    title: string
-    type: string
-  }
-  readiness: {
-    matchPercentage: number
-    readinessCategory: string
-    skillsMetCount: number
-    totalSkillsCount: number
-    mainBlocker: string | null
-    skills: {
-      name: string
-      met: boolean
-      currentLevel: number
-      requiredLevel: number
-    }[]
+  candidate: CandidateInfo
+  opportunity: CandidateOpportunity
+  readiness: CandidateReadiness
+}
+
+function normalizeCandidateResult(raw: unknown): CandidateResult | null {
+  if (!raw || typeof raw !== 'object') return null
+  const item = raw as Record<string, any>
+
+  // Must have a valid candidate object with id and non-empty name
+  if (!item.candidate || typeof item.candidate !== 'object') return null
+  const candidateId = typeof item.candidate.id === 'string' ? item.candidate.id.trim() : String(item.candidate.id || '').trim()
+  const candidateName = typeof item.candidate.name === 'string' ? item.candidate.name.trim() : ''
+  if (!candidateId || !candidateName) return null
+
+  const candidateInstitution = typeof item.candidate.institution === 'string' && item.candidate.institution.trim().length > 0
+    ? item.candidate.institution.trim()
+    : 'SkillBridge Academic Partner'
+
+  // Normalize opportunity
+  const opp = item.opportunity && typeof item.opportunity === 'object' ? item.opportunity : {}
+  const oppId = typeof opp.id === 'string' ? opp.id : String(opp.id || '')
+  const oppTitle = typeof opp.title === 'string' && opp.title.trim().length > 0 ? opp.title.trim() : 'Opportunity'
+  const oppType = typeof opp.type === 'string' && opp.type.trim().length > 0 ? opp.type.trim() : 'Internship'
+
+  // Normalize readiness
+  const readiness = item.readiness && typeof item.readiness === 'object' ? item.readiness : {}
+  const matchPct = typeof readiness.matchPercentage === 'number' ? Math.max(0, Math.min(100, Math.round(readiness.matchPercentage))) : 0
+  const skillsArray: CandidateSkill[] = Array.isArray(readiness.skills)
+    ? readiness.skills.map((s: any) => ({
+        name: typeof s?.name === 'string' && s.name.trim().length > 0 ? s.name.trim() : 'Skill',
+        met: Boolean(s?.met),
+        currentLevel: typeof s?.currentLevel === 'number' ? s.currentLevel : 0,
+        requiredLevel: typeof s?.requiredLevel === 'number' ? s.requiredLevel : 0,
+      }))
+    : []
+
+  return {
+    applicationId: typeof item.applicationId === 'string' && item.applicationId.trim().length > 0 ? item.applicationId : `app-${candidateId}`,
+    applicationStatus: typeof item.applicationStatus === 'string' ? item.applicationStatus : 'applied',
+    appliedAt: typeof item.appliedAt === 'string' ? item.appliedAt : new Date().toISOString(),
+    candidate: {
+      id: candidateId,
+      name: candidateName,
+      institution: candidateInstitution,
+    },
+    opportunity: {
+      id: oppId,
+      title: oppTitle,
+      type: oppType,
+    },
+    readiness: {
+      matchPercentage: matchPct,
+      readinessCategory: typeof readiness.readinessCategory === 'string' && readiness.readinessCategory.trim().length > 0
+        ? readiness.readinessCategory
+        : matchPct >= 85 ? 'High Readiness' : matchPct >= 70 ? 'Moderate Readiness' : 'Developing',
+      skillsMetCount: typeof readiness.skillsMetCount === 'number' ? readiness.skillsMetCount : skillsArray.filter(s => s.met).length,
+      totalSkillsCount: typeof readiness.totalSkillsCount === 'number' ? readiness.totalSkillsCount : skillsArray.length,
+      mainBlocker: typeof readiness.mainBlocker === 'string' ? readiness.mainBlocker : null,
+      skills: skillsArray,
+    },
   }
 }
 
@@ -66,8 +133,6 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
-import { useDemo } from "@/lib/demo/demo-context"
-
 export default function CandidatesPage() {
   const { isDemo, opportunities: demoOpps } = useDemo()
   const [candidates, setCandidates] = useState<CandidateResult[]>([])
@@ -86,8 +151,8 @@ export default function CandidatesPage() {
 
     try {
       const json = await apiClient('/api/industry/opportunities?status=published')
-      if (json.success && json.data) {
-        setOpportunities(json.data.map((o: any) => ({ id: o.id, title: o.title })))
+      if (json.success && Array.isArray(json.data)) {
+        setOpportunities(json.data.map((o: any) => ({ id: String(o.id), title: o.title })))
       }
     } catch {
       // noop
@@ -138,11 +203,14 @@ export default function CandidatesPage() {
     try {
       const params = new URLSearchParams()
       if (oppFilter) params.set('opportunity_id', oppFilter)
-      if (minMatch && parseInt(minMatch) > 0) params.set('min_match', minMatch)
+      if (minMatch && parseInt(minMatch, 10) > 0) params.set('min_match', minMatch)
 
       const json = await apiClient(`/api/industry/candidates?${params}`)
-      if (json.success && json.data) {
-        setCandidates(json.data)
+      if (json.success && Array.isArray(json.data)) {
+        const normalized = json.data
+          .map((rawItem: unknown) => normalizeCandidateResult(rawItem))
+          .filter((item: CandidateResult | null): item is CandidateResult => item !== null)
+        setCandidates(normalized)
       } else {
         setCandidates([])
       }

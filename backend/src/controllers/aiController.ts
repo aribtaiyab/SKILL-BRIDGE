@@ -8,20 +8,20 @@ import {
   evaluatePractice,
   explainCareerReadiness,
 } from '../ai/coach-service.js'
-import { GeminiService } from '../services/ai/gemini.service.js'
+import { GroqService } from '../services/ai/groq.service.js'
 import { AI_CONFIG } from '../ai/config.js'
 
 export async function getAiHealth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const status = await GeminiService.testConnection()
+    const status = await GroqService.testConnection()
     res.status(200).json(status)
   } catch (err) {
     res.status(200).json({
       configured: false,
-      provider: 'gemini',
+      provider: 'groq',
       model: AI_CONFIG.model,
       reachable: false,
-      message: 'Gemini health test running in deterministic mode',
+      message: 'Groq health test running in deterministic mode',
     })
   }
 }

@@ -147,6 +147,71 @@ export const CAREER_BENCHMARK_PROFILES: CareerBenchmarkProfile[] = [
       "Model Evaluation & Deployment": { required: 70, weight: 0.15, priority: 'Medium', category: 'Operations', skillId: 'skill-ai-deploy' },
     },
   },
+  {
+    id: "30000000-0000-0000-0000-000000000008",
+    name: "AI Engineer",
+    slug: "ai-engineer",
+    category: "Artificial Intelligence",
+    description: "Integrates Large Language Models (LLMs), RAG architectures, prompt engineering, and AI microservices.",
+    skills: {
+      "Python": { required: 85, weight: 0.25, priority: 'High', category: 'Technical', skillId: '40000000-0000-0000-0000-000000000012' },
+      "LLM Integration & Prompting": { required: 85, weight: 0.30, priority: 'High', category: 'AI', skillId: 'skill-ai-llm' },
+      "Vector Databases & RAG": { required: 80, weight: 0.25, priority: 'High', category: 'Data', skillId: 'skill-ai-rag' },
+      "REST APIs & FastApi": { required: 75, weight: 0.20, priority: 'Medium', category: 'Backend', skillId: '40000000-0000-0000-0000-000000000002' },
+    },
+  },
+  {
+    id: "30000000-0000-0000-0000-000000000009",
+    name: "Python Developer",
+    slug: "python-developer",
+    category: "Engineering",
+    description: "Builds scalable backend applications, data workflows, APIs with Django/FastAPI, and automated pipelines.",
+    skills: {
+      "Python Core": { required: 85, weight: 0.35, priority: 'High', category: 'Technical', skillId: '40000000-0000-0000-0000-000000000012' },
+      "Django / FastAPI": { required: 80, weight: 0.25, priority: 'High', category: 'Backend', skillId: 'skill-py-framework' },
+      "SQL & PostgreSQL": { required: 75, weight: 0.25, priority: 'High', category: 'Databases', skillId: '40000000-0000-0000-0000-000000000003' },
+      "Git & Version Control": { required: 65, weight: 0.15, priority: 'Medium', category: 'Tools', skillId: '40000000-0000-0000-0000-000000000004' },
+    },
+  },
+  {
+    id: "30000000-0000-0000-0000-000000000010",
+    name: "Software Engineer",
+    slug: "software-engineer",
+    category: "Engineering",
+    description: "Core algorithms, modular software architecture, testing discipline, and scalable system design.",
+    skills: {
+      "Data Structures & Algorithms": { required: 85, weight: 0.30, priority: 'High', category: 'Computer Science', skillId: 'skill-fs-dsa' },
+      "System Design Fundamentals": { required: 75, weight: 0.25, priority: 'High', category: 'Architecture', skillId: '40000000-0000-0000-0000-000000000014' },
+      "Clean Code & Unit Testing": { required: 80, weight: 0.25, priority: 'High', category: 'Engineering', skillId: 'skill-clean-code' },
+      "Git & CI/CD Basics": { required: 70, weight: 0.20, priority: 'Medium', category: 'Tools', skillId: '40000000-0000-0000-0000-000000000004' },
+    },
+  },
+  {
+    id: "30000000-0000-0000-0000-000000000011",
+    name: "Mobile App Developer",
+    slug: "mobile-developer",
+    category: "Engineering",
+    description: "Cross-platform and native mobile applications with React Native, Flutter, offline storage, and responsive UI.",
+    skills: {
+      "React Native / Flutter": { required: 85, weight: 0.35, priority: 'High', category: 'Mobile', skillId: 'skill-mobile-rn' },
+      "JavaScript / TypeScript": { required: 80, weight: 0.25, priority: 'High', category: 'Frontend', skillId: '40000000-0000-0000-0000-000000000015' },
+      "Mobile State & Offline Storage": { required: 75, weight: 0.20, priority: 'Medium', category: 'Mobile', skillId: 'skill-mobile-state' },
+      "REST API Integration": { required: 75, weight: 0.20, priority: 'Medium', category: 'Backend', skillId: '40000000-0000-0000-0000-000000000002' },
+    },
+  },
+  {
+    id: "30000000-0000-0000-0000-000000000014",
+    name: "Business Analyst",
+    slug: "business-analyst",
+    category: "Business & Analytics",
+    description: "Bridges business requirements and technical execution with data modeling, stakeholder analysis, and SQL.",
+    skills: {
+      "SQL & Data Extraction": { required: 80, weight: 0.35, priority: 'High', category: 'Databases', skillId: '40000000-0000-0000-0000-000000000003' },
+      "Requirement Modeling & Agile": { required: 80, weight: 0.30, priority: 'High', category: 'Process', skillId: 'skill-ba-agile' },
+      "Data Visualization & Dashboards": { required: 75, weight: 0.20, priority: 'Medium', category: 'Data', skillId: 'skill-data-viz' },
+      "Business Metrics & KPI Analysis": { required: 75, weight: 0.15, priority: 'Medium', category: 'Business', skillId: 'skill-ba-kpi' },
+    },
+  },
 ]
 
 export function findCareerBenchmark(query: string): CareerBenchmarkProfile | null {

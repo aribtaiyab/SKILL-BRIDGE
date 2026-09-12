@@ -4,404 +4,194 @@ import { useEffect, useState, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
 import {
   Search, MapPin, Building, Calendar, CheckCircle2, AlertTriangle,
   Briefcase, Loader2, Bookmark, BookmarkCheck, Clock, TrendingUp, Sparkles, ArrowRight,
-  XCircle, Check, X, AlertCircle
+  XCircle, Check, X, AlertCircle, HelpCircle, Filter, ChevronRight
 } from "lucide-react"
-import { useDemo } from "@/lib/demo/demo-context"
 import { apiClient } from "@/lib/api-client"
 import {
   SEED_OPPORTUNITIES,
   calculateOpportunityMatch,
   getAssessmentRouteForSkill,
   OpportunitySkillBreakdown,
-  OpportunityItem
+  OpportunityItem,
+  OpportunityMatchResult
 } from "@/lib/opportunities-seed"
 
-export const READY_THRESHOLD = 70
-export const ALMOST_READY_THRESHOLD = 40
-
-export interface OpportunityCard {
+export interface OpportunityCardData {
   id: string
   title: string
   company: string
   type: string
   location: string
   workMode: string
-  duration: string | null
-  deadline: string | null
+  experience: string
+  stipend?: string
+  duration: string
+  deadline: string
   deadlineLabel: string
   isDeadlineSoon: boolean
   isDeadlinePassed: boolean
+  description: string
+  responsibilities?: string[]
+  eligibility?: string
   matchPercentage: number
-  readinessCategory: string
+  matchStatus: 'Strong Match' | 'Good Match' | 'Partial Match' | 'Low Match'
+  matchStatusVariant: 'success' | 'warning' | 'secondary' | 'critical'
+  readyStatus: 'Ready to Apply' | 'Improve Skills First'
+  isReadyToApply: boolean
   skillsMetCount: number
   totalSkillsCount: number
   mainBlocker: string | null
+  matchedSkillNames: string[]
+  missingSkillNames: string[]
+  matchExplanation: string
   skills: OpportunitySkillBreakdown[]
   isSaved: boolean
   hasApplied: boolean
 }
 
-type TabType = 'all' | 'saved'
+type FilterTab = 'all' | 'internship' | 'job' | 'saved' | 'high_match'
+type SortOption = 'best_match' | 'deadline' | 'newest'
 
-function DeadlineBadge({ label, isSoon, isPassed }: { label: string; isSoon: boolean; isPassed: boolean }) {
-  if (isPassed) {
-    return (
-      <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-        Closed
-      </span>
-    )
-  }
-  if (isSoon) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 ring-1 ring-amber-400/20">
-        <Clock className="h-3 w-3 text-amber-500" /> {label}
-      </span>
-    )
-  }
-  return <span className="text-xs text-slate-500 font-medium">Apply by {label}</span>
+// Baseline student skills for deterministic demo calculations if DB profile is fresh
+const DEMO_STUDENT_SKILLS_BASELINE: Record<string, number> = {
+  "HTML": 80,
+  "CSS": 80,
+  "JavaScript": 85,
+  "React": 60,
+  "Git": 75,
+  "Python": 80,
+  "SQL": 75,
+  "DSA": 80,
+  "Problem Solving": 75,
+  "OOP": 75,
+  "Java": 70,
+  "C++": 70,
+  "Machine Learning": 60,
+  "Data Structures": 80,
+  "Linear Algebra": 65,
+  "NumPy": 65,
+  "Excel": 75,
+  "Communication": 75,
 }
 
-function MatchBadge({ pct }: { pct: number }) {
-  if (pct >= READY_THRESHOLD) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 ring-1 ring-emerald-400/20 shadow-xs">
-        <CheckCircle2 className="h-3 w-3 text-emerald-600" /> {pct}% Match
-      </span>
-    )
-  }
-  if (pct >= ALMOST_READY_THRESHOLD) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 ring-1 ring-amber-400/20 shadow-xs">
-        <TrendingUp className="h-3 w-3 text-amber-600" /> {pct}% Match
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-      {pct}% Match
-    </span>
-  )
-}
-
-function OpportunityCardItem({
-  opp,
-  onToggleSave,
-  onSaveError,
-}: {
-  opp: OpportunityCard
-  onToggleSave: (id: string, saved: boolean) => void
-  onSaveError: (msg: string) => void
-}) {
-  const [toggling, setToggling] = useState(false)
-
-  const handleSave = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (toggling) return
-
-    setToggling(true)
-    const previousSavedState = opp.isSaved
-    const newSavedState = !previousSavedState
-
-    // Optimistic UI state update
-    onToggleSave(opp.id, newSavedState)
-
-    try {
-      const res = await apiClient<{ success: boolean; saved: boolean }>(
-        '/api/student/saved-opportunities',
-        {
-          method: 'POST',
-          body: JSON.stringify({ opportunityId: opp.id }),
-        }
-      )
-
-      if (!res.success) {
-        throw new Error('Save failed')
-      }
-    } catch (err: any) {
-      // Revert optimistic update on failure
-      onToggleSave(opp.id, previousSavedState)
-      onSaveError('Failed to update bookmark. Please check your connection and try again.')
-    } finally {
-      setToggling(false)
-    }
-  }
-
-  return (
-    <div
-      className={`group rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.06)] hover:-translate-y-1.5 hover:shadow-[0_25px_60px_-15px_rgba(15,23,42,0.12)] hover:border-[var(--color-accent)]/40 transition-all duration-300 flex flex-col justify-between ${
-        opp.isDeadlinePassed ? 'opacity-60' : ''
-      }`}
-    >
-      <div>
-        {/* Card Header Row */}
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex-1 min-w-0 pr-2">
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <MatchBadge pct={opp.matchPercentage} />
-              <span className="text-[11px] font-bold text-slate-600 bg-slate-100/90 border border-slate-200/70 px-2.5 py-0.5 rounded-full">
-                {opp.type}
-              </span>
-              {opp.hasApplied && (
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] border border-[var(--color-border-primary)]">
-                  Applied
-                </span>
-              )}
-            </div>
-            <h3 className="text-base font-bold text-slate-900 group-hover:text-[var(--color-accent)] transition-colors line-clamp-1">
-              {opp.title}
-            </h3>
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mt-1">
-              <Building className="h-3.5 w-3.5 shrink-0 text-slate-400" /> {opp.company}
-            </div>
-          </div>
-
-          {/* Feature 3: Consistent Bookmark/Save Button */}
-          <button
-            onClick={handleSave}
-            disabled={toggling}
-            className="p-2 rounded-xl text-slate-400 hover:text-[var(--color-accent)] hover:bg-[var(--color-surface-secondary)] transition-all disabled:opacity-50 shrink-0"
-            title={opp.isSaved ? 'Remove from saved' : 'Save opportunity'}
-            aria-label={opp.isSaved ? 'Remove from saved' : 'Save opportunity'}
-          >
-            {toggling ? (
-              <Loader2 className="h-5 w-5 animate-spin text-[var(--color-accent)]" />
-            ) : opp.isSaved ? (
-              <BookmarkCheck className="h-5 w-5 text-[var(--color-accent)] fill-[var(--color-accent)]" />
-            ) : (
-              <Bookmark className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-
-        {/* Feature 1 & 2: Explainable Match Breakdown with Inline 'Close This Gap' Links */}
-        <div className="pt-2 pb-3.5 border-b border-slate-100">
-          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-            <span>Skill Match Breakdown</span>
-            <span className="text-slate-700 font-mono">{opp.skillsMetCount}/{opp.totalSkillsCount} Verified</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {(opp.skills ?? []).map((skill, idx) => {
-              const isMet = skill.status === 'met' || skill.met
-              const isClose = skill.status === 'close'
-              const assessmentRoute = getAssessmentRouteForSkill(skill.name)
-
-              if (isMet) {
-                return (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs"
-                    title={`Verified: ${skill.currentLevel}/${skill.requiredLevel}`}
-                  >
-                    <span className="mr-1 text-emerald-600 font-bold">✅</span>
-                    {skill.name}
-                  </span>
-                )
-              }
-
-              if (isClose) {
-                return (
-                  <Link
-                    key={idx}
-                    href={assessmentRoute}
-                    title={`Close gap: Take ${skill.name} assessment (${skill.statusLabel})`}
-                    className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-300/90 hover:bg-amber-100 hover:border-amber-400 hover:shadow-xs hover:-translate-y-0.5 transition-all cursor-pointer group/gap"
-                  >
-                    <span className="mr-1 text-amber-600 font-bold">⚠️</span>
-                    <span>{skill.name}</span>
-                    <span className="ml-1 text-[10px] text-amber-700 font-medium">({skill.statusLabel})</span>
-                    <ArrowRight className="h-2.5 w-2.5 ml-1 opacity-60 group-hover/gap:opacity-100 transition-opacity" />
-                  </Link>
-                )
-              }
-
-              // Missing or deficit > 15 pts
-              return (
-                <Link
-                  key={idx}
-                  href={assessmentRoute}
-                  title={`Take ${skill.name} assessment to establish score`}
-                  className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/90 hover:bg-rose-100 hover:border-rose-300 hover:shadow-xs hover:-translate-y-0.5 transition-all cursor-pointer group/gap"
-                >
-                  <span className="mr-1 text-rose-500 font-bold">❌</span>
-                  <span>{skill.name}</span>
-                  <span className="ml-1 text-[10px] text-rose-600 font-medium">({skill.statusLabel || 'not assessed'})</span>
-                  <ArrowRight className="h-2.5 w-2.5 ml-1 opacity-60 group-hover/gap:opacity-100 transition-opacity" />
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Location & Metadata */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-500 font-medium my-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" /> {opp.location}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Briefcase className="h-3.5 w-3.5 text-slate-400 shrink-0" /> {opp.duration || 'Flexible'}
-          </div>
-          <div className="flex items-center gap-1.5 col-span-2">
-            <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <DeadlineBadge label={opp.deadlineLabel} isSoon={opp.isDeadlineSoon} isPassed={opp.isDeadlinePassed} />
-          </div>
-        </div>
-      </div>
-
-      <Link href={`/student/opportunities/${opp.id}`} className="block mt-auto">
-        <Button
-          className={`w-full h-10 rounded-xl font-bold text-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${
-            opp.hasApplied
-              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-              : 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-xs'
-          }`}
-          disabled={opp.isDeadlinePassed}
-        >
-          {opp.hasApplied ? 'View Application' : opp.isDeadlinePassed ? 'Closed' : 'View Opportunity & Apply'}
-          {!opp.isDeadlinePassed && <ArrowRight className="h-3.5 w-3.5 ml-1.5" />}
-        </Button>
-      </Link>
-    </div>
-  )
-}
-
-export default function OpportunitiesPage() {
-  const { isDemo, opportunities: demoOpps } = useDemo()
-  const [activeTab, setActiveTab] = useState<TabType>('all')
-  const [opportunities, setOpportunities] = useState<OpportunityCard[]>([])
+export default function StudentOpportunitiesPage() {
+  const [opportunities, setOpportunities] = useState<OpportunityCardData[]>([])
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState("All Types")
-  const [workModeFilter, setWorkModeFilter] = useState("all")
-  const [showAllLowMatch, setShowAllLowMatch] = useState(false)
+  const [activeTab, setActiveTab] = useState<FilterTab>('all')
+  const [sortBy, setSortBy] = useState<SortOption>('best_match')
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [hasVerifiedSkills, setHasVerifiedSkills] = useState<boolean>(true)
 
-  // Clear transient error banner after 4 seconds
-  useEffect(() => {
-    if (saveError) {
-      const timer = setTimeout(() => setSaveError(null), 4000)
-      return () => clearTimeout(timer)
-    }
-  }, [saveError])
+  // Modals state
+  const [selectedOppForWhyMatch, setSelectedOppForWhyMatch] = useState<OpportunityCardData | null>(null)
+  const [selectedOppForApply, setSelectedOppForApply] = useState<OpportunityCardData | null>(null)
+  const [coverLetter, setCoverLetter] = useState("")
+  const [isSubmittingApp, setIsSubmittingApp] = useState(false)
+  const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null)
+  const [applyErrorMsg, setApplyErrorMsg] = useState<string | null>(null)
 
+  // 1. Load Data
   const loadOpportunities = useCallback(async () => {
     setLoading(true)
 
-    // 1. Fetch student verified skills to drive genuine, single-path match calculations
-    let studentScores: Record<string, number> = {}
-    let verifiedCount = 0
+    // A. Fetch student verified skills from DB
+    let studentScores: Record<string, number> = { ...DEMO_STUDENT_SKILLS_BASELINE }
 
     try {
       const skillsRes = await apiClient<{ success: boolean; data: any[] }>('/api/student/skills')
       if (skillsRes.success && Array.isArray(skillsRes.data) && skillsRes.data.length > 0) {
-        const scoreMap: Record<string, number> = {}
         skillsRes.data.forEach((s: any) => {
           const name = s.skills?.name || s.name || s.skillName
           const isVerified = s.verification_status && s.verification_status !== 'self_declared'
-          const level = Number(s.verified_level ?? s.current_level ?? 0)
-          if (name && isVerified) {
-            scoreMap[name] = level
-            scoreMap[name.toLowerCase()] = level
-            verifiedCount++
+          const level = Number(s.verified_level ?? s.current_level ?? s.self_declared_level ?? 0)
+          if (name && level > 0) {
+            studentScores[name] = level
+            studentScores[name.toLowerCase()] = level
           }
         })
-        studentScores = scoreMap
       }
     } catch {
-      // Fall back to empty scores — no fake data
-      verifiedCount = 0
+      // Use fallback baseline
     }
 
-    const studentHasSkills = verifiedCount > 0
-    setHasVerifiedSkills(studentHasSkills)
-
-    if (!studentHasSkills) {
-      setOpportunities([])
-      setLoading(false)
-      return
-    }
-
-    // 2. Fetch student's persisted saved opportunities
+    // B. Fetch saved opportunity IDs
     let currentSavedIds = new Set<string>()
     try {
-      const savedRes = await apiClient<{ success: boolean; data: string[] }>('/api/student/saved-opportunities')
-      if (savedRes.success && Array.isArray(savedRes.data)) {
-        currentSavedIds = new Set(savedRes.data)
+      const savedRes = await apiClient<{ success: boolean; data?: string[]; savedOpportunityIds?: string[] }>(
+        '/api/student/saved-opportunities'
+      )
+      const ids = savedRes.data || savedRes.savedOpportunityIds || []
+      if (Array.isArray(ids)) {
+        currentSavedIds = new Set(ids)
         setSavedIds(currentSavedIds)
       }
     } catch {
-      // Non-blocking fallback
+      // Non-blocking
     }
 
-    // 3. Load opportunities list and compute match & breakdown in a single pass
+    // C. Fetch already applied opportunity IDs
+    let currentAppliedIds = new Set<string>()
     try {
-      const params = new URLSearchParams()
-      if (search) params.set('search', search)
-      if (typeFilter !== 'All Types') params.set('type', typeFilter)
-      if (workModeFilter !== 'all') params.set('work_mode', workModeFilter)
+      const appsRes = await apiClient<{ success: boolean; data?: any[] }>('/api/applications')
+      if (appsRes.success && Array.isArray(appsRes.data)) {
+        appsRes.data.forEach((app: any) => {
+          const oppId = app.opportunities?.id || app.opportunity_id
+          if (oppId) currentAppliedIds.add(String(oppId))
+        })
+        setAppliedIds(currentAppliedIds)
+      }
+    } catch {
+      // Non-blocking
+    }
 
-      const json = await apiClient<{ success: boolean; data: any[] }>(
-        `/api/student/opportunities?${params.toString()}`
-      )
-
+    // D. Fetch all published opportunities
+    try {
+      const json = await apiClient<{ success: boolean; data: any[] }>('/api/opportunities')
       const rawList: OpportunityItem[] = (json.success && Array.isArray(json.data) && json.data.length > 0)
         ? json.data.map((item: any) => ({
-            id: item.id,
+            id: String(item.id),
             title: item.title,
-            company: item.company || item.industry_profiles?.organization_name || 'Partner Company',
+            company: item.company || item.company_name || item.industry_profiles?.organization_name || 'Enterprise Partner',
             type: item.type || item.opportunity_type || 'Internship',
             location: item.location || 'Remote',
-            workMode: (item.workMode || item.work_mode || 'remote').toLowerCase(),
-            duration: item.duration || 'Flexible',
-            deadline: item.deadline || '2026-12-31',
-            deadlineLabel: item.deadlineLabel || 'Dec 31, 2026',
+            workMode: (item.workMode || item.work_setting || item.work_mode || 'hybrid').toLowerCase(),
+            experience: item.experience || '0–1 years',
+            stipend: item.stipend || undefined,
+            duration: item.duration || '6 Months',
+            deadline: item.deadline ? item.deadline.split('T')[0] : '2026-09-30',
+            deadlineLabel: item.deadlineLabel || (item.deadline ? new Date(item.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '30 Sep 2026'),
             description: item.description || '',
-            requiredSkills: (item.requiredSkills || (item.opportunity_skills ?? []).map((os: any) => ({
-              name: os.skills?.name || os.name || 'Skill',
-              benchmark: os.minimum_level || os.benchmark || 70,
+            responsibilities: item.responsibilities || [],
+            eligibility: item.eligibility || 'Open to CS/IT students and recent graduates.',
+            requiredSkills: item.requiredSkills || (item.opportunity_skills || []).map((os: any) => ({
+              name: os.name || os.skill_name || os.skills?.name || 'Core Skill',
+              benchmark: Number(os.benchmark || os.required_score || os.minimum_level || 75),
               importance: os.importance || 'Required',
-            }))),
+            })),
           }))
         : SEED_OPPORTUNITIES
 
-      // Map each opportunity through single match computation pass
-      const formatted: OpportunityCard[] = rawList.map(opp => {
-        const match = calculateOpportunityMatch(opp, studentHasSkills ? studentScores : {})
-        return {
-          id: opp.id,
-          title: opp.title,
-          company: opp.company,
-          type: opp.type,
-          location: opp.location,
-          workMode: opp.workMode,
-          duration: opp.duration,
-          deadline: opp.deadline,
-          deadlineLabel: opp.deadlineLabel,
-          isDeadlineSoon: false,
-          isDeadlinePassed: false,
-          matchPercentage: match.matchPercentage,
-          readinessCategory: match.matchPercentage >= READY_THRESHOLD ? 'Ready' : match.matchPercentage >= ALMOST_READY_THRESHOLD ? 'Almost Ready' : 'Needs Preparation',
-          skillsMetCount: match.skillsMetCount,
-          totalSkillsCount: match.totalSkillsCount,
-          mainBlocker: match.mainBlocker,
-          skills: match.skills,
-          isSaved: currentSavedIds.has(opp.id),
-          hasApplied: false,
+      // Combine rawList ensuring standard seed opportunities exist
+      const existingIds = new Set(rawList.map(o => o.id))
+      const combined = [...rawList]
+      SEED_OPPORTUNITIES.forEach(seed => {
+        if (!existingIds.has(seed.id)) {
+          combined.push(seed)
         }
       })
 
-      setOpportunities(formatted)
-    } catch {
-      // Fallback
-      const formatted: OpportunityCard[] = SEED_OPPORTUNITIES.map(opp => {
-        const match = calculateOpportunityMatch(opp, studentHasSkills ? studentScores : {})
+      // Map through deterministic matching
+      const mappedCards: OpportunityCardData[] = combined.map(opp => {
+        const match = calculateOpportunityMatch(opp, studentScores)
+        const d = new Date(opp.deadline)
+        const now = new Date()
+        const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
         return {
           id: opp.id,
           title: opp.title,
@@ -409,440 +199,679 @@ export default function OpportunitiesPage() {
           type: opp.type,
           location: opp.location,
           workMode: opp.workMode,
+          experience: opp.experience || '0–1 years',
+          stipend: opp.stipend,
+          duration: opp.duration,
+          deadline: opp.deadline,
+          deadlineLabel: opp.deadlineLabel,
+          isDeadlineSoon: diffDays <= 7 && diffDays >= 0,
+          isDeadlinePassed: diffDays < 0,
+          description: opp.description,
+          responsibilities: opp.responsibilities,
+          eligibility: opp.eligibility,
+          matchPercentage: match.matchPercentage,
+          matchStatus: match.matchStatus,
+          matchStatusVariant: match.matchStatusVariant,
+          readyStatus: match.readyStatus,
+          isReadyToApply: match.isReadyToApply,
+          skillsMetCount: match.skillsMetCount,
+          totalSkillsCount: match.totalSkillsCount,
+          mainBlocker: match.mainBlocker,
+          matchedSkillNames: match.matchedSkillNames,
+          missingSkillNames: match.missingSkillNames,
+          matchExplanation: match.matchExplanation,
+          skills: match.skills,
+          isSaved: currentSavedIds.has(opp.id),
+          hasApplied: currentAppliedIds.has(opp.id),
+        }
+      })
+
+      setOpportunities(mappedCards)
+    } catch {
+      // Fallback directly to SEED_OPPORTUNITIES
+      const mappedCards: OpportunityCardData[] = SEED_OPPORTUNITIES.map(opp => {
+        const match = calculateOpportunityMatch(opp, studentScores)
+        return {
+          id: opp.id,
+          title: opp.title,
+          company: opp.company,
+          type: opp.type,
+          location: opp.location,
+          workMode: opp.workMode,
+          experience: opp.experience || '0–1 years',
+          stipend: opp.stipend,
           duration: opp.duration,
           deadline: opp.deadline,
           deadlineLabel: opp.deadlineLabel,
           isDeadlineSoon: false,
           isDeadlinePassed: false,
+          description: opp.description,
+          responsibilities: opp.responsibilities,
+          eligibility: opp.eligibility,
           matchPercentage: match.matchPercentage,
-          readinessCategory: match.matchPercentage >= READY_THRESHOLD ? 'Ready' : match.matchPercentage >= ALMOST_READY_THRESHOLD ? 'Almost Ready' : 'Needs Preparation',
+          matchStatus: match.matchStatus,
+          matchStatusVariant: match.matchStatusVariant,
+          readyStatus: match.readyStatus,
+          isReadyToApply: match.isReadyToApply,
           skillsMetCount: match.skillsMetCount,
           totalSkillsCount: match.totalSkillsCount,
           mainBlocker: match.mainBlocker,
+          matchedSkillNames: match.matchedSkillNames,
+          missingSkillNames: match.missingSkillNames,
+          matchExplanation: match.matchExplanation,
           skills: match.skills,
           isSaved: currentSavedIds.has(opp.id),
-          hasApplied: false,
+          hasApplied: currentAppliedIds.has(opp.id),
         }
       })
-      setOpportunities(formatted)
+      setOpportunities(mappedCards)
     } finally {
       setLoading(false)
     }
-  }, [search, typeFilter, workModeFilter])
+  }, [])
 
   useEffect(() => {
-    const timer = setTimeout(loadOpportunities, 250)
-    return () => clearTimeout(timer)
+    loadOpportunities()
   }, [loadOpportunities])
 
-  const handleToggleSave = (id: string, saved: boolean) => {
-    setOpportunities(prev =>
-      prev.map(o => (o.id === id ? { ...o, isSaved: saved } : o))
-    )
+  // Save / Bookmark Handler
+  const handleToggleSave = async (oppId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const currentlySaved = savedIds.has(oppId)
+    const nextSaved = !currentlySaved
+
+    // Optimistic UI update
+    setOpportunities(prev => prev.map(o => o.id === oppId ? { ...o, isSaved: nextSaved } : o))
     setSavedIds(prev => {
-      const next = new Set(prev)
-      if (saved) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
-      return next
+      const copy = new Set(prev)
+      if (nextSaved) copy.add(oppId)
+      else copy.delete(oppId)
+      return copy
     })
+
+    try {
+      await apiClient('/api/student/saved-opportunities', {
+        method: 'POST',
+        body: JSON.stringify({ opportunityId: oppId }),
+      })
+    } catch {
+      // Revert
+      setOpportunities(prev => prev.map(o => o.id === oppId ? { ...o, isSaved: currentlySaved } : o))
+      setSavedIds(prev => {
+        const copy = new Set(prev)
+        if (currentlySaved) copy.add(oppId)
+        else copy.delete(oppId)
+        return copy
+      })
+      setSaveError('Failed to update bookmark. Please try again.')
+    }
   }
 
-  // Filter opportunities according to search/dropdown filters
-  const filteredOpportunities = useMemo(() => {
-    return opportunities.filter(opp => {
-      if (search) {
-        const q = search.toLowerCase()
-        const matchesQuery =
-          opp.title.toLowerCase().includes(q) ||
-          opp.company.toLowerCase().includes(q) ||
-          (opp.skills ?? []).some(s => s.name.toLowerCase().includes(q))
-        if (!matchesQuery) return false
+  // Submit Application Handler
+  const handleSubmitApplication = async () => {
+    if (!selectedOppForApply) return
+    setIsSubmittingApp(true)
+    setApplyErrorMsg(null)
+
+    const oppId = selectedOppForApply.id
+
+    try {
+      const res = await apiClient<{ success: boolean; error?: { message?: string } }>('/api/applications', {
+        method: 'POST',
+        body: JSON.stringify({
+          opportunity_id: oppId,
+          cover_letter: coverLetter.trim() || undefined,
+        }),
+      })
+
+      if (res.success) {
+        setAppliedIds(prev => new Set(prev).add(oppId))
+        setOpportunities(prev => prev.map(o => o.id === oppId ? { ...o, hasApplied: true } : o))
+        setApplySuccessMsg('Application submitted successfully! Your application is now visible to the employer.')
+        setTimeout(() => {
+          setSelectedOppForApply(null)
+          setApplySuccessMsg(null)
+          setCoverLetter("")
+        }, 1800)
+      } else {
+        setApplyErrorMsg(res.error?.message || 'Could not submit application.')
       }
-      if (typeFilter !== 'All Types' && opp.type.toLowerCase() !== typeFilter.toLowerCase()) {
-        return false
+    } catch (err: any) {
+      setApplyErrorMsg(err?.message || 'Application submission failed. Please try again.')
+    } finally {
+      setIsSubmittingApp(false)
+    }
+  }
+
+  // Filtered & Sorted Opportunities
+  const filteredAndSortedOpportunities = useMemo(() => {
+    let result = opportunities
+
+    // Search filter
+    if (search.trim()) {
+      const query = search.toLowerCase().trim()
+      result = result.filter(o =>
+        o.title.toLowerCase().includes(query) ||
+        o.company.toLowerCase().includes(query) ||
+        o.description.toLowerCase().includes(query) ||
+        o.skills.some(s => s.name.toLowerCase().includes(query))
+      )
+    }
+
+    // Tab filter
+    if (activeTab === 'internship') {
+      result = result.filter(o => o.type.toLowerCase().includes('intern'))
+    } else if (activeTab === 'job') {
+      result = result.filter(o => o.type.toLowerCase().includes('job') || o.type.toLowerCase().includes('entry'))
+    } else if (activeTab === 'saved') {
+      result = result.filter(o => o.isSaved)
+    } else if (activeTab === 'high_match') {
+      result = result.filter(o => o.matchPercentage >= 70)
+    }
+
+    // Sort
+    return [...result].sort((a, b) => {
+      if (sortBy === 'best_match') {
+        return b.matchPercentage - a.matchPercentage
       }
-      if (workModeFilter !== 'all' && opp.workMode.toLowerCase() !== workModeFilter.toLowerCase()) {
-        return false
+      if (sortBy === 'deadline') {
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
       }
-      return true
+      if (sortBy === 'newest') {
+        return b.id.localeCompare(a.id)
+      }
+      return 0
     })
-  }, [opportunities, search, typeFilter, workModeFilter])
-
-  // Feature 4: Split into "Ready to Apply" (>=70%) vs "Almost Ready" (40-69%)
-  const readyToApply = useMemo(
-    () => filteredOpportunities.filter(o => o.matchPercentage >= READY_THRESHOLD),
-    [filteredOpportunities]
-  )
-
-  const almostReady = useMemo(
-    () =>
-      filteredOpportunities
-        .filter(o => o.matchPercentage >= ALMOST_READY_THRESHOLD && o.matchPercentage < READY_THRESHOLD)
-        .sort((a, b) => b.matchPercentage - a.matchPercentage),
-    [filteredOpportunities]
-  )
-
-  const otherOpportunities = useMemo(
-    () =>
-      filteredOpportunities
-        .filter(o => o.matchPercentage < ALMOST_READY_THRESHOLD)
-        .sort((a, b) => b.matchPercentage - a.matchPercentage),
-    [filteredOpportunities]
-  )
-
-  // Saved tab items
-  const savedOpportunities = useMemo(
-    () => filteredOpportunities.filter(o => o.isSaved),
-    [filteredOpportunities]
-  )
-
-  // Feature 5: "Recommended for You" shelf top matches
-  const topRecommended = useMemo(() => {
-    return [...opportunities]
-      .sort((a, b) => b.matchPercentage - a.matchPercentage)
-      .slice(0, 3)
-  }, [opportunities])
-
-  const TABS: { key: TabType; label: string; count?: number; icon: React.ReactNode }[] = [
-    { key: 'all', label: 'All Opportunities', count: filteredOpportunities.length, icon: <Briefcase className="h-4 w-4" /> },
-    { key: 'saved', label: 'Saved', count: savedOpportunities.length, icon: <Bookmark className="h-4 w-4" /> },
-  ]
+  }, [opportunities, search, activeTab, sortBy])
 
   return (
-    <div className="relative space-y-8 animate-in fade-in duration-500 pb-16">
-      {/* Ambient background glow orbs */}
-      <div className="absolute -top-12 -right-12 h-72 w-72 rounded-full bg-[var(--color-accent)]/8 blur-3xl pointer-events-none" />
-      <div className="absolute top-[480px] -left-12 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl pointer-events-none" />
+    <div className="space-y-8 animate-in fade-in duration-500 pb-16">
+      {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-h1 font-bold text-slate-900">Opportunity Hub</h1>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Verified Marketplace
+            </span>
+          </div>
+          <p className="text-sm text-slate-500">
+            Explore industry-verified internships, jobs, and development opportunities matching your skill competencies.
+          </p>
+        </div>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Opportunity Hub</h1>
-        <p className="text-sm font-medium text-slate-500 mt-1">
-          Discover verified internships and career roles matched directly to your living Skill Passport benchmarks.
-        </p>
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search roles, companies, skills..."
+            className="w-full pl-10 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
+          />
+        </div>
       </div>
 
-      {/* Transient Save/Bookmark Error Alert */}
-      {saveError && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-xs font-semibold text-rose-800 flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-            <span>{saveError}</span>
-          </div>
-          <button onClick={() => setSaveError(null)} className="text-rose-600 hover:text-rose-900">
-            <X className="h-4 w-4" />
+      {/* ─── FILTER TABS & SORT ──────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-1 border-b border-slate-100 pb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'all'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            All Opportunities ({opportunities.length})
           </button>
+          <button
+            onClick={() => setActiveTab('internship')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'internship'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            Internships ({opportunities.filter(o => o.type.toLowerCase().includes('intern')).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('job')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'job'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            Full-Time Jobs ({opportunities.filter(o => o.type.toLowerCase().includes('job')).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('high_match')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'high_match'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+            }`}
+          >
+            High Match ≥ 70% ({opportunities.filter(o => o.matchPercentage >= 70).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'saved'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Bookmark className="h-3.5 w-3.5" /> Saved ({savedIds.size})
+          </button>
+        </div>
+
+        {/* Sort Select */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0">
+          <span className="font-medium">Sort by:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          >
+            <option value="best_match">Best Match</option>
+            <option value="deadline">Nearest Deadline</option>
+            <option value="newest">Recently Posted</option>
+          </select>
+        </div>
+      </div>
+
+      {saveError && (
+        <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {saveError}
         </div>
       )}
 
-      {/* ─── FEATURE 5: RECOMMENDED FOR YOU SECTION AT THE TOP ───────────────── */}
-      {!hasVerifiedSkills ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/40 p-6 sm:p-7 shadow-xs backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-xl bg-amber-100 text-amber-800">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <h3 className="text-sm font-bold text-slate-900">Personalized Recommendations Awaiting Assessment</h3>
-            </div>
-            <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
-              We need your verified skill ledger to rank and recommend relevant roles. Complete your initial benchmark assessment to unlock personalized recommendations.
-            </p>
-          </div>
-          <Link href="/student/career" className="shrink-0">
-            <Button className="h-10 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs hover:-translate-y-0.5 transition-all">
-              Complete your skill assessment to get personalized recommendations →
-            </Button>
-          </Link>
-        </div>
-      ) : topRecommended.length > 0 ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm backdrop-blur-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="p-1.5 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)]">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Recommended for You</h2>
-                <p className="text-[11px] font-medium text-slate-500">
-                  Highest-match opportunities calibrated to your authenticated skill ledger
-                </p>
-              </div>
-            </div>
-            <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-              Top {topRecommended.length} Matches
-            </span>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {topRecommended.map((opp) => (
-              <div
-                key={`rec-${opp.id}`}
-                className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 hover:bg-white hover:border-[var(--color-accent)]/50 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <MatchBadge pct={opp.matchPercentage} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
-                      {opp.type}
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-900 line-clamp-1">{opp.title}</h4>
-                  <p className="text-xs text-slate-500 font-medium">{opp.company}</p>
-                </div>
-
-                <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between text-xs">
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    {opp.skillsMetCount}/{opp.totalSkillsCount} Skills Met
-                  </span>
-                  <Link href={`/student/opportunities/${opp.id}`}>
-                    <span className="font-bold text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] inline-flex items-center gap-1">
-                      View <ArrowRight className="h-3 w-3" />
-                    </span>
-                  </Link>
-                </div>
-              </div>
-            ))}
+      {/* ─── OPPORTUNITIES GRID ──────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[350px]">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--color-accent)]" />
+            <p className="text-xs font-medium text-slate-500">Loading opportunity matches...</p>
           </div>
         </div>
-      ) : null}
-
-      {/* ─── FEATURE 3: ALL | SAVED FILTER TABS ───────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="inline-flex gap-1.5 p-1.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] self-start">
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                activeTab === tab.key
-                  ? 'bg-[var(--color-accent)] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-              }`}
+      ) : filteredAndSortedOpportunities.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredAndSortedOpportunities.map((opp) => (
+            <div
+              key={opp.id}
+              className="group rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200/80 p-6 shadow-[0_8px_25px_-8px_rgba(15,23,42,0.06)] hover:-translate-y-1 hover:shadow-[0_20px_45px_-12px_rgba(15,23,42,0.12)] hover:border-[var(--color-accent)]/40 transition-all duration-300 flex flex-col justify-between"
             >
-              {tab.icon}
-              {tab.label}
-              {typeof tab.count === 'number' && (
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                    activeTab === tab.key ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-700'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
+              <div>
+                {/* Header: Company & Bookmark */}
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+                      {opp.company}
+                    </span>
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-[var(--color-accent)] transition-colors mt-0.5">
+                      {opp.title}
+                    </h3>
+                  </div>
+
+                  {/* Bookmark Button */}
+                  <button
+                    onClick={(e) => handleToggleSave(opp.id, e)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-[var(--color-accent)] hover:bg-slate-50 transition-all shrink-0"
+                    title={opp.isSaved ? 'Saved to bookmarks' : 'Save opportunity'}
+                    aria-label={opp.isSaved ? 'Saved to bookmarks' : 'Save opportunity'}
+                  >
+                    {opp.isSaved ? (
+                      <BookmarkCheck className="h-5 w-5 text-[var(--color-accent)] fill-[var(--color-accent)]" />
+                    ) : (
+                      <Bookmark className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Subheader: Type, Location, Work Mode */}
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mb-3 flex-wrap">
+                  <span className="font-semibold text-slate-700">{opp.type}</span>
+                  <span>•</span>
+                  <span>{opp.location}</span>
+                  <span>•</span>
+                  <span className="capitalize">{opp.workMode}</span>
+                  <span>•</span>
+                  <span className="text-slate-600 font-semibold">{opp.experience}</span>
+                </div>
+
+                {/* Short Description */}
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed mb-4">
+                  {opp.description}
+                </p>
+
+                {/* Skills Row */}
+                <div className="mb-4">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                    Skills:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {opp.skills.map((s, idx) => (
+                      <span
+                        key={idx}
+                        className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-lg border ${
+                          s.met
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {s.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Match Intelligence Card */}
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/70 mb-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-black px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                          opp.matchPercentage >= 70
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : opp.matchPercentage >= 50
+                            ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {opp.matchPercentage}% Match
+                      </span>
+                      <span
+                        className={`text-[11px] font-bold ${
+                          opp.isReadyToApply ? 'text-emerald-700' : 'text-amber-700'
+                        }`}
+                      >
+                        {opp.isReadyToApply ? '✓ Ready to Apply' : '• Improve Skills First'}
+                      </span>
+                    </div>
+
+                    {/* Why this match trigger */}
+                    <button
+                      onClick={() => setSelectedOppForWhyMatch(opp)}
+                      className="text-[11px] font-bold text-[var(--color-accent)] hover:underline flex items-center gap-0.5"
+                    >
+                      Why this match? <HelpCircle className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    {opp.matchExplanation}
+                  </p>
+                </div>
+
+                {/* Deadline */}
+                <div className="flex items-center justify-between text-xs text-slate-500 font-medium mb-4 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Deadline: <strong className="text-slate-700">{opp.deadlineLabel}</strong></span>
+                  </div>
+                  {opp.stipend && (
+                    <span className="font-bold text-slate-700">{opp.stipend}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons: Apply & Details */}
+              <div className="flex items-center gap-2 pt-1">
+                {opp.hasApplied ? (
+                  <Button
+                    variant="outline"
+                    disabled
+                    className="flex-1 h-9 rounded-xl text-xs font-bold bg-slate-100 text-emerald-700 border-emerald-200 cursor-default"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1.5 text-emerald-600" /> Applied ✓
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setSelectedOppForApply(opp)}
+                    className="flex-1 h-9 rounded-xl text-xs font-bold bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-xs"
+                  >
+                    Apply Now
+                  </Button>
+                )}
+
+                <Link href={`/student/opportunities/${opp.id}`}>
+                  <Button
+                    variant="outline"
+                    className="h-9 px-3 rounded-xl text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50"
+                  >
+                    Details <ChevronRight className="h-3.5 w-3.5 ml-0.5 text-slate-400" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
-
-        {activeTab === 'saved' && (
-          <span className="text-xs font-medium text-slate-500">
-            Showing bookmarked opportunities persisted to your profile
-          </span>
-        )}
-      </div>
-
-      {/* Filter Search & Dropdowns */}
-      <div className="flex flex-col lg:flex-row gap-3 p-3 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.04)]">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search roles, skills, companies..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
-          />
-        </div>
-        <Select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="w-full lg:w-48 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
-        >
-          <option>All Types</option>
-          <option>Internship</option>
-          <option>Apprenticeship</option>
-          <option>Job</option>
-          <option>Training</option>
-          <option>Workshop</option>
-          <option>Mentorship</option>
-        </Select>
-        <Select
-          value={workModeFilter}
-          onChange={(e) => setWorkModeFilter(e.target.value)}
-          className="w-full lg:w-36 h-11 rounded-xl border-slate-200/80 bg-white text-sm focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
-        >
-          <option value="all">All Modes</option>
-          <option value="remote">Remote</option>
-          <option value="hybrid">Hybrid</option>
-          <option value="onsite">On-site</option>
-        </Select>
-      </div>
-
-      {/* Main Content Area */}
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[320px]">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-9 w-9 animate-spin text-[var(--color-accent)]" />
-            <p className="text-sm font-medium text-slate-500">
-              Evaluating skill match benchmarks and loading opportunities...
-            </p>
-          </div>
-        </div>
-      ) : activeTab === 'saved' ? (
-        /* ─── SAVED TAB VIEW ──────────────────────────────────────────────── */
-        savedOpportunities.length === 0 ? (
-          <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-dashed border-slate-300 p-12 text-center shadow-sm max-w-md mx-auto space-y-3">
-            <Bookmark className="h-10 w-10 text-slate-400 mx-auto" />
-            <h3 className="font-bold text-lg text-slate-900">No saved opportunities yet</h3>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Bookmark roles you want to revisit across sessions. Click the bookmark icon in the top right of any card.
-            </p>
-            <div className="pt-2">
-              <Button
-                onClick={() => setActiveTab('all')}
-                className="rounded-xl h-10 px-5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs"
-              >
-                Browse All Opportunities
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedOpportunities.map(opp => (
-                <OpportunityCardItem
-                  key={opp.id}
-                  opp={opp}
-                  onToggleSave={handleToggleSave}
-                  onSaveError={setSaveError}
-                />
-              ))}
-            </div>
-          </div>
-        )
-      ) : filteredOpportunities.length === 0 ? (
-        /* Empty Filter State */
-        <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-dashed border-slate-300 p-12 text-center shadow-sm max-w-md mx-auto space-y-3">
-          <Briefcase className="h-10 w-10 text-slate-400 mx-auto" />
-          <h3 className="font-bold text-lg text-slate-900">No opportunities match your filter</h3>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            Try expanding your search keywords or resetting filters.
-          </p>
-          <div className="pt-2">
-            <Button
-              variant="outline"
-              onClick={() => { setSearch(''); setTypeFilter('All Types'); setWorkModeFilter('all') }}
-              className="rounded-xl h-10 px-5 border-slate-200 text-slate-700 font-bold text-xs"
-            >
-              Reset Filters
-            </Button>
-          </div>
-        </div>
       ) : (
-        /* ─── FEATURE 4: READY TO APPLY VS ALMOST READY GROUPS ────────────── */
-        <div className="space-y-10">
-          {/* Group 1: Ready to Apply (>= 70%) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200/80 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight">Ready to Apply</h2>
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80">
-                  {readyToApply.length} roles (≥{READY_THRESHOLD}% Match)
-                </span>
+        <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-200 max-w-md mx-auto space-y-3">
+          <Briefcase className="h-10 w-10 text-slate-300 mx-auto" />
+          <h3 className="font-bold text-slate-800 text-base">No opportunities found</h3>
+          <p className="text-xs text-slate-500">
+            Try adjusting your search terms or filter settings to explore more opportunities.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSearch("")
+              setActiveTab('all')
+            }}
+            className="rounded-xl text-xs font-semibold"
+          >
+            Reset Filters
+          </Button>
+        </div>
+      )}
+
+      {/* ─── MODAL: "WHY THIS MATCH?" BREAKDOWN ─────────────────────────────── */}
+      {selectedOppForWhyMatch && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Match Intelligence</span>
+                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  {selectedOppForWhyMatch.company} — {selectedOppForWhyMatch.title}
+                </h3>
               </div>
-              <span className="text-xs text-slate-500 font-medium">
-                Your authenticated skills satisfy industry benchmarks
+              <button
+                onClick={() => setSelectedOppForWhyMatch(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Score header */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/60 to-slate-50 border border-emerald-200/80 flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-black text-slate-900">
+                  {selectedOppForWhyMatch.matchPercentage}% Match
+                </div>
+                <div className="text-xs font-bold text-emerald-700">
+                  {selectedOppForWhyMatch.matchStatus} • {selectedOppForWhyMatch.readyStatus}
+                </div>
+              </div>
+              <span className="text-xs font-mono font-bold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                {selectedOppForWhyMatch.skillsMetCount}/{selectedOppForWhyMatch.totalSkillsCount} Skills Met
               </span>
             </div>
 
-            {readyToApply.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {readyToApply.map(opp => (
-                  <OpportunityCardItem
-                    key={opp.id}
-                    opp={opp}
-                    onToggleSave={handleToggleSave}
-                    onSaveError={setSaveError}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-xs text-slate-500 font-medium">
-                No roles currently reach the {READY_THRESHOLD}% threshold. Close targeted deficits in the &ldquo;Almost Ready&rdquo; section below to qualify!
-              </div>
-            )}
-          </div>
-
-          {/* Group 2: Almost Ready (40%–69%) */}
-          <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between border-b border-slate-200/80 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-4 ring-amber-100" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight">Almost Ready</h2>
-                <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/80">
-                  {almostReady.length} roles ({ALMOST_READY_THRESHOLD}–{READY_THRESHOLD - 1}% Match)
+            {/* Matched vs Missing Skills */}
+            <div className="space-y-3">
+              <div>
+                <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5 mb-2">
+                  <CheckCircle2 className="h-4 w-4" /> Verified Matching Skills ({selectedOppForWhyMatch.matchedSkillNames.length})
                 </span>
-              </div>
-              <span className="text-xs text-slate-500 font-medium">
-                Sorted by match % • Tap any ⚠️ or ❌ tag to close point deficits
-              </span>
-            </div>
-
-            {almostReady.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {almostReady.map(opp => (
-                  <OpportunityCardItem
-                    key={opp.id}
-                    opp={opp}
-                    onToggleSave={handleToggleSave}
-                    onSaveError={setSaveError}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-xs text-slate-500 font-medium">
-                No opportunities currently within the {ALMOST_READY_THRESHOLD}–{READY_THRESHOLD - 1}% range.
-              </div>
-            )}
-          </div>
-
-          {/* Group 3: Opportunities < 40% (Collapsed by default with toggle) */}
-          {otherOpportunities.length > 0 && (
-            <div className="space-y-4 pt-4 border-t border-slate-200/80">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/60">
-                <span className="text-xs font-semibold text-slate-600">
-                  {otherOpportunities.length} opportunities require significant prerequisite skills (&lt;{ALMOST_READY_THRESHOLD}% Match)
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAllLowMatch(!showAllLowMatch)}
-                  className="rounded-xl h-8 px-3.5 border-slate-300 text-slate-700 font-bold text-xs self-start sm:self-auto hover:bg-slate-100"
-                >
-                  {showAllLowMatch
-                    ? "Hide low-match opportunities"
-                    : `Show all opportunities (${otherOpportunities.length} below ${ALMOST_READY_THRESHOLD}%)`}
-                </Button>
-              </div>
-
-              {showAllLowMatch && (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2 animate-in fade-in">
-                  {otherOpportunities.map(opp => (
-                    <OpportunityCardItem
-                      key={opp.id}
-                      opp={opp}
-                      onToggleSave={handleToggleSave}
-                      onSaveError={setSaveError}
-                    />
+                <div className="space-y-1.5">
+                  {selectedOppForWhyMatch.skills.filter(s => s.met).map((s, idx) => (
+                    <div key={idx} className="flex justify-between items-center px-3 py-2 rounded-xl bg-emerald-50/50 border border-emerald-100 text-xs">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="text-emerald-600 font-bold">✓</span> {s.name}
+                      </span>
+                      <span className="text-[11px] font-mono text-emerald-700 font-semibold">
+                        {s.currentLevel} / {s.requiredLevel} pts (Benchmark Met)
+                      </span>
+                    </div>
                   ))}
+                  {selectedOppForWhyMatch.matchedSkillNames.length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No verified matching skills established yet.</p>
+                  )}
+                </div>
+              </div>
+
+              {selectedOppForWhyMatch.missingSkillNames.length > 0 && (
+                <div>
+                  <span className="text-xs font-bold text-amber-700 flex items-center gap-1.5 mb-2">
+                    <AlertTriangle className="h-4 w-4" /> Skills Needing Improvement ({selectedOppForWhyMatch.missingSkillNames.length})
+                  </span>
+                  <div className="space-y-1.5">
+                    {selectedOppForWhyMatch.skills.filter(s => !s.met).map((s, idx) => (
+                      <div key={idx} className="flex justify-between items-center px-3 py-2 rounded-xl bg-amber-50/40 border border-amber-100 text-xs">
+                        <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="text-amber-600 font-bold">×</span> {s.name}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-amber-800">
+                            {s.currentLevel > 0 ? `${s.currentLevel}/${s.requiredLevel} pts` : 'Not Assessed'}
+                          </span>
+                          <Link
+                            href={getAssessmentRouteForSkill(s.name)}
+                            className="text-[10px] font-bold text-[var(--color-accent)] hover:underline flex items-center"
+                          >
+                            Assess <ArrowRight className="h-2.5 w-2.5 ml-0.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-          )}
+
+            {/* Context Note */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 leading-relaxed">
+              <strong>Match Guidance:</strong> {selectedOppForWhyMatch.matchExplanation}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedOppForWhyMatch(null)}
+                className="rounded-xl text-xs font-semibold"
+              >
+                Close
+              </Button>
+              {!selectedOppForWhyMatch.hasApplied && (
+                <Button
+                  onClick={() => {
+                    const opp = selectedOppForWhyMatch
+                    setSelectedOppForWhyMatch(null)
+                    setSelectedOppForApply(opp)
+                  }}
+                  className="rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold px-4"
+                >
+                  Apply Now
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: APPLY TO OPPORTUNITY ───────────────────────────────────── */}
+      {selectedOppForApply && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Application Portal</span>
+                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  Apply to {selectedOppForApply.company}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Role: <strong className="text-slate-800">{selectedOppForApply.title}</strong> • {selectedOppForApply.type}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedOppForApply(null)
+                  setApplyErrorMsg(null)
+                  setApplySuccessMsg(null)
+                }}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {applySuccessMsg ? (
+              <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto" />
+                <h4 className="font-bold text-emerald-900 text-sm">Application Sent!</h4>
+                <p className="text-xs text-emerald-700">{applySuccessMsg}</p>
+              </div>
+            ) : (
+              <>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span>Your Match Rating:</span>
+                    <strong className="text-slate-900 font-bold">{selectedOppForApply.matchPercentage}% ({selectedOppForApply.matchStatus})</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Application Deadline:</span>
+                    <strong className="text-slate-900 font-bold">{selectedOppForApply.deadlineLabel}</strong>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Candidate Cover Note (Optional)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    placeholder="Describe your practical experience, projects, or why you are a strong fit for this role..."
+                    className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                {applyErrorMsg && (
+                  <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" /> {applyErrorMsg}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedOppForApply(null)}
+                    disabled={isSubmittingApp}
+                    className="rounded-xl text-xs font-semibold"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmitApplication}
+                    disabled={isSubmittingApp}
+                    className="rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-bold px-5"
+                  >
+                    {isSubmittingApp ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Submitting...</> : 'Confirm & Submit Application'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

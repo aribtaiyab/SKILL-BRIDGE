@@ -8,7 +8,7 @@ import { startAssessment, submitAssessment, FALLBACK_QUESTIONS, sessionAssessmen
 import { CAREER_BENCHMARK_PROFILES, findCareerBenchmark } from '../intelligence/benchmarks.js'
 import { ENV } from '../config/env.js'
 import { AI_CONFIG } from '../ai/config.js'
-import { GeminiService } from '../services/ai/gemini.service.js'
+import { GroqService } from '../services/ai/groq.service.js'
 
 // Persistent store on disk for reliable local and offline guarantees
 export const sessionCareerTargets = new Map<string, string>()
@@ -1995,7 +1995,7 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
       }
     }
 
-    // ─── Gemini AI Integration for Self-Rating Narrative Analysis ───
+    // ─── Groq AI Integration for Self-Rating Narrative Analysis ───
     const career = findCareerBenchmark(career_target_id)
     const careerTitle = career?.name || 'Target Career Track'
     const ratingDescriptions = ratings.map((r: { skill_id: string; self_rating_label: string }) => {
@@ -2010,7 +2010,7 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
     if (AI_CONFIG.isLiveProviderConfigured()) {
       try {
         const promptText = `Student's target career: ${careerTitle}.\nStudent's self-declared skill confidence levels: ${ratingDescriptions}.\n\nProvide a concise 2-sentence narrative summarizing their self-declared baseline relative to their target role. Do NOT mention numerical test scores, point calculations, or readiness percentages.`
-        const result = await GeminiService.generateText({
+        const result = await GroqService.generateText({
           systemInstruction: 'You are a career development mentor for SkillBridge Connect. Give a concise, encouraging 2-sentence narrative summary of the student\'s self-declared baseline profile relative to their target role. Do NOT generate or calculate numerical scores or percentages.',
           userPrompt: promptText,
           temperature: 0.3,
@@ -2019,7 +2019,7 @@ export async function saveSelfRatings(req: AuthenticatedRequest, res: Response, 
           insightText = result
         }
       } catch (err) {
-        console.warn('[Gemini AI] Error in self-rating insight call:', err)
+        console.warn('[Groq AI] Error in self-rating insight call:', err)
       }
     }
 

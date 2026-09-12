@@ -509,8 +509,8 @@
         "id": "ss-1788968427081-ukg5yd",
         "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
         "skill_id": "40000000-0000-0000-0000-000000000001",
-        "self_declared_level": 70,
-        "current_level": 70,
+        "self_declared_level": 55,
+        "current_level": 55,
         "verified_level": 0,
         "verification_status": "self_declared",
         "skills": {
@@ -518,14 +518,14 @@
           "name": "Node.js",
           "category": "Backend"
         },
-        "updated_at": "2026-09-09T15:40:27.081Z"
+        "updated_at": "2026-09-12T05:54:01.439Z"
       },
       "40000000-0000-0000-0000-000000000002": {
         "id": "ss-1788968427926-fjvdhg",
         "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
         "skill_id": "40000000-0000-0000-0000-000000000002",
-        "self_declared_level": 15,
-        "current_level": 15,
+        "self_declared_level": 90,
+        "current_level": 90,
         "verified_level": 0,
         "verification_status": "self_declared",
         "skills": {
@@ -533,14 +533,14 @@
           "name": "REST APIs",
           "category": "Backend"
         },
-        "updated_at": "2026-09-09T15:40:27.926Z"
+        "updated_at": "2026-09-12T05:54:01.695Z"
       },
       "40000000-0000-0000-0000-000000000003": {
         "id": "ss-1788968428386-k9povh",
         "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
         "skill_id": "40000000-0000-0000-0000-000000000003",
-        "self_declared_level": 45,
-        "current_level": 45,
+        "self_declared_level": 30,
+        "current_level": 30,
         "verified_level": 0,
         "verification_status": "self_declared",
         "skills": {
@@ -548,14 +548,14 @@
           "name": "SQL",
           "category": "Databases"
         },
-        "updated_at": "2026-09-09T15:40:28.386Z"
+        "updated_at": "2026-09-12T05:54:01.990Z"
       },
       "40000000-0000-0000-0000-000000000004": {
         "id": "ss-1788968428581-8lqwio",
         "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
         "skill_id": "40000000-0000-0000-0000-000000000004",
-        "self_declared_level": 30,
-        "current_level": 30,
+        "self_declared_level": 95,
+        "current_level": 95,
         "verified_level": 0,
         "verification_status": "self_declared",
         "skills": {
@@ -563,7 +563,7 @@
           "name": "Git & Version Control",
           "category": "Tools"
         },
-        "updated_at": "2026-09-09T15:40:28.581Z"
+        "updated_at": "2026-09-12T05:54:02.248Z"
       }
     }
   },
@@ -694,5 +694,5 @@
       }
     ]
   },
-  "updatedAt": "2026-09-09T15:40:29.105Z"
+  "updatedAt": "2026-09-12T05:54:02.466Z"
 }

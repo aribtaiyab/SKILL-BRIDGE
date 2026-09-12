@@ -27,6 +27,6 @@ export async function getHealth(req: Request, res: Response) {
     database: databaseStatus,
     supabaseConfigured: isSupabaseConfigured(),
     supabaseUrl: ENV.SUPABASE_URL ? 'configured' : 'missing',
-    model: ENV.GEMINI_MODEL,
+    model: ENV.GROQ_MODEL,
   })
 }
