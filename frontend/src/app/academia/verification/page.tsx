@@ -1,49 +1,54 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth/context"
 import { useDemo } from "@/lib/demo/demo-context"
 import { apiClient } from "@/lib/api-client"
 import {
-  ShieldCheck, Award, Calendar, Video, CheckCircle2, Clock,
-  AlertTriangle, UserCheck, ArrowRight, ExternalLink, Mic,
-  MicOff, VideoOff, Monitor, X, Play, FileCheck, HelpCircle,
-  ChevronRight, Save, User, FileText, Check, Loader2, Sparkles
+  ShieldCheck, Award, Calendar, CheckCircle2, Clock,
+  AlertTriangle, UserCheck, ArrowRight, ExternalLink,
+  ChevronRight, Save, User, FileText, Check, Loader2, Sparkles,
+  Search, Filter, GitBranch, Globe, X, MessageSquare, RefreshCw, ThumbsUp, ThumbsDown
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+
+interface SupportingEvidence {
+  title: string
+  type: string
+  url?: string
+  description?: string
+}
 
 interface VerificationRequestItem {
   id: string
   student_id: string
   student_name: string
   student_email: string
-  academician_id: string
-  academician_name: string
+  department?: string
   skill_name: string
-  current_skill_score: number
-  assessment_score: number
-  academic_test_score?: number
-  status: 'request_sent' | 'accepted' | 'scheduled' | 'in_progress' | 'verified' | 'rejected' | 'reassessment_required' | 'reschedule_required'
-  supporting_evidence: Array<{
-    title: string
-    type: string
-    url?: string
-    description?: string
-  }>
-  student_notes?: string
-  rejection_reason?: string
-  rejection_feedback?: string
+  skill_id?: string
+  score: number
+  claimed_level?: string
+  verification_tier: string
+  description?: string | null
+  project_title?: string | null
+  project_url?: string | null
+  tech_stack?: string | null
+  proof_url?: string | null
+  proof_notes?: string | null
+  supporting_evidence?: SupportingEvidence[]
+  status: 'pending' | 'in_review' | 'approved' | 'rejected'
+  academician_id?: string | null
+  academician_name?: string | null
+  academician_institution?: string | null
+  academician_department?: string | null
+  faculty_feedback?: string | null
+  rejection_reason?: string | null
+  verified_level?: number | null
+  reviewed_at?: string | null
   created_at: string
-  session?: {
-    id: string
-    scheduled_at: string
-    duration_minutes: number
-    verification_methods: string[]
-    meeting_link: string
-    verification_notes?: string
-  } | null
 }
 
 export default function AcademiaVerificationPage() {
@@ -52,862 +57,764 @@ export default function AcademiaVerificationPage() {
 
   const [requests, setRequests] = useState<VerificationRequestItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_review' | 'approved' | 'rejected'>('all')
 
-  // Scheduling Modal State
-  const [schedulingRequest, setSchedulingRequest] = useState<VerificationRequestItem | null>(null)
-  const [scheduleDate, setScheduleDate] = useState('2026-09-12')
-  const [scheduleTime, setScheduleTime] = useState('14:30')
-  const [durationMinutes, setDurationMinutes] = useState(30)
-  const [submittingSchedule, setSubmittingSchedule] = useState(false)
-
-  // Live Video Room State
-  const [activeVideoSession, setActiveVideoSession] = useState<VerificationRequestItem | null>(null)
-  const [micActive, setMicActive] = useState(true)
-  const [videoActive, setVideoActive] = useState(true)
-  const [screenShareActive, setScreenShareActive] = useState(false)
-  const [sessionNotes, setSessionNotes] = useState('')
-  const [savingNotes, setSavingNotes] = useState(false)
-  const [notesSavedNotice, setNotesSavedNotice] = useState(false)
-
-  // Final Decision Modal State
-  const [decisionRequest, setDecisionRequest] = useState<VerificationRequestItem | null>(null)
-  const [evidenceScore, setEvidenceScore] = useState(85)
-  const [academicTestScore, setAcademicTestScore] = useState(85)
-  const [rejectionReason, setRejectionReason] = useState('Insufficient practical evidence demonstrated')
-  const [rejectionFeedback, setRejectionFeedback] = useState('Recommend building a complete CRUD application with end-to-end testing and review debugging fundamentals.')
+  // Review Workspace Modal State
+  const [reviewingRequest, setReviewingRequest] = useState<VerificationRequestItem | null>(null)
+  const [evalVerifiedScore, setEvalVerifiedScore] = useState(85)
+  const [evalVerifiedTier, setEvalVerifiedTier] = useState('Institution Verified')
+  const [evalFacultyNotes, setEvalFacultyNotes] = useState('Verified with high technical competence and hands-on repository evidence.')
+  const [evalRejectionReason, setEvalRejectionReason] = useState('Insufficient practical repository evidence')
+  const [evalRejectionFeedback, setEvalRejectionFeedback] = useState('Please attach a comprehensive repository with unit tests or deployment link demonstrating production readiness.')
+  const [decisionMode, setDecisionMode] = useState<'approve' | 'reject'>('approve')
   const [submittingDecision, setSubmittingDecision] = useState(false)
+  const [decisionError, setDecisionError] = useState<string | null>(null)
+  const [decisionSuccess, setDecisionSuccess] = useState<string | null>(null)
 
-  // Evidence Drawer / Viewer State
-  const [inspectingRequest, setInspectingRequest] = useState<VerificationRequestItem | null>(null)
+  // 1. Fetch live verification requests from database
+  const loadRequests = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true)
+    else setRefreshing(true)
 
-  // Fetch Verification Requests
-  const loadRequests = async () => {
     try {
-      // 1. Try dedicated live Supabase verification list
-      const liveRes = await fetch('/api/verification/list')
-      if (liveRes.ok) {
-        const liveJson = await liveRes.json()
-        if (liveJson.requests && Array.isArray(liveJson.requests) && liveJson.requests.length > 0) {
-          const mapped = liveJson.requests.map((r: any) => ({
-            id: r.id,
-            student_id: r.student_id,
-            student_name: r.student_name,
-            student_email: r.student_email || 'student@dtu.ac.in',
-            academician_id: 'faculty-001',
-            academician_name: 'Dr. Sarah Mitchell',
-            skill_name: r.skill_name,
-            current_skill_score: r.score || 85,
-            assessment_score: r.score || 85,
-            status: r.status === 'approved' ? 'verified' : (r.status === 'rejected' ? 'rejected' : 'request_sent'),
-            verification_tier: r.verification_tier,
-            supporting_evidence: r.proof_url ? [{ title: 'Repository Evidence', type: 'github', url: r.proof_url, description: r.proof_notes }] : [],
-            student_notes: r.proof_notes || 'Student benchmark assessment submitted for verified Living Skill Passport upgrade.',
-            created_at: r.created_at || new Date().toISOString(),
-          }))
-          setRequests(mapped as any)
-          setLoading(false)
-          return
-        }
-      }
-
-      // 2. Fallback to academician requests endpoint
-      const res = await apiClient<{ success: boolean; data: VerificationRequestItem[] }>('/api/verification/academician/requests')
-      if (res?.success && Array.isArray(res.data)) {
-        setRequests(res.data)
-      }
+      const res = await apiClient<{ success: boolean; data?: VerificationRequestItem[]; requests?: VerificationRequestItem[] }>('/api/verification/academician/requests')
+      const loaded = res?.data || res?.requests || []
+      setRequests(loaded)
     } catch (err) {
-      console.warn('Failed to load academician verification queue:', err)
+      console.warn('Notice loading academician verification queue:', err)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadRequests()
-  }, [])
+  }, [loadRequests])
 
-  // 1-Click Approve Verification Action
-  const handleQuickApprove = async (id: string) => {
-    try {
-      const res = await fetch('/api/verification/action', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: id, action: 'approved', facultyFeedback: 'Verified with high technical competence.' })
-      })
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'verified' as any } : r))
-    } catch (err) {
-      console.error('Quick approve error:', err)
-    }
+  // Open Review Workspace for a specific ticket
+  const handleOpenReview = (req: VerificationRequestItem, defaultMode: 'approve' | 'reject' = 'approve') => {
+    setReviewingRequest(req)
+    setDecisionMode(defaultMode)
+    setEvalVerifiedScore(req.verified_level || req.score || 85)
+    setEvalVerifiedTier(req.verification_tier || 'Institution Verified')
+    setEvalFacultyNotes(req.faculty_feedback || `Verified ${req.skill_name} proficiency. Student demonstrated strong conceptual clarity and code artifacts.`)
+    setEvalRejectionReason(req.rejection_reason || 'Insufficient practical repository evidence')
+    setEvalRejectionFeedback('Please improve code documentation, unit test coverage, and resubmit with live demo link.')
+    setDecisionError(null)
+    setDecisionSuccess(null)
   }
 
-  // 1-Click Quick Reject Action
-  const handleQuickReject = async (id: string) => {
-    try {
-      const res = await fetch('/api/verification/action', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: id, action: 'rejected', facultyFeedback: 'Evidence insufficient to warrant endorsement.' })
-      })
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected' as any } : r))
-    } catch (err) {
-      console.error('Quick reject error:', err)
-    }
-  }
-
-  // Action: Accept Request (Scheduling route)
-  const handleAccept = async (id: string) => {
-    try {
-      const res = await apiClient<{ success: boolean; data: VerificationRequestItem }>(`/api/verification/requests/${id}/accept`, {
-        method: 'POST',
-      })
-      if (res?.success && res.data) {
-        setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'accepted' } : r))
-      }
-    } catch (err) {
-      console.error('Failed to accept request:', err)
-    }
-  }
-
-  // Action: Submit Schedule
-  const handleSaveSchedule = async (e: React.FormEvent) => {
+  // Handle Approve or Reject Submission
+  const handleSubmitDecision = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!schedulingRequest || submittingSchedule) return
+    if (!reviewingRequest) return
 
-    setSubmittingSchedule(true)
-    try {
-      const scheduled_at = new Date(`${scheduleDate}T${scheduleTime}:00Z`).toISOString()
-      const res = await apiClient<{ success: boolean; data: any }>(`/api/verification/requests/${schedulingRequest.id}/schedule`, {
-        method: 'POST',
-        body: JSON.stringify({
-          scheduled_at,
-          duration_minutes: durationMinutes,
-          verification_methods: ['live_video', 'skill_test'],
-        }),
-      })
-
-      if (res?.success && res.data) {
-        setRequests(prev => prev.map(r => r.id === schedulingRequest.id ? { ...r, status: 'scheduled', session: res.data.session } : r))
-        setSchedulingRequest(null)
-      }
-    } catch (err) {
-      console.error('Failed to schedule session:', err)
-    } finally {
-      setSubmittingSchedule(false)
-    }
-  }
-
-  // Action: Save Real-Time Verification Notes
-  const handleSaveNotes = async () => {
-    if (!activeVideoSession || savingNotes) return
-    setSavingNotes(true)
-    try {
-      await apiClient(`/api/verification/requests/${activeVideoSession.id}/notes`, {
-        method: 'POST',
-        body: JSON.stringify({ notes: sessionNotes }),
-      })
-      setNotesSavedNotice(true)
-      setTimeout(() => setNotesSavedNotice(false), 2500)
-    } catch (err) {
-      console.error('Failed to save notes:', err)
-    } finally {
-      setSavingNotes(false)
-    }
-  }
-
-  // Action: Final Verification Decision (Verify, Reject, Reassessment)
-  const handleDecision = async (decision: 'VERIFY' | 'REJECT' | 'REASSESSMENT') => {
-    if (!decisionRequest || submittingDecision) return
     setSubmittingDecision(true)
+    setDecisionError(null)
+
+    const reviewerName = profile?.full_name || (isDemo ? 'Dr. Sarah Mitchell (Dept. Chair)' : 'Faculty Reviewer')
 
     try {
       const payload = {
-        decision,
-        evidence_score: evidenceScore,
-        platform_assessment_score: decisionRequest.assessment_score || 80,
-        academic_test_score: decisionRequest.academic_test_score || academicTestScore,
-        verification_notes: sessionNotes || 'Verified through practical walkthrough and standardized test.',
-        rejection_reason: rejectionReason,
-        rejection_feedback: rejectionFeedback,
+        requestId: reviewingRequest.id,
+        action: decisionMode === 'approve' ? 'approved' : 'rejected',
+        verifiedScore: Number(evalVerifiedScore) || 85,
+        verifiedTier: evalVerifiedTier,
+        facultyFeedback: decisionMode === 'approve' ? evalFacultyNotes : evalRejectionFeedback,
+        rejectionReason: decisionMode === 'reject' ? evalRejectionReason : null,
+        reviewerName,
       }
 
-      const res = await apiClient<{ success: boolean; data: any }>(`/api/verification/requests/${decisionRequest.id}/decision`, {
-        method: 'POST',
+      const res = await apiClient<{ success: boolean; message?: string }>('/api/verification/action', {
+        method: 'PATCH',
         body: JSON.stringify(payload),
       })
 
       if (res?.success) {
-        const newStatus = decision === 'VERIFY' ? 'verified' : decision === 'REASSESSMENT' ? 'reassessment_required' : 'rejected'
-        setRequests(prev => prev.map(r => r.id === decisionRequest.id ? { ...r, status: newStatus as any } : r))
-        setDecisionRequest(null)
-        setActiveVideoSession(null)
+        setDecisionSuccess(decisionMode === 'approve' ? 'Skill successfully endorsed and verified in student profile!' : 'Verification rejected with student feedback.')
+        await loadRequests(true)
+        setTimeout(() => {
+          setReviewingRequest(null)
+          setDecisionSuccess(null)
+        }, 1200)
+      } else {
+        setDecisionError('Failed to record verification decision. Please try again.')
       }
-    } catch (err) {
-      console.error('Failed to submit verification decision:', err)
+    } catch (err: any) {
+      setDecisionError(err?.message || 'Error communicating with verification service.')
     } finally {
       setSubmittingDecision(false)
     }
   }
 
-  const getStatusBadge = (status: VerificationRequestItem['status']) => {
-    switch (status) {
-      case 'verified':
-        return <Badge className="bg-emerald-600 text-white font-bold"><CheckCircle2 className="h-3 w-3 mr-1" /> Academically Verified</Badge>
-      case 'scheduled':
-        return <Badge className="bg-blue-600 text-white font-bold"><Calendar className="h-3 w-3 mr-1" /> Session Scheduled</Badge>
-      case 'in_progress':
-        return <Badge className="bg-amber-600 text-white font-bold"><Clock className="h-3 w-3 mr-1" /> In Progress</Badge>
-      case 'accepted':
-        return <Badge className="bg-indigo-600 text-white font-bold"><CheckCircle2 className="h-3 w-3 mr-1" /> Accepted</Badge>
-      case 'reassessment_required':
-        return <Badge className="bg-amber-500 text-white font-bold"><AlertTriangle className="h-3 w-3 mr-1" /> Re-Assessment Required</Badge>
-      case 'rejected':
-        return <Badge className="bg-rose-600 text-white font-bold"><X className="h-3 w-3 mr-1" /> Not Approved</Badge>
-      default:
-        return <Badge variant="secondary" className="bg-slate-200 text-slate-700 font-semibold"><Clock className="h-3 w-3 mr-1" /> Request Sent</Badge>
+  // 1-Click Quick Endorsement Action
+  const handleQuickEndorse = async (req: VerificationRequestItem) => {
+    try {
+      const reviewerName = profile?.full_name || (isDemo ? 'Dr. Sarah Mitchell (Dept. Chair)' : 'Faculty Reviewer')
+      await apiClient('/api/verification/action', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          requestId: req.id,
+          action: 'approved',
+          verifiedScore: req.score || 85,
+          facultyFeedback: 'Verified with high technical competence and valid practical evidence.',
+          reviewerName,
+        })
+      })
+      await loadRequests(true)
+    } catch (err) {
+      console.error('Quick approve error:', err)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[420px]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-9 w-9 animate-spin text-[var(--color-accent)]" />
-          <p className="text-xs font-semibold text-slate-500">Loading faculty verification queue...</p>
-        </div>
-      </div>
-    )
-  }
+  // Dynamic Statistics
+  const stats = useMemo(() => {
+    const total = requests.length
+    const pending = requests.filter(r => r.status === 'pending').length
+    const inReview = requests.filter(r => r.status === 'in_review').length
+    const verified = requests.filter(r => r.status === 'approved').length
+    const rejected = requests.filter(r => r.status === 'rejected').length
+    return { total, pending, inReview, verified, rejected }
+  }, [requests])
 
-  const pendingCount = requests.filter(r => r.status === 'request_sent').length
-  const scheduledCount = requests.filter(r => r.status === 'scheduled' || r.status === 'in_progress').length
-  const verifiedCount = requests.filter(r => r.status === 'verified').length
+  // Filtered requests based on tab & search query
+  const filteredRequests = useMemo(() => {
+    return requests.filter(r => {
+      // Status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'pending' && r.status !== 'pending') return false
+        if (statusFilter === 'in_review' && r.status !== 'in_review') return false
+        if (statusFilter === 'approved' && r.status !== 'approved') return false
+        if (statusFilter === 'rejected' && r.status !== 'rejected') return false
+      }
+      // Search filter
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase().trim()
+        const matchName = r.student_name?.toLowerCase().includes(q)
+        const matchSkill = r.skill_name?.toLowerCase().includes(q)
+        const matchEmail = r.student_email?.toLowerCase().includes(q)
+        const matchDept = r.department?.toLowerCase().includes(q)
+        return matchName || matchSkill || matchEmail || matchDept
+      }
+      return true
+    })
+  }, [requests, statusFilter, searchTerm])
 
   return (
-    <div className="relative space-y-8 animate-in fade-in duration-300 pb-16">
-      
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/80 pb-6">
+    <div className="space-y-6 animate-in fade-in duration-300 pb-20 max-w-7xl mx-auto">
+      {/* ─── 1. PAGE HEADER ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--color-accent-hover)] bg-[var(--color-accent-light)] border border-[var(--color-border-primary)] px-2.5 py-0.5 rounded-full">
-              <ShieldCheck className="h-3.5 w-3.5" /> Faculty Evaluation Engine
-            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">SKILL VERIFICATIONS</h1>
+            <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-bold px-2.5 py-0.5">
+              <ShieldCheck className="h-3.5 w-3.5 mr-1 inline text-emerald-600" /> Faculty Review Inbox
+            </Badge>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1.5">
-            Academician Verification Dashboard
-          </h1>
-          <p className="text-sm font-medium text-slate-500 mt-1 max-w-2xl">
-            Review student evidence, schedule live video verifications, assign standardized skill tests, and grant authoritative <strong className="text-slate-800">Academically Verified</strong> trust badges.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            Review student evidence artifacts, GitHub repositories, and project claims. Endorse competencies to grant official institutional verification badges on the student&apos;s Living Skill Passport.
           </p>
         </div>
-      </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Pending Review</span>
-          <div className="text-3xl font-black text-[var(--color-accent)]">{pendingCount}</div>
-          <span className="text-[11px] text-slate-500 font-medium">New student submissions awaiting evaluation</span>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Scheduled Sessions</span>
-          <div className="text-3xl font-black text-blue-600">{scheduledCount}</div>
-          <span className="text-[11px] text-slate-500 font-medium">Live interviews & practical tests queued</span>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Skills Verified</span>
-          <div className="text-3xl font-black text-emerald-600">{verifiedCount}</div>
-          <span className="text-[11px] text-slate-500 font-medium">Officially endorsed student competencies</span>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadRequests(true)}
+            disabled={refreshing}
+            className="rounded-xl text-xs font-bold h-9 border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 text-slate-500 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh Queue
+          </Button>
         </div>
       </div>
 
-      {/* Verification Queue */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <UserCheck className="h-5 w-5 text-[var(--color-accent)]" /> Verification Requests Queue
+      {/* ─── 2. REAL METRICS CARDS (Calculated from Real Database Records) ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+          onClick={() => setStatusFilter('all')}
+          className={`cursor-pointer bg-white rounded-2xl border p-4 shadow-xs transition-all ${
+            statusFilter === 'all' ? 'border-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/30' : 'border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Submissions</span>
+            <div className="p-1.5 rounded-lg bg-blue-50 text-[var(--color-accent)]">
+              <FileText className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-slate-900">{stats.total}</span>
+            <span className="text-[11px] text-slate-400 font-semibold">in database</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('pending')}
+          className={`cursor-pointer bg-white rounded-2xl border p-4 shadow-xs transition-all ${
+            statusFilter === 'pending' ? 'border-amber-400 ring-1 ring-amber-400/30 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Pending Review</span>
+            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+              <Clock className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-amber-900">{stats.pending}</span>
+            <span className="text-[11px] text-amber-700 font-semibold">requires evaluation</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('approved')}
+          className={`cursor-pointer bg-white rounded-2xl border p-4 shadow-xs transition-all ${
+            statusFilter === 'approved' ? 'border-emerald-400 ring-1 ring-emerald-400/30 bg-emerald-50/20' : 'border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Verified &amp; Endorsed</span>
+            <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-emerald-900">{stats.verified}</span>
+            <span className="text-[11px] text-emerald-700 font-semibold">verified skills</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('rejected')}
+          className={`cursor-pointer bg-white rounded-2xl border p-4 shadow-xs transition-all ${
+            statusFilter === 'rejected' ? 'border-rose-400 ring-1 ring-rose-400/30 bg-rose-50/20' : 'border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">Revision Required</span>
+            <div className="p-1.5 rounded-lg bg-rose-100 text-rose-700">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-rose-900">{stats.rejected}</span>
+            <span className="text-[11px] text-rose-700 font-semibold">feedback sent</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── 3. FILTER TABS & SEARCH BAR ─── */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                statusFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All Requests ({stats.total})
+            </button>
+            <button
+              onClick={() => setStatusFilter('pending')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                statusFilter === 'pending'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+              }`}
+            >
+              Pending ({stats.pending})
+            </button>
+            <button
+              onClick={() => setStatusFilter('approved')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                statusFilter === 'approved'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+              }`}
+            >
+              Verified ({stats.verified})
+            </button>
+            <button
+              onClick={() => setStatusFilter('rejected')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                statusFilter === 'rejected'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100'
+              }`}
+            >
+              Rejected ({stats.rejected})
+            </button>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search student or skill..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 focus:border-[var(--color-accent)] focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ─── 4. VERIFICATION REQUEST INBOX LIST ─── */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-sm font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            Verification Queue ({filteredRequests.length})
           </h2>
-          <span className="text-xs text-slate-500 font-medium">{requests.length} students in queue</span>
+          <span className="text-[11px] font-semibold text-slate-400">
+            {stats.pending} pending faculty decision
+          </span>
         </div>
 
-        {requests.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center space-y-3">
-            <ShieldCheck className="h-10 w-10 mx-auto text-slate-400" />
-            <h3 className="text-base font-bold text-slate-900">No requests pending review</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              When students request human faculty endorsement for their skills, their profile, evidence, and assessment scores will appear here.
+        {loading ? (
+          <div className="py-16 flex flex-col items-center justify-center gap-2.5">
+            <Loader2 className="h-6 w-6 animate-spin text-[var(--color-accent)]" />
+            <span className="text-xs font-semibold text-slate-500">Loading academician verification queue...</span>
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+            <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <h3 className="text-xs font-bold text-slate-900">You&apos;re all caught up!</h3>
+            <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+              No verification requests match your active filter. New student evidence submissions will appear here automatically.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {requests.map(req => (
-              <div
-                key={req.id}
-                className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs hover:border-[var(--color-accent)]/40 transition-all space-y-4"
-              >
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-2xl bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] flex items-center justify-center font-black text-sm">
-                      {req.student_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+          <div className="space-y-3">
+            {filteredRequests.map((req) => {
+              const isApproved = req.status === 'approved'
+              const isRejected = req.status === 'rejected'
+              const isPending = req.status === 'pending' || req.status === 'in_review'
+              const initials = (req.student_name || 'ST').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+
+              return (
+                <div
+                  key={req.id}
+                  className={`rounded-2xl border p-4 transition-all ${
+                    isApproved
+                      ? 'border-emerald-200 bg-emerald-50/20 hover:border-emerald-300'
+                      : isRejected
+                      ? 'border-rose-200 bg-rose-50/20 hover:border-rose-300'
+                      : 'border-slate-200 bg-slate-50/40 hover:bg-white hover:border-slate-300 shadow-2xs'
+                  }`}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    {/* Student Info & Claim */}
+                    <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                      <div className="h-10 w-10 rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent-hover)] font-black text-xs flex items-center justify-center shrink-0 border border-[var(--color-border-primary)]">
+                        {initials}
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-sm text-slate-900 truncate">
+                            {req.student_name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            ({req.student_email || 'student@dtu.ac.in'})
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-500">
+                            • {req.department || 'Computer Science & Engineering'}
+                          </span>
+                        </div>
+
+                        {/* Skill Badge & Claim */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 font-bold text-xs text-slate-900 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200">
+                            Skill: <strong className="text-[var(--color-accent)]">{req.skill_name}</strong>
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-600">
+                            Claimed: <strong className="text-slate-900">{req.score}/100</strong> ({req.claimed_level || 'Proficient'})
+                          </span>
+
+                          {isApproved && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                              ✓ ENDORSED ({req.verified_level || req.score} pts)
+                            </span>
+                          )}
+                          {isPending && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              ⏱ PENDING REVIEW
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                              ✕ REJECTED
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed pt-0.5">
+                          {req.description || req.proof_notes || 'Hands-on practical development evidence.'}
+                        </p>
+
+                        {/* Evidence links */}
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                          {req.supporting_evidence && req.supporting_evidence.length > 0 ? (
+                            req.supporting_evidence.map((ev, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                                {ev.type === 'github_repo' ? <GitBranch className="h-3 w-3 text-slate-700" /> : <Globe className="h-3 w-3 text-[var(--color-accent)]" />}
+                                {ev.title}
+                              </span>
+                            ))
+                          ) : req.proof_url ? (
+                            <a
+                              href={req.proof_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--color-accent)] hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" /> Inspect Code Repository
+                            </a>
+                          ) : null}
+
+                          <span className="text-[10px] text-slate-400">
+                            • Submitted {new Date(req.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                        {req.student_name} • <span className="text-[var(--color-accent-hover)]">{req.skill_name}</span>
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        {req.student_email} • Request Date: {new Date(req.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {getStatusBadge(req.status)}
-                  </div>
-                </div>
-
-                {/* Performance & Evidence Matrix */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/60">
-                  <div>
-                    <span className="text-slate-400 block mb-0.5 font-semibold">Diagnostic Score</span>
-                    <strong className="text-slate-900 font-bold text-sm">{req.assessment_score}/100</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block mb-0.5 font-semibold">Academic Test</span>
-                    <strong className="text-slate-900 font-bold text-sm">
-                      {req.academic_test_score ? `${req.academic_test_score}/100` : 'Not Taken'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block mb-0.5 font-semibold">Projects Attached</span>
-                    <strong className="text-slate-900 font-bold text-sm">
-                      {req.supporting_evidence.filter(e => e.type === 'project').length || 1} Projects
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block mb-0.5 font-semibold">Scheduled Date</span>
-                    <strong className="text-blue-700 font-bold text-sm">
-                      {req.session?.scheduled_at ? new Date(req.session.scheduled_at).toLocaleDateString() : 'Unscheduled'}
-                    </strong>
-                  </div>
-                </div>
-
-                {/* Action Controls Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setInspectingRequest(req)}
-                    className="h-9 px-3 rounded-xl border-slate-200 text-slate-800 hover:bg-slate-50 text-xs font-bold gap-1.5"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-slate-500" /> View Evidence Portfolio
-                  </Button>
-
-                  <div className="flex items-center gap-2">
-                    {req.status === 'request_sent' && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => handleQuickApprove(req.id)}
-                          className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" /> Approve Verification
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAccept(req.id)}
-                          className="h-9 px-3 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs gap-1.5 cursor-pointer"
-                        >
-                          <Calendar className="h-3.5 w-3.5 text-blue-600" /> Schedule
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleQuickReject(req.id)}
-                          className="h-9 px-3 rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs cursor-pointer"
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    )}
-
-                    {req.status === 'accepted' && (
+                    {/* Actions */}
+                    <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-2 shrink-0 border-t lg:border-t-0 pt-2.5 lg:pt-0 border-slate-200/60">
                       <Button
                         size="sm"
-                        onClick={() => setSchedulingRequest(req)}
-                        className="h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 shadow-xs"
+                        onClick={() => handleOpenReview(req, 'approve')}
+                        className="rounded-xl text-xs font-bold h-8 px-3.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-xs"
                       >
-                        <Calendar className="h-3.5 w-3.5" /> Schedule Verification
+                        Review &amp; Evaluate <ChevronRight className="h-3 w-3 ml-1" />
                       </Button>
-                    )}
 
-                    {['scheduled', 'in_progress'].includes(req.status) && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setActiveVideoSession(req)
-                            setSessionNotes(req.session?.verification_notes || '')
-                          }}
-                          className="h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 shadow-xs"
-                        >
-                          <Video className="h-3.5 w-3.5" /> Join Live Verification
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          onClick={() => setDecisionRequest(req)}
-                          className="h-9 px-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs gap-1.5 shadow-xs"
-                        >
-                          <Award className="h-3.5 w-3.5" /> Final Decision
-                        </Button>
-                      </>
-                    )}
-
-                    {req.status === 'verified' && (
-                      <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                        <CheckCircle2 className="h-4 w-4" /> Endorsement Active
-                      </span>
-                    )}
+                      {isPending && (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleQuickEndorse(req)}
+                            className="rounded-xl text-[11px] font-bold h-7 px-2.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                          >
+                            <ThumbsUp className="h-3 w-3 mr-1 text-emerald-600" /> Endorse
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenReview(req, 'reject')}
+                            className="rounded-xl text-[11px] font-bold h-7 px-2.5 border-rose-300 text-rose-800 hover:bg-rose-50"
+                          >
+                            <ThumbsDown className="h-3 w-3 mr-1 text-rose-600" /> Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Feedback Banner if reviewed */}
+                  {req.faculty_feedback && (
+                    <div className={`mt-3 p-3 rounded-xl text-xs border flex items-start gap-2.5 ${
+                      isApproved
+                        ? 'bg-emerald-100/60 text-emerald-900 border-emerald-200'
+                        : 'bg-rose-100/60 text-rose-900 border-rose-200'
+                    }`}>
+                      <MessageSquare className="h-4 w-4 shrink-0 mt-0.5 text-slate-600" />
+                      <div>
+                        <div className="font-bold">
+                          Recorded Faculty Evaluation ({req.academician_name || 'Academic Committee'}):
+                        </div>
+                        <p className="mt-0.5 leading-relaxed">{req.faculty_feedback}</p>
+                        {req.rejection_reason && (
+                          <p className="mt-1 font-semibold text-rose-800">
+                            Rejection Reason: {req.rejection_reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
 
-      {/* ─── SCHEDULE VERIFICATION MODAL ───────────────────────────────────── */}
-      {schedulingRequest && (
+      {/* ─── 5. FACULTY REVIEW & DECISION WORKSPACE MODAL ─── */}
+      {reviewingRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-start">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/60">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full inline-block mb-1">
-                  Faculty Scheduling
-                </span>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                  Schedule Verification Session
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    Faculty Evaluation Workspace
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">Ticket: {reviewingRequest.id}</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
+                  Evaluate {reviewingRequest.student_name} — {reviewingRequest.skill_name}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Student: {schedulingRequest.student_name} • Skill: {schedulingRequest.skill_name}
-                </p>
               </div>
               <button
-                onClick={() => setSchedulingRequest(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                onClick={() => setReviewingRequest(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors text-sm font-bold"
               >
-                <X className="h-5 w-5" />
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveSchedule} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Date</label>
-                  <input
-                    type="date"
-                    value={scheduleDate}
-                    onChange={e => setScheduleDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900"
-                  />
+            {/* Modal Body */}
+            <form onSubmit={handleSubmitDecision} className="p-5 overflow-y-auto space-y-4 flex-1">
+              {decisionError && (
+                <div className="p-3 rounded-xl bg-red-50 text-red-800 border border-red-200 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                  {decisionError}
                 </div>
+              )}
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Time</label>
-                  <input
-                    type="time"
-                    value={scheduleTime}
-                    onChange={e => setScheduleTime(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900"
-                  />
+              {decisionSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  {decisionSuccess}
+                </div>
+              )}
+
+              {/* Student Metadata Card */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
+                <div>
+                  <span className="text-slate-400 font-semibold block text-[10px] uppercase">Candidate</span>
+                  <strong className="text-slate-900 font-bold">{reviewingRequest.student_name}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold block text-[10px] uppercase">Department</span>
+                  <strong className="text-slate-900 font-bold">{reviewingRequest.department || 'CSE'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold block text-[10px] uppercase">Target Skill</span>
+                  <strong className="text-[var(--color-accent)] font-bold">{reviewingRequest.skill_name}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold block text-[10px] uppercase">Claimed Score</span>
+                  <strong className="text-slate-900 font-bold">{reviewingRequest.score} / 100</strong>
                 </div>
               </div>
 
+              {/* Student Experience & Contribution */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">Session Duration</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[30, 45, 60].map(mins => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => setDurationMinutes(mins)}
-                      className={`p-2 rounded-xl border text-xs font-bold transition-all ${
-                        durationMinutes === mins
-                          ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] text-[var(--color-accent-hover)]'
-                          : 'border-slate-200 bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      {mins} Minutes
-                    </button>
-                  ))}
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Student Claim &amp; Experience Notes</h4>
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 leading-relaxed">
+                  {reviewingRequest.description || reviewingRequest.proof_notes || 'No description provided.'}
                 </div>
               </div>
 
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-bold text-slate-700 block">Verification Methods</label>
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1 text-xs text-slate-700">
-                  <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Live Video Technical Interview
-                  </div>
-                  <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Standardized Academic Skill Test
-                  </div>
-                  <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Project & Code Repository Review
-                  </div>
+              {/* Submitted Evidence Links */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Submitted Evidence Artifacts</h4>
+                <div className="space-y-2">
+                  {reviewingRequest.supporting_evidence && reviewingRequest.supporting_evidence.length > 0 ? (
+                    reviewingRequest.supporting_evidence.map((ev, idx) => (
+                      <div key={idx} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-2 rounded-lg bg-slate-100 text-slate-700">
+                            {ev.type === 'github_repo' ? <GitBranch className="h-4 w-4" /> : <Globe className="h-4 w-4 text-[var(--color-accent)]" />}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-xs text-slate-900 block truncate">{ev.title}</span>
+                            <span className="text-[10px] text-slate-500 line-clamp-1">{ev.description || ev.url}</span>
+                          </div>
+                        </div>
+                        {ev.url && (
+                          <a
+                            href={ev.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] shrink-0 inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            Inspect Code <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))
+                  ) : reviewingRequest.proof_url ? (
+                    <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                      <span className="text-xs font-mono text-slate-700 truncate">{reviewingRequest.proof_url}</span>
+                      <a
+                        href={reviewingRequest.proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] shrink-0 inline-flex items-center gap-1 shadow-2xs"
+                      >
+                        Inspect Code <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No external proof URL attached.</p>
+                  )}
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
+              {/* Decision Toggle */}
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDecisionMode('approve')}
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      decisionMode === 'approve'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Check className="h-4 w-4" /> Endorse &amp; Verify Skill
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDecisionMode('reject')}
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      decisionMode === 'reject'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <X className="h-4 w-4" /> Reject &amp; Request Revision
+                  </button>
+                </div>
+
+                {decisionMode === 'approve' ? (
+                  <div className="space-y-3 p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 animate-in fade-in">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-emerald-900 block mb-1">
+                          Endorsed Verified Score (0–100)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={evalVerifiedScore}
+                          onChange={(e) => setEvalVerifiedScore(Number(e.target.value) || 0)}
+                          className="w-full px-3 py-1.5 rounded-xl border border-emerald-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-emerald-900 block mb-1">
+                          Verification Tier
+                        </label>
+                        <select
+                          value={evalVerifiedTier}
+                          onChange={(e) => setEvalVerifiedTier(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-xl border border-emerald-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                          <option value="Institution Verified">Institution Verified</option>
+                          <option value="Practical Verified">Practical Verified</option>
+                          <option value="Evidence Verified">Evidence Verified</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-emerald-900 block mb-1">
+                        Faculty Endorsement Notes
+                      </label>
+                      <textarea
+                        value={evalFacultyNotes}
+                        onChange={(e) => setEvalFacultyNotes(e.target.value)}
+                        placeholder="Recorded feedback endorsing candidate competency..."
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed"
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 p-4 rounded-2xl bg-rose-50/50 border border-rose-200 animate-in fade-in">
+                    <div>
+                      <label className="text-xs font-bold text-rose-900 block mb-1">
+                        Rejection Reason
+                      </label>
+                      <select
+                        value={evalRejectionReason}
+                        onChange={(e) => setEvalRejectionReason(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-rose-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      >
+                        <option value="Insufficient practical repository evidence">Insufficient practical repository evidence</option>
+                        <option value="Repository links inaccessible or 404">Repository links inaccessible or 404</option>
+                        <option value="Code does not demonstrate claimed proficiency level">Code does not demonstrate claimed proficiency level</option>
+                        <option value="Missing unit tests and architectural documentation">Missing unit tests and architectural documentation</option>
+                        <option value="Further academic coursework required">Further academic coursework required</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-rose-900 block mb-1">
+                        Constructive Student Feedback
+                      </label>
+                      <textarea
+                        value={evalRejectionFeedback}
+                        onChange={(e) => setEvalRejectionFeedback(e.target.value)}
+                        placeholder="Specific recommendations for the student on how to improve before resubmitting..."
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-xl border border-rose-200 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500 leading-relaxed"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => setSchedulingRequest(null)}
-                  className="rounded-xl text-xs h-9 px-4"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setReviewingRequest(null)}
+                  className="text-xs h-9"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submittingSchedule}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs h-9 px-5 shadow-xs"
+                  disabled={submittingDecision}
+                  className={`h-9 px-5 rounded-xl text-white text-xs font-bold shadow-xs ${
+                    decisionMode === 'approve'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
                 >
-                  {submittingSchedule ? 'Scheduling...' : 'Confirm & Notify Student'}
+                  {submittingDecision ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving Decision...
+                    </>
+                  ) : decisionMode === 'approve' ? (
+                    <>
+                      <Check className="mr-1.5 h-3.5 w-3.5" /> Endorse &amp; Grant Badge
+                    </>
+                  ) : (
+                    <>
+                      <X className="mr-1.5 h-3.5 w-3.5" /> Confirm Rejection
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ─── LIVE VIDEO VERIFICATION ROOM (FACULTY VIEW) ───────────────────── */}
-      {activeVideoSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-5xl rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4 text-white max-h-[95vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
-                <div>
-                  <h3 className="text-base font-bold tracking-tight text-white">
-                    Faculty Verification Room: {activeVideoSession.skill_name}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Evaluating Student: <strong className="text-white">{activeVideoSession.student_name}</strong>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => setDecisionRequest(activeVideoSession)}
-                  className="h-8 px-3 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-bold text-xs"
-                >
-                  Proceed to Final Decision
-                </Button>
-                <button
-                  onClick={() => setActiveVideoSession(null)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Video Streams Grid */}
-            <div className="grid sm:grid-cols-2 gap-4 h-64 sm:h-72">
-              {/* Faculty Stream */}
-              <div className="relative rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <div className="h-14 w-14 mx-auto rounded-full bg-[var(--color-accent)]/30 border border-[var(--color-accent)] flex items-center justify-center text-lg font-black text-[var(--color-accent)]">
-                    FAC
-                  </div>
-                  <span className="text-xs font-semibold text-slate-300 block">Your Camera Feed</span>
-                </div>
-                <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded-md bg-black/60 text-[10px] font-bold text-emerald-400">
-                  Faculty (Host)
-                </span>
-              </div>
-
-              {/* Student Stream */}
-              <div className="relative rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <div className="h-14 w-14 mx-auto rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-lg font-black text-slate-200">
-                    ST
-                  </div>
-                  <span className="text-xs font-semibold text-slate-300 block">{activeVideoSession.student_name}</span>
-                  <span className="text-[10px] text-emerald-400 block">Connected Live</span>
-                </div>
-                <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded-md bg-black/60 text-[10px] font-bold text-slate-200">
-                  Student Feed
-                </span>
-              </div>
-            </div>
-
-            {/* Live Verification Notes Panel */}
-            <div className="rounded-2xl bg-slate-800/80 border border-slate-700 p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-[var(--color-accent)]" /> Live Evaluation Notes (Recorded during technical walkthrough)
-                </label>
-                {notesSavedNotice && (
-                  <span className="text-[11px] font-bold text-emerald-400">✓ Notes Saved</span>
-                )}
-              </div>
-              <textarea
-                rows={3}
-                value={sessionNotes}
-                onChange={e => setSessionNotes(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
-                placeholder="Record candidate's practical answers, project architecture comprehension, and debugging competence..."
-              />
-              <div className="flex justify-between items-center pt-1">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setMicActive(prev => !prev)}
-                    className={`h-8 rounded-xl border-slate-700 text-xs gap-1.5 ${micActive ? 'bg-slate-800 text-white' : 'bg-rose-900/60 text-rose-300'}`}
-                  >
-                    {micActive ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />} {micActive ? 'Mute' : 'Unmute'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setVideoActive(prev => !prev)}
-                    className={`h-8 rounded-xl border-slate-700 text-xs gap-1.5 ${videoActive ? 'bg-slate-800 text-white' : 'bg-rose-900/60 text-rose-300'}`}
-                  >
-                    {videoActive ? <Video className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />} {videoActive ? 'Stop Cam' : 'Start Cam'}
-                  </Button>
-                </div>
-
-                <Button
-                  size="sm"
-                  onClick={handleSaveNotes}
-                  disabled={savingNotes}
-                  className="h-8 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs gap-1.5"
-                >
-                  <Save className="h-3.5 w-3.5" /> {savingNotes ? 'Saving...' : 'Save Notes'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── FINAL DECISION MODAL ──────────────────────────────────────────── */}
-      {decisionRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full inline-block mb-1">
-                  Human Authority Decision
-                </span>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                  Final Skill Verification Decision
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Skill: <strong className="text-slate-900">{decisionRequest.skill_name}</strong> • Student: {decisionRequest.student_name}
-                </p>
-              </div>
-              <button
-                onClick={() => setDecisionRequest(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Evidence & Assessment Synthesis Matrix */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Evaluation Synthesis</h4>
-              
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200">
-                  <span className="text-[11px] text-slate-400 block font-semibold">Diagnostic Assessment</span>
-                  <strong className="text-base font-black text-slate-900">{decisionRequest.assessment_score}/100</strong>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200">
-                  <span className="text-[11px] text-slate-400 block font-semibold">Academic Skill Test</span>
-                  <strong className="text-base font-black text-[var(--color-accent)]">
-                    {decisionRequest.academic_test_score ? `${decisionRequest.academic_test_score}/100` : `${academicTestScore}/100`}
-                  </strong>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200">
-                  <span className="text-[11px] text-slate-400 block font-semibold">Practical Evidence</span>
-                  <strong className="text-base font-black text-emerald-600">{evidenceScore}/100</strong>
-                </div>
-              </div>
-
-              {sessionNotes && (
-                <div className="text-[11px] text-slate-600 italic bg-white p-2.5 rounded-xl border border-slate-200">
-                  <strong className="text-slate-800 font-bold block mb-0.5">Live Verification Notes:</strong>
-                  "{sessionNotes}"
-                </div>
-              )}
-            </div>
-
-            {/* Score Calibration Sliders */}
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>Assigned Evidence Score</span>
-                  <span className="text-[var(--color-accent)]">{evidenceScore}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="100"
-                  value={evidenceScore}
-                  onChange={e => setEvidenceScore(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>Assigned Academic Test Score</span>
-                  <span className="text-[var(--color-accent)]">{academicTestScore}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="100"
-                  value={academicTestScore}
-                  onChange={e => setAcademicTestScore(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-            </div>
-
-            {/* Rejection / Reassessment Feedback Input */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <label className="text-xs font-bold text-slate-700 block">Rejection / Re-Assessment Reason (If applicable)</label>
-              <select
-                value={rejectionReason}
-                onChange={e => setRejectionReason(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-900"
-              >
-                <option value="Insufficient practical knowledge">Insufficient practical knowledge</option>
-                <option value="Evidence not sufficient">Evidence not sufficient</option>
-                <option value="Assessment performance low">Assessment performance low</option>
-                <option value="Live verification unsuccessful">Live verification unsuccessful</option>
-              </select>
-
-              <textarea
-                rows={2}
-                value={rejectionFeedback}
-                onChange={e => setRejectionFeedback(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-900"
-                placeholder="Provide guidance for student to improve with AI Coach..."
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-slate-100">
-              <Button
-                type="button"
-                disabled={submittingDecision}
-                onClick={() => handleDecision('VERIFY')}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1" /> VERIFY SKILL
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submittingDecision}
-                onClick={() => handleDecision('REASSESSMENT')}
-                className="border-amber-300 text-amber-900 hover:bg-amber-50 font-bold rounded-xl text-xs h-10"
-              >
-                <AlertTriangle className="h-4 w-4 mr-1 text-amber-600" /> RE-ASSESSMENT
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submittingDecision}
-                onClick={() => handleDecision('REJECT')}
-                className="border-rose-300 text-rose-900 hover:bg-rose-50 font-bold rounded-xl text-xs h-10"
-              >
-                <X className="h-4 w-4 mr-1 text-rose-600" /> REJECT SKILL
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── EVIDENCE INSPECTOR DRAWER / MODAL ─────────────────────────────── */}
-      {inspectingRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block mb-1">
-                  Portfolio Proof
-                </span>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                  {inspectingRequest.student_name}'s Evidence
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Target Skill: {inspectingRequest.skill_name}
-                </p>
-              </div>
-              <button
-                onClick={() => setInspectingRequest(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
-                <span className="text-slate-400 font-semibold block text-[11px]">Student Notes</span>
-                <p className="text-slate-800 leading-relaxed font-medium">
-                  "{inspectingRequest.student_notes || 'Submitted for formal academician review and trust endorsement.'}"
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-900">Submitted Artifacts</h4>
-                {inspectingRequest.supporting_evidence.map((ev, i) => (
-                  <div key={i} className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
-                    <div className="flex justify-between font-bold text-slate-900">
-                      <span>{ev.title}</span>
-                      <span className="text-[10px] text-[var(--color-accent-hover)] uppercase">{ev.type}</span>
-                    </div>
-                    {ev.description && <p className="text-slate-500 text-[11px]">{ev.description}</p>}
-                    {ev.url && (
-                      <a
-                        href={ev.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline pt-0.5"
-                      >
-                        {ev.url} <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <Button
-                onClick={() => setInspectingRequest(null)}
-                className="rounded-xl text-xs h-9 px-4"
-              >
-                Close
-              </Button>
-            </div>
           </div>
         </div>
       )}
