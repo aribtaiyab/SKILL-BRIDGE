@@ -215,7 +215,7 @@ export default function StudentDashboard() {
                 </Link>
 
                 <Link
-                  href="/student/skill-gap"
+                  href="/student/career"
                   className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-white hover:border-slate-300 hover:shadow-md active:scale-[0.98] transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
@@ -457,7 +457,7 @@ export default function StudentDashboard() {
               </Link>
 
               <Link
-                href="/student/skill-gap"
+                href="/student/career"
                 className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-white hover:border-slate-300 hover:shadow-md active:scale-[0.98] transition-all duration-200"
               >
                 <div className="flex items-center gap-3">

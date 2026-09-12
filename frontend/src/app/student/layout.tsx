@@ -30,7 +30,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { href: "/student/assessment", label: "Assignments & Assessments", icon: <FileText size={18} /> },
     { href: "/student/skills", label: "Skills", icon: <Code size={18} /> },
     { href: "/student/verification", label: "Academician Verification", icon: <ShieldCheck size={18} /> },
-    { href: "/student/skill-gap", label: "Skill Gap", icon: <AlertTriangle size={18} /> },
     { href: "/student/career-navigator", label: "Career Navigator", icon: <Compass size={18} /> },
     { href: "/student/passport", label: "Skill Passport", icon: <Award size={18} /> },
     { href: "/student/opportunities", label: "Opportunities", icon: <Briefcase size={18} /> },
