@@ -7,6 +7,7 @@ import { sessionSkills } from './studentController.js'
 export const sessionVerificationRequests = new Map<string, any>()
 export const sessionVerificationSessions = new Map<string, any>()
 export const sessionAcademicTests = new Map<string, any>()
+export const sessionTestAttempts = new Map<string, any>()
 export const sessionSkillVerifications = new Map<string, any>()
 
 export const PRESET_ACADEMICIANS = [
@@ -792,6 +793,111 @@ export async function saveVerificationNotes(req: AuthenticatedRequest, res: Resp
   }
 }
 
+export async function createAcademicTest(req: AuthenticatedRequest, res: Response) {
+  try {
+    const id = String(req.params.id)
+    const request = sessionVerificationRequests.get(id)
+    if (!request) {
+      return res.status(404).json({ success: false, error: 'Verification request not found' })
+    }
+
+    const {
+      title,
+      instructions,
+      test_type = 'mixed',
+      difficulty = 'intermediate',
+      duration_minutes = 45,
+      passing_score = 75,
+      deadline = null,
+      verification_methods = ['skill_test'],
+      questions = [],
+    } = req.body || {}
+
+    const testId = `test-${id}`
+    const testRecord = {
+      id: testId,
+      request_id: id,
+      skill_name: request.skill_name,
+      title: title || `${request.skill_name} Practical Skill Verification`,
+      instructions: instructions || `Complete the practical assessment for ${request.skill_name}.`,
+      test_type,
+      difficulty,
+      duration_minutes: Number(duration_minutes) || 45,
+      passing_score: Number(passing_score) || 75,
+      deadline,
+      verification_methods: Array.isArray(verification_methods) ? verification_methods : [verification_methods],
+      questions: Array.isArray(questions) && questions.length > 0 ? questions : (PRESET_SKILL_TESTS[request.skill_name.toLowerCase()]?.questions || PRESET_SKILL_TESTS.react.questions),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    sessionAcademicTests.set(id, testRecord)
+
+    // Update request state to 'test_sent'
+    request.status = 'test_sent'
+    request.test_id = testId
+    request.test_title = testRecord.title
+    request.duration_minutes = testRecord.duration_minutes
+    request.passing_score = testRecord.passing_score
+    request.verification_methods = testRecord.verification_methods
+    request.updated_at = new Date().toISOString()
+    sessionVerificationRequests.set(id, request)
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        await supabase.from('verification_requests').update({
+          status: 'test_sent',
+          updated_at: new Date().toISOString(),
+        }).eq('id', id)
+
+        await supabase.from('academic_tests').upsert({
+          id: testId,
+          request_id: id,
+          skill_name: request.skill_name,
+          passing_score: testRecord.passing_score,
+          difficulty: testRecord.difficulty,
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+
+        // Insert questions
+        for (const q of testRecord.questions) {
+          await supabase.from('academic_test_questions').upsert({
+            id: q.id || `q-${Math.random().toString(36).substr(2, 6)}`,
+            test_id: testId,
+            question_type: q.type || 'conceptual',
+            question_text: q.questionText || q.text,
+            options: q.options || [],
+            correct_answer: q.correctAnswer || q.expected_output || '',
+            explanation: q.explanation || '',
+            points: Number(q.points) || 25,
+          }, { onConflict: 'id' })
+        }
+
+        // Notify Student
+        await supabase.from('notifications').insert({
+          user_id: request.student_id,
+          title: `Skill Test Assigned: ${request.skill_name}`,
+          message: `Academician assigned practical skill verification test "${testRecord.title}". Duration: ${testRecord.duration_minutes} mins.`,
+          type: 'verification',
+          link: '/student/verification',
+        })
+      } catch (dbErr) {
+        console.warn('Supabase test create notice:', dbErr)
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: testRecord,
+      request,
+      message: 'Skill verification test assigned successfully.',
+    })
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to create skill test' })
+  }
+}
+
 export async function getAcademicTest(req: AuthenticatedRequest, res: Response) {
   try {
     const id = String(req.params.id)
@@ -806,20 +912,37 @@ export async function getAcademicTest(req: AuthenticatedRequest, res: Response) 
         id: `test-${id}`,
         request_id: id,
         skill_name: request?.skill_name || 'React',
+        title: `${request?.skill_name || 'React'} Practical Skill Verification`,
+        instructions: `Demonstrate your technical competence in ${request?.skill_name || 'React'} by answering conceptual and practical problem questions.`,
+        test_type: 'mixed',
         difficulty: template.difficulty,
+        duration_minutes: 45,
         passing_score: template.passingScore,
+        verification_methods: ['skill_test'],
         questions: template.questions,
+        created_at: new Date().toISOString(),
       }
       sessionAcademicTests.set(id, test)
     }
 
-    // Mask correct answers if student is requesting
-    const sanitizedQuestions = test.questions.map((q: any) => ({
+    // Role check: Is the requester an academician or teacher?
+    const isAcademician = req.user?.user_metadata?.role === 'academician' || req.user?.user_metadata?.role === 'institution' || req.headers['x-demo-role'] === 'academician'
+
+    if (isAcademician) {
+      return res.status(200).json({
+        success: true,
+        data: test,
+      })
+    }
+
+    // For students: sanitize correct answers & explanations
+    const sanitizedQuestions = (test.questions || []).map((q: any) => ({
       id: q.id,
-      type: q.type,
-      questionText: q.questionText,
-      options: q.options,
-      points: q.points,
+      type: q.type || q.question_type || 'conceptual',
+      questionText: q.questionText || q.question_text || q.text,
+      options: q.options || [],
+      points: Number(q.points) || 25,
+      hints: q.hints || null,
     }))
 
     return res.status(200).json({
@@ -837,54 +960,150 @@ export async function getAcademicTest(req: AuthenticatedRequest, res: Response) 
 export async function submitAcademicTest(req: AuthenticatedRequest, res: Response) {
   try {
     const id = String(req.params.id)
-    const { answers = {} } = req.body || {}
+    const { answers = {}, duration_taken_seconds = 0, candidate_notes = '' } = req.body || {}
 
     const request = sessionVerificationRequests.get(id)
-    const skillKey = (request?.skill_name || 'react').toLowerCase()
-    const template = PRESET_SKILL_TESTS[skillKey] || PRESET_SKILL_TESTS.react
+    let test = sessionAcademicTests.get(id)
+    if (!test) {
+      const skillKey = (request?.skill_name || 'react').toLowerCase()
+      const template = PRESET_SKILL_TESTS[skillKey] || PRESET_SKILL_TESTS.react
+      test = {
+        id: `test-${id}`,
+        request_id: id,
+        skill_name: request?.skill_name || 'React',
+        title: `${request?.skill_name || 'React'} Practical Verification`,
+        difficulty: template.difficulty,
+        passing_score: template.passingScore,
+        questions: template.questions,
+      }
+    }
 
-    let correctCount = 0
+    let earnedPoints = 0
+    let totalPoints = 0
     const detailedReview: any[] = []
 
-    template.questions.forEach((q: any) => {
-      const studentAns = answers[q.id]
-      const isCorrect = studentAns && studentAns.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()
-      if (isCorrect) correctCount++
+    test.questions.forEach((q: any) => {
+      const pts = Number(q.points) || 25
+      totalPoints += pts
+      const studentAns = answers[q.id] || answers[q.questionText] || ''
+      const correctAns = q.correctAnswer || q.correct_answer || ''
+      
+      const isAutoGraded = q.type === 'conceptual' || (q.options && q.options.length > 0)
+      let isCorrect = false
+      if (isAutoGraded && correctAns) {
+        isCorrect = String(studentAns).trim().toLowerCase() === String(correctAns).trim().toLowerCase()
+        if (isCorrect) earnedPoints += pts
+      } else {
+        // Practical / debugging / project questions: allocate preliminary points based on presence of code/explanation
+        if (studentAns && String(studentAns).trim().length > 10) {
+          earnedPoints += pts // preliminary, finalized by reviewer
+          isCorrect = true
+        }
+      }
 
       detailedReview.push({
         questionId: q.id,
-        questionText: q.questionText,
+        questionType: q.type || 'conceptual',
+        questionText: q.questionText || q.text,
         studentAnswer: studentAns || 'Unanswered',
-        correctAnswer: q.correctAnswer,
+        correctAnswer: correctAns,
         isCorrect,
-        explanation: q.explanation,
+        points: pts,
+        explanation: q.explanation || '',
       })
     })
 
-    const totalQuestions = template.questions.length || 4
-    const score = Math.round((correctCount / totalQuestions) * 100)
-    const passed = score >= template.passingScore
+    const finalScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 80
+    const passed = finalScore >= (test.passing_score || 75)
 
     const attempt = {
       id: `att-${Date.now()}`,
       request_id: id,
-      student_id: req.user?.id || 'student',
-      score,
+      student_id: req.user?.id || request?.student_id || 'student',
+      student_name: req.user?.user_metadata?.full_name || request?.student_name || 'Student',
+      score: finalScore,
       passed,
       answers,
+      duration_taken_seconds,
+      candidate_notes,
       review: detailedReview,
       submitted_at: new Date().toISOString(),
     }
 
-    // Cache test score on request
+    sessionTestAttempts.set(id, attempt)
+
+    // Update request status to 'test_submitted'
     if (request) {
-      request.academic_test_score = score
+      request.status = 'test_submitted'
+      request.academic_test_score = finalScore
+      request.updated_at = new Date().toISOString()
       sessionVerificationRequests.set(id, request)
     }
 
-    return res.status(200).json({ success: true, data: attempt })
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        await supabase.from('verification_requests').update({
+          status: 'test_submitted',
+          updated_at: new Date().toISOString(),
+        }).eq('id', id)
+
+        await supabase.from('academic_test_attempts').insert({
+          id: attempt.id,
+          test_id: test.id,
+          student_id: attempt.student_id,
+          answers,
+          score: finalScore,
+          passed,
+          submitted_at: attempt.submitted_at,
+        })
+
+        // Notify academician
+        if (request?.academician_id) {
+          await supabase.from('notifications').insert({
+            user_id: request.academician_id,
+            title: `Test Submitted: ${request.skill_name}`,
+            message: `${attempt.student_name} submitted the verification test for ${request.skill_name} (${finalScore}% preliminary score). Ready for review.`,
+            type: 'verification',
+            link: '/academia/verification',
+          })
+        }
+      } catch (dbErr) {
+        console.warn('Supabase test attempt insert notice:', dbErr)
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: attempt,
+      message: 'Test submitted successfully. Your submission is now queued for faculty review.',
+    })
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Failed to submit test' })
+  }
+}
+
+export async function getTestAttempt(req: AuthenticatedRequest, res: Response) {
+  try {
+    const id = String(req.params.id)
+    const attempt = sessionTestAttempts.get(id)
+    const test = sessionAcademicTests.get(id)
+    const request = sessionVerificationRequests.get(id)
+
+    if (!attempt && !request) {
+      return res.status(404).json({ success: false, error: 'Test attempt not found' })
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        attempt: attempt || null,
+        test: test || null,
+        request: request || null,
+      },
+    })
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to fetch test attempt' })
   }
 }
 
@@ -902,6 +1121,7 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
       evidence_score = 85,
       platform_assessment_score = 80,
       academic_test_score = 85,
+      verified_level,
     } = req.body || {}
 
     const request = sessionVerificationRequests.get(id)
@@ -911,9 +1131,14 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
 
     const studentId = request.student_id
     const skillName = request.skill_name
+    const reviewerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Faculty Reviewer'
+    const finalVerifiedScore = Number(verified_level || academic_test_score || request.academic_test_score || 85)
 
-    if (decision === 'VERIFY') {
+    if (decision === 'VERIFY' || decision === 'approved' || decision === 'verified') {
       request.status = 'verified'
+      request.verified_level = finalVerifiedScore
+      request.faculty_feedback = verification_notes || 'Verified with high technical competence and practical understanding.'
+      request.reviewed_at = new Date().toISOString()
       request.updated_at = new Date().toISOString()
       sessionVerificationRequests.set(id, request)
 
@@ -923,11 +1148,11 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
         request_id: id,
         student_id: studentId,
         academician_id: user.id,
-        academician_name: user.user_metadata?.full_name || 'Academician',
+        academician_name: reviewerName,
         skill_name: skillName,
         verified_at: new Date().toISOString(),
         verification_method: 'Live Video Verification + Academic Skill Test',
-        academic_test_score: Number(academic_test_score),
+        academic_test_score: finalVerifiedScore,
         evidence_score: Number(evidence_score),
         platform_assessment_score: Number(platform_assessment_score),
         verification_notes: verification_notes || request.verification_notes || '',
@@ -953,18 +1178,13 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
         }
       }
 
-      const finalLevel = Math.max(
-        Number(academic_test_score || 85),
-        existingSkillRecord?.current_level || 75
-      )
-
       const updatedRecord = {
         id: existingSkillRecord?.id || `ss-${Date.now()}`,
         student_id: studentId,
         skill_id: matchedSkillId,
         self_declared_level: existingSkillRecord?.self_declared_level || 80,
-        current_level: finalLevel,
-        verified_level: finalLevel,
+        current_level: finalVerifiedScore,
+        verified_level: finalVerifiedScore,
         verification_status: 'academically_verified',
         skills: {
           id: matchedSkillId,
@@ -980,7 +1200,13 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
         try {
           await supabase
             .from('verification_requests')
-            .update({ status: 'verified', updated_at: new Date().toISOString() })
+            .update({
+              status: 'verified',
+              verified_level: finalVerifiedScore,
+              faculty_feedback: verificationRecord.verification_notes,
+              reviewed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
             .eq('id', id)
 
           await supabase.from('skill_verifications').upsert({
@@ -990,7 +1216,7 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
             skill_name: skillName,
             verified_at: new Date().toISOString(),
             verification_method: 'Live Video Verification + Skill Test',
-            academic_test_score: Number(academic_test_score),
+            academic_test_score: finalVerifiedScore,
             evidence_score: Number(evidence_score),
             platform_assessment_score: Number(platform_assessment_score),
             verification_notes,
@@ -1000,8 +1226,8 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
           await supabase.from('student_skills').upsert({
             student_id: studentId,
             skill_id: matchedSkillId,
-            current_level: finalLevel,
-            verified_level: finalLevel,
+            current_level: finalVerifiedScore,
+            verified_level: finalVerifiedScore,
             verification_status: 'academically_verified',
             updated_at: new Date().toISOString(),
           }, { onConflict: 'student_id,skill_id' })
@@ -1010,7 +1236,7 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
           await supabase.from('notifications').insert({
             user_id: studentId,
             title: `Skill Verified: ${skillName}`,
-            message: `Congratulations! ${skillName} has been officially verified by ${verificationRecord.academician_name} with an Academic Test Score of ${academic_test_score}%.`,
+            message: `Congratulations! ${skillName} has been officially verified by ${reviewerName} with an Academic Score of ${finalVerifiedScore}%.`,
             type: 'verification',
             link: '/student/skills',
           })
@@ -1024,13 +1250,16 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
           verification: verificationRecord,
           updatedSkill: updatedRecord,
         },
+        message: 'Skill successfully verified and endorsed in student profile.',
       })
     } else {
       // Rejection or Re-assessment
-      const newStatus = decision === 'REASSESSMENT' ? 'reassessment_required' : 'rejected'
+      const newStatus = decision === 'REASSESSMENT' || decision === 'reassessment' ? 'reassessment_required' : 'rejected'
       request.status = newStatus
       request.rejection_reason = rejection_reason || 'Insufficient practical evidence demonstrated'
       request.rejection_feedback = rejection_feedback || 'Focus on building end-to-end practical projects and review foundational debugging before requesting re-verification.'
+      request.faculty_feedback = request.rejection_feedback
+      request.reviewed_at = new Date().toISOString()
       request.updated_at = new Date().toISOString()
       sessionVerificationRequests.set(id, request)
 
@@ -1043,6 +1272,8 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
               status: newStatus,
               rejection_reason: request.rejection_reason,
               rejection_feedback: request.rejection_feedback,
+              faculty_feedback: request.rejection_feedback,
+              reviewed_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
             .eq('id', id)
@@ -1064,6 +1295,7 @@ export async function completeVerificationDecision(req: AuthenticatedRequest, re
           request,
           aiCoachRoute: `/student/ai-coach?skill=${encodeURIComponent(skillName)}`,
         },
+        message: newStatus === 'reassessment_required' ? 'Re-assessment requested with developmental feedback.' : 'Verification request rejected with feedback.',
       })
     }
   } catch (err: any) {

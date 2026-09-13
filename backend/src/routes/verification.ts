@@ -24,8 +24,10 @@ router.post('/requests/:id/schedule', vc.scheduleVerificationSession)
 router.post('/requests/:id/notes', vc.saveVerificationNotes)
 
 // 4. Academic Skill Test
+router.post('/requests/:id/test', vc.createAcademicTest)
 router.get('/requests/:id/test', vc.getAcademicTest)
 router.post('/requests/:id/test/submit', vc.submitAcademicTest)
+router.get('/requests/:id/attempt', vc.getTestAttempt)
 
 // 5. Final Verification Decision (Verify, Reject, Reassessment)
 router.post('/requests/:id/decision', vc.completeVerificationDecision)

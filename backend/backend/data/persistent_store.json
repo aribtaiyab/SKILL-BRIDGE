@@ -669,6 +669,22 @@
         },
         "updated_at": "2026-09-12T10:33:46.507Z"
       }
+    },
+    "student-test-arib-99": {
+      "skill-react": {
+        "id": "ss-1789280533485",
+        "student_id": "student-test-arib-99",
+        "skill_id": "skill-react",
+        "self_declared_level": 80,
+        "current_level": 95,
+        "verified_level": 95,
+        "verification_status": "academically_verified",
+        "skills": {
+          "id": "skill-react",
+          "name": "React",
+          "category": "Technical"
+        }
+      }
     }
   },
   "selfRatings": {
@@ -820,6 +836,22 @@
   "projects": {
     "demo-student-id": [
       {
+        "id": "proj-1789280565950-685yg",
+        "student_id": "demo-student-id",
+        "title": "SkillBridge Platform Engine",
+        "description": "Distributed skill passport and career readiness ledger with real-time verification.",
+        "technologies": [
+          "Node.js",
+          "Express",
+          "TypeScript",
+          "PostgreSQL",
+          "Next.js"
+        ],
+        "github_url": "https://github.com/aribtaiyab/skillbridge",
+        "project_url": "https://skillbridge.dev",
+        "created_at": "2026-09-13T06:22:45.950Z"
+      },
+      {
         "id": "proj-1789200092239-qwvbq",
         "student_id": "demo-student-id",
         "title": "SkillBridge Platform Engine",
@@ -855,6 +887,15 @@
   },
   "certifications": {
     "demo-student-id": [
+      {
+        "id": "cert-1789280566355-ybiv9",
+        "student_id": "demo-student-id",
+        "name": "AWS Certified Solutions Architect - Associate",
+        "issuing_organization": "Amazon Web Services",
+        "issue_date": "2026-08-15",
+        "credential_url": "https://credly.com/sample-cert",
+        "created_at": "2026-09-13T06:22:46.355Z"
+      },
       {
         "id": "cert-1789200092637-szcql",
         "student_id": "demo-student-id",
@@ -904,5 +945,5 @@
       "portfolio_url": "https://aribtaiyab-portfolio.vercel.app/"
     }
   },
-  "updatedAt": "2026-09-12T14:19:28.905Z"
+  "updatedAt": "2026-09-13T06:22:46.355Z"
 }

@@ -23,13 +23,20 @@ export interface VerificationItem {
   proof_url: string | null
   proof_notes: string | null
   supporting_evidence?: SupportingEvidenceItem[]
-  status: 'pending' | 'in_review' | 'approved' | 'rejected'
+  status: 'pending' | 'in_review' | 'accepted' | 'test_sent' | 'test_submitted' | 'scheduled' | 'approved' | 'verified' | 'rejected' | 'reassessment_required'
+  test_id?: string | null
+  test_title?: string | null
+  duration_minutes?: number | null
+  passing_score?: number | null
+  academic_test_score?: number | null
+  verification_methods?: string[] | null
   academician_id?: string | null
   academician_name?: string | null
   academician_institution?: string | null
   academician_department?: string | null
   faculty_feedback?: string | null
   rejection_reason?: string | null
+  rejection_feedback?: string | null
   verified_level?: number | null
   reviewed_at?: string | null
   created_at: string
