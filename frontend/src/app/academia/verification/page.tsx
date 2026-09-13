@@ -173,10 +173,10 @@ export default function AcademiaVerificationPage() {
   // Dynamic Statistics
   const stats = useMemo(() => {
     const total = requests.length
-    const pending = requests.filter(r => r.status === 'pending').length
-    const inReview = requests.filter(r => r.status === 'in_review').length
-    const verified = requests.filter(r => r.status === 'approved').length
-    const rejected = requests.filter(r => r.status === 'rejected').length
+    const pending = requests.filter(r => (r.status as string) === 'pending' || (r.status as string) === 'request_sent').length
+    const inReview = requests.filter(r => (r.status as string) === 'in_review' || (r.status as string) === 'accepted' || (r.status as string) === 'scheduled').length
+    const verified = requests.filter(r => (r.status as string) === 'approved' || (r.status as string) === 'verified').length
+    const rejected = requests.filter(r => (r.status as string) === 'rejected' || (r.status as string) === 'reassessment_required').length
     return { total, pending, inReview, verified, rejected }
   }, [requests])
 
@@ -185,10 +185,11 @@ export default function AcademiaVerificationPage() {
     return requests.filter(r => {
       // Status filter
       if (statusFilter !== 'all') {
-        if (statusFilter === 'pending' && r.status !== 'pending') return false
-        if (statusFilter === 'in_review' && r.status !== 'in_review') return false
-        if (statusFilter === 'approved' && r.status !== 'approved') return false
-        if (statusFilter === 'rejected' && r.status !== 'rejected') return false
+        const s = r.status as string
+        if (statusFilter === 'pending' && s !== 'pending' && s !== 'request_sent') return false
+        if (statusFilter === 'in_review' && s !== 'in_review' && s !== 'accepted' && s !== 'scheduled') return false
+        if (statusFilter === 'approved' && s !== 'approved' && s !== 'verified') return false
+        if (statusFilter === 'rejected' && s !== 'rejected' && s !== 'reassessment_required') return false
       }
       // Search filter
       if (searchTerm.trim()) {

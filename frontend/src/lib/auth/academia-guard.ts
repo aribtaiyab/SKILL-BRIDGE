@@ -66,9 +66,9 @@ export async function requireAcademicianAuth(): Promise<AuthGuardResult> {
       }
     }
 
-    const allowedRoles = ['academician', 'institution', 'faculty', 'professor', 'admin']
+    const allowedRoles = ['academician', 'institution', 'faculty', 'professor', 'admin', 'academia', 'educator']
     if (!allowedRoles.includes(userRole)) {
-      return { success: false, status: 403, error: 'Unauthorized. Academician access required.' }
+      return { success: false, status: 403, error: 'Unauthorized. Academician or institution access required.' }
     }
 
     // 2. Fetch academician specific profile details

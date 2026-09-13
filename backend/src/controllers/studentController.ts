@@ -14,6 +14,9 @@ import { GroqService } from '../services/ai/groq.service.js'
 export const sessionCareerTargets = new Map<string, string>()
 export const sessionSkills = new Map<string, Map<string, any>>()
 export const sessionSelfRatings = new Map<string, Map<string, string>>()
+export const sessionProjects = new Map<string, any[]>()
+export const sessionCertifications = new Map<string, any[]>()
+export const sessionStudentProfiles = new Map<string, any>()
 
 const PERSISTENT_STORE_PATH = path.resolve(process.cwd(), 'backend', 'data', 'persistent_store.json')
 
@@ -53,6 +56,21 @@ function loadPersistentStore() {
             sessionAssessmentAttempts.set(userId, attemptsList as any[])
           }
         }
+        if (parsed.projects) {
+          for (const [userId, projList] of Object.entries(parsed.projects)) {
+            sessionProjects.set(userId, projList as any[])
+          }
+        }
+        if (parsed.certifications) {
+          for (const [userId, certList] of Object.entries(parsed.certifications)) {
+            sessionCertifications.set(userId, certList as any[])
+          }
+        }
+        if (parsed.studentProfiles) {
+          for (const [userId, profData] of Object.entries(parsed.studentProfiles)) {
+            sessionStudentProfiles.set(userId, profData)
+          }
+        }
         break
       }
     }
@@ -90,11 +108,29 @@ export function savePersistentStore() {
       attemptsObj[userId] = attempts
     }
 
+    const projectsObj: Record<string, any[]> = {}
+    for (const [userId, projs] of sessionProjects.entries()) {
+      projectsObj[userId] = projs
+    }
+
+    const certsObj: Record<string, any[]> = {}
+    for (const [userId, certs] of sessionCertifications.entries()) {
+      certsObj[userId] = certs
+    }
+
+    const profilesObj: Record<string, any> = {}
+    for (const [userId, prof] of sessionStudentProfiles.entries()) {
+      profilesObj[userId] = prof
+    }
+
     fs.writeFileSync(PERSISTENT_STORE_PATH, JSON.stringify({
       careerTargets: targetsObj,
       skills: skillsObj,
       selfRatings: ratingsObj,
       assessmentAttempts: attemptsObj,
+      projects: projectsObj,
+      certifications: certsObj,
+      studentProfiles: profilesObj,
       updatedAt: new Date().toISOString(),
     }, null, 2))
   } catch (err) {
@@ -109,52 +145,48 @@ export async function getStudentProfile(req: AuthenticatedRequest, res: Response
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
+    const storedProfile = sessionStudentProfiles.get(user.id) || {}
     const supabase = getSupabaseAdmin()
-    if (!supabase) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          profile_id: user.id,
-          target_career_id: '30000000-0000-0000-0000-000000000003',
-          education: 'Undergraduate Computer Science',
-          graduation_year: 2026,
-          onboarding_completed: true,
-          profiles: {
-            id: user.id,
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
-            email: user.email || '',
-            avatar_url: user.user_metadata?.avatar_url || null,
-          }
-        }
-      })
+
+    let dbData: any = null
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('student_profiles')
+          .select('*, profiles(id, full_name, email, avatar_url, bio, phone, location), career_targets(id, name, slug, description)')
+          .eq('profile_id', user.id)
+          .maybeSingle()
+        if (!error && data) dbData = data
+      } catch {}
     }
 
-    const { data, error } = await supabase
-      .from('student_profiles')
-      .select('*, profiles(id, full_name, email, avatar_url)')
-      .eq('profile_id', user.id)
-      .single()
+    const baseProfiles = dbData?.profiles || {}
+    const targetCareer = dbData?.career_targets || null
 
-    if (error || !data) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          profile_id: user.id,
-          target_career_id: sessionCareerTargets.get(user.id) || null,
-          education: 'Undergraduate Computer Science',
-          graduation_year: 2026,
-          onboarding_completed: true,
-          profiles: {
-            id: user.id,
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
-            email: user.email || '',
-            avatar_url: user.user_metadata?.avatar_url || null,
-          }
-        }
-      })
+    const resolved = {
+      profile_id: user.id,
+      full_name: storedProfile.full_name || baseProfiles.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
+      email: user.email || baseProfiles.email || '',
+      avatar_url: storedProfile.avatar_url || baseProfiles.avatar_url || user.user_metadata?.avatar_url || null,
+      bio: storedProfile.bio !== undefined ? storedProfile.bio : (baseProfiles.bio || ''),
+      phone: storedProfile.phone !== undefined ? storedProfile.phone : (baseProfiles.phone || ''),
+      location: storedProfile.location !== undefined ? storedProfile.location : (baseProfiles.location || ''),
+      college_name: storedProfile.college_name !== undefined ? storedProfile.college_name : (dbData?.college_name || ''),
+      degree: storedProfile.degree !== undefined ? storedProfile.degree : (dbData?.degree || ''),
+      branch: storedProfile.branch !== undefined ? storedProfile.branch : (dbData?.branch || ''),
+      academic_year: storedProfile.academic_year !== undefined ? storedProfile.academic_year : (dbData?.academic_year || ''),
+      education: storedProfile.education || dbData?.education || 'Undergraduate',
+      graduation_year: storedProfile.graduation_year || dbData?.graduation_year || 2026,
+      experience_level: storedProfile.experience_level || dbData?.experience_level || 'Student / Entry-level',
+      linkedin_url: storedProfile.linkedin_url !== undefined ? storedProfile.linkedin_url : (dbData?.linkedin_url || ''),
+      github_url: storedProfile.github_url !== undefined ? storedProfile.github_url : (dbData?.github_url || ''),
+      portfolio_url: storedProfile.portfolio_url !== undefined ? storedProfile.portfolio_url : (dbData?.portfolio_url || ''),
+      target_career_id: dbData?.target_career_id || sessionCareerTargets.get(user.id) || null,
+      career_targets: targetCareer,
+      onboarding_completed: true,
     }
 
-    res.status(200).json({ success: true, data })
+    res.status(200).json({ success: true, data: resolved })
   } catch (err) {
     next(err)
   }
@@ -165,21 +197,47 @@ export async function updateStudentProfile(req: AuthenticatedRequest, res: Respo
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
-    const supabase = getSupabaseAdmin()
     const body = req.body || {}
+    const existing = sessionStudentProfiles.get(user.id) || {}
+    const merged = { ...existing, ...body }
+    sessionStudentProfiles.set(user.id, merged)
+    savePersistentStore()
 
-    if (!supabase) {
-      return res.status(200).json({ data: { profile_id: user.id, ...body } })
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        // Update profiles table
+        const profileUpdates: Record<string, any> = { updated_at: new Date().toISOString() }
+        if (body.full_name !== undefined) profileUpdates.full_name = body.full_name
+        if (body.bio !== undefined) profileUpdates.bio = body.bio
+        if (body.phone !== undefined) profileUpdates.phone = body.phone
+        if (body.location !== undefined) profileUpdates.location = body.location
+        if (body.avatar_url !== undefined) profileUpdates.avatar_url = body.avatar_url
+
+        if (Object.keys(profileUpdates).length > 1) {
+          await supabase.from('profiles').update(profileUpdates).eq('id', user.id)
+        }
+
+        // Update student_profiles table
+        const studentUpdates: Record<string, any> = { profile_id: user.id, updated_at: new Date().toISOString() }
+        if (body.college_name !== undefined) studentUpdates.college_name = body.college_name
+        if (body.degree !== undefined) studentUpdates.degree = body.degree
+        if (body.branch !== undefined) studentUpdates.branch = body.branch
+        if (body.academic_year !== undefined) studentUpdates.academic_year = body.academic_year
+        if (body.education !== undefined) studentUpdates.education = body.education
+        if (body.graduation_year !== undefined) studentUpdates.graduation_year = Number(body.graduation_year)
+        if (body.experience_level !== undefined) studentUpdates.experience_level = body.experience_level
+        if (body.linkedin_url !== undefined) studentUpdates.linkedin_url = body.linkedin_url
+        if (body.github_url !== undefined) studentUpdates.github_url = body.github_url
+        if (body.portfolio_url !== undefined) studentUpdates.portfolio_url = body.portfolio_url
+
+        await supabase.from('student_profiles').upsert(studentUpdates, { onConflict: 'profile_id' })
+      } catch (err) {
+        console.warn('Database sync for profile notice:', err)
+      }
     }
 
-    const { data, error } = await supabase
-      .from('student_profiles')
-      .upsert({ profile_id: user.id, ...body, updated_at: new Date().toISOString() }, { onConflict: 'profile_id' })
-      .select()
-      .single()
-
-    if (error) return res.status(500).json({ success: false, error: 'Could not update student profile' })
-    res.status(200).json({ data })
+    res.status(200).json({ success: true, data: merged, message: 'Profile updated successfully' })
   } catch (err) {
     next(err)
   }
@@ -1780,17 +1838,23 @@ export async function getStudentProjects(req: AuthenticatedRequest, res: Respons
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(200).json({ success: true, data: [] })
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('student_id', user.id)
+          .order('created_at', { ascending: false })
 
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('student_id', user.id)
+        if (!error && data && data.length > 0) return res.status(200).json({ success: true, data })
+      } catch {}
+    }
 
-    if (error || !data) return res.status(200).json({ success: true, data: [] })
-    res.status(200).json({ success: true, data })
+    const userProjects = sessionProjects.get(user.id) || []
+    res.status(200).json({ success: true, data: userProjects })
   } catch (err) {
-    res.status(200).json({ success: true, data: [] })
+    const userProjects = sessionProjects.get(req.user?.id || '') || []
+    res.status(200).json({ success: true, data: userProjects })
   }
 }
 
@@ -1800,19 +1864,170 @@ export async function createStudentProject(req: AuthenticatedRequest, res: Respo
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const body = req.body || {}
+    const newProject = {
+      id: body.id || `proj-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      student_id: user.id,
+      title: body.title || 'Untitled Project',
+      description: body.description || '',
+      technologies: Array.isArray(body.technologies) ? body.technologies : typeof body.technologies === 'string' ? body.technologies.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
+      github_url: body.github_url || body.githubUrl || '',
+      project_url: body.project_url || body.projectUrl || body.liveUrl || '',
+      created_at: new Date().toISOString()
+    }
+
+    if (!sessionProjects.has(user.id)) sessionProjects.set(user.id, [])
+    const list = sessionProjects.get(user.id)!
+    list.unshift(newProject)
+    savePersistentStore()
+
     const supabase = getSupabaseAdmin()
-    if (!supabase) return res.status(201).json({ success: true, data: { id: `proj-${Date.now()}`, ...body, student_id: user.id } })
+    if (supabase) {
+      try {
+        await supabase.from('projects').insert(newProject)
+      } catch {}
+    }
 
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({ student_id: user.id, ...body })
-      .select()
-      .single()
-
-    if (error || !data) return res.status(201).json({ success: true, data: { id: `proj-${Date.now()}`, ...body, student_id: user.id } })
-    res.status(200).json({ success: true, data })
+    res.status(201).json({ success: true, data: newProject })
   } catch (err) {
-    res.status(201).json({ success: true, data: { id: `proj-${Date.now()}`, ...req.body, student_id: (req as any).user?.id } })
+    next(err)
+  }
+}
+
+export async function updateStudentProject(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const projectId = req.params.id
+    const body = req.body || {}
+
+    const list = sessionProjects.get(user.id) || []
+    const idx = list.findIndex(p => p.id === projectId)
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...body, updated_at: new Date().toISOString() }
+      savePersistentStore()
+    }
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        await supabase.from('projects').update(body).eq('id', projectId).eq('student_id', user.id)
+      } catch {}
+    }
+
+    res.status(200).json({ success: true, message: 'Project updated successfully' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function deleteStudentProject(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const projectId = req.params.id
+
+    const list = sessionProjects.get(user.id) || []
+    const filtered = list.filter(p => p.id !== projectId)
+    sessionProjects.set(user.id, filtered)
+    savePersistentStore()
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        await supabase.from('projects').delete().eq('id', projectId).eq('student_id', user.id)
+      } catch {}
+    }
+
+    res.status(200).json({ success: true, message: 'Project deleted successfully' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getStudentCertifications(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('certifications')
+          .select('*')
+          .eq('student_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (!error && data && data.length > 0) return res.status(200).json({ success: true, data })
+      } catch {}
+    }
+
+    const userCerts = sessionCertifications.get(user.id) || []
+    res.status(200).json({ success: true, data: userCerts })
+  } catch (err) {
+    const userCerts = sessionCertifications.get(req.user?.id || '') || []
+    res.status(200).json({ success: true, data: userCerts })
+  }
+}
+
+export async function createStudentCertification(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const body = req.body || {}
+    const newCert = {
+      id: body.id || `cert-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      student_id: user.id,
+      name: body.name || 'Certification',
+      issuing_organization: body.issuing_organization || body.issuer || 'Issuing Body',
+      issue_date: body.issue_date || new Date().toISOString().split('T')[0],
+      credential_url: body.credential_url || body.credentialUrl || '',
+      created_at: new Date().toISOString()
+    }
+
+    if (!sessionCertifications.has(user.id)) sessionCertifications.set(user.id, [])
+    const list = sessionCertifications.get(user.id)!
+    list.unshift(newCert)
+    savePersistentStore()
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        await supabase.from('certifications').insert(newCert)
+      } catch {}
+    }
+
+    res.status(201).json({ success: true, data: newCert })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function deleteStudentCertification(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const certId = req.params.id
+
+    const list = sessionCertifications.get(user.id) || []
+    const filtered = list.filter(c => c.id !== certId)
+    sessionCertifications.set(user.id, filtered)
+    savePersistentStore()
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        await supabase.from('certifications').delete().eq('id', certId).eq('student_id', user.id)
+      } catch {}
+    }
+
+    res.status(200).json({ success: true, message: 'Certification deleted successfully' })
+  } catch (err) {
+    next(err)
   }
 }
 
@@ -1822,50 +2037,45 @@ export async function getStudentPassport(req: AuthenticatedRequest, res: Respons
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
     const supabase = getSupabaseAdmin()
-    if (!supabase) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          settings: { share_token: 'demo-passport-token', is_public: true },
-          skills: FALLBACK_STUDENT_SKILLS,
-          projects: [],
-        },
-      })
+    let dbSkills: any[] = []
+    let dbProjects: any[] = []
+    let dbCerts: any[] = []
+    let dbSettings: any = null
+
+    if (supabase) {
+      try {
+        const [sRes, pRes, cRes, setRes] = await Promise.all([
+          supabase.from('student_skills').select('*, skills(id, name, category)').eq('student_id', user.id),
+          supabase.from('projects').select('*').eq('student_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('certifications').select('*').eq('student_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('passport_settings').select('*').eq('student_id', user.id).maybeSingle()
+        ])
+        if (sRes.data) dbSkills = sRes.data
+        if (pRes.data) dbProjects = pRes.data
+        if (cRes.data) dbCerts = cRes.data
+        if (setRes.data) dbSettings = setRes.data
+      } catch {}
     }
 
-    const { data: settings } = await supabase
-      .from('passport_settings')
-      .select('*')
-      .eq('student_id', user.id)
-      .single()
+    const memorySkills = sessionSkills.get(user.id) ? Array.from(sessionSkills.get(user.id)!.values()) : []
+    const memoryProjects = sessionProjects.get(user.id) || []
+    const memoryCerts = sessionCertifications.get(user.id) || []
 
-    const { data: skills } = await supabase
-      .from('student_skills')
-      .select('*, skills(id, name, category)')
-      .eq('student_id', user.id)
-
-    const { data: projects } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('student_id', user.id)
+    const finalSkills = dbSkills.length > 0 ? dbSkills : memorySkills
+    const finalProjects = dbProjects.length > 0 ? dbProjects : memoryProjects
+    const finalCerts = dbCerts.length > 0 ? dbCerts : memoryCerts
 
     res.status(200).json({
       success: true,
       data: {
-        settings: settings || { share_token: 'demo-passport-token', is_public: true },
-        skills: (skills && skills.length > 0) ? skills : FALLBACK_STUDENT_SKILLS,
-        projects: projects || [],
+        settings: dbSettings || { share_token: `sp-${user.id.substring(0, 8)}`, is_public: true },
+        skills: finalSkills,
+        projects: finalProjects,
+        certifications: finalCerts,
       },
     })
   } catch (err) {
-    res.status(200).json({
-      success: true,
-      data: {
-        settings: { share_token: 'demo-passport-token', is_public: true },
-        skills: FALLBACK_STUDENT_SKILLS,
-        projects: [],
-      },
-    })
+    next(err)
   }
 }
 

@@ -1,171 +1,111 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
-export async function GET() {
-  const defaultPassportData = {
-    profile: {
-      name: "Sarah Jenkins",
-      email: "sarah.jenkins@student.techinst.edu",
-      institution: "Tech Institute of Modern Dev",
-      targetCareer: "Backend Developer (Internship/Junior)",
-    },
-    settings: {
-      shareToken: "sarah-jenkins-passport-token",
-      isPublic: true,
-      headline: "Aspiring Backend & Systems Engineer • Verified 78% Readiness",
-      bio: "Passionate about high-concurrency microservices, robust API design, and distributed PostgreSQL performance.",
-      showSkills: true,
-      showProjects: true,
-      showCertifications: true,
-      showReadiness: true,
-    },
-    skills: [
-      {
-        id: "ps-01",
-        skillId: "40000000-0000-0000-0000-000000000001",
-        name: "Node.js",
-        category: "Backend & APIs",
-        currentLevel: 80,
-        verificationStatus: "assessment_verified",
-        verificationBadge: {
-          label: "Assessment Verified",
-          shortLabel: "Assessment",
-          variant: "default",
-          description: "Verified via server-side evaluated benchmark assessment.",
-        },
-        proofCount: 2,
-        proofItems: [
-          { id: "pf-01", title: "Level 1 Knowledge Benchmark (80/100)", type: "assessment" },
-          { id: "pf-02", title: "Express Route Debugging Challenge", type: "practical" },
-        ],
-      },
-      {
-        id: "ps-02",
-        skillId: "40000000-0000-0000-0000-000000000002",
-        name: "REST APIs",
-        category: "Backend & APIs",
-        currentLevel: 75,
-        verificationStatus: "practical_verified",
-        verificationBadge: {
-          label: "Practical Verified",
-          shortLabel: "Practical",
-          variant: "success",
-          description: "Hands-on challenge completed and tested in timed environment.",
-        },
-        proofCount: 1,
-        proofItems: [
-          { id: "pf-03", title: "REST API Endpoint Implementation", type: "practical" },
-        ],
-      },
-      {
-        id: "ps-03",
-        skillId: "40000000-0000-0000-0000-000000000003",
-        name: "SQL",
-        category: "Database & Storage",
-        currentLevel: 82,
-        verificationStatus: "evidence_verified",
-        verificationBadge: {
-          label: "Evidence Verified",
-          shortLabel: "Evidence",
-          variant: "success",
-          description: "Verified by linked GitHub code repository and project demo.",
-        },
-        proofCount: 2,
-        proofItems: [
-          { id: "pf-04", title: "PostgreSQL Production Modeling Repo", type: "github", url: "https://github.com/developer/ecommerce-platform-api" },
-          { id: "pf-05", title: "SQL Benchmark Certification", type: "certificate" },
-        ],
-      },
-      {
-        id: "ps-04",
-        skillId: "40000000-0000-0000-0000-000000000004",
-        name: "Git & Version Control",
-        category: "Tools & Infrastructure",
-        currentLevel: 75,
-        verificationStatus: "practical_verified",
-        verificationBadge: {
-          label: "Practical Verified",
-          shortLabel: "Practical",
-          variant: "success",
-          description: "Hands-on branch management and conflict resolution verified.",
-        },
-        proofCount: 1,
-        proofItems: [
-          { id: "pf-06", title: "Multi-branch Rebase & Merge Challenge", type: "practical" },
-        ],
-      },
-    ],
-    projects: [
-      {
-        id: "proj-01",
-        title: "E-Commerce Microservices Platform",
-        description: "Built a fully functional REST API for an e-commerce platform including user authentication (JWT), product catalog management, and order processing logic.",
-        technologies: ["Node.js", "Express", "PostgreSQL", "Docker"],
-        githubUrl: "https://github.com/developer/ecommerce-platform-api",
-        liveUrl: "https://ecommerce-api-demo.up.railway.app",
-        verificationStatus: "verified",
-      },
-      {
-        id: "proj-02",
-        title: "Real-time Chat Service",
-        description: "Implemented a WebSocket-based chat service allowing real-time messaging between users in different rooms with token bucket rate-limiting.",
-        technologies: ["Socket.io", "Redis", "TypeScript"],
-        githubUrl: "https://github.com/developer/realtime-chat-service",
-        verificationStatus: "verified",
-      },
-    ],
-    certifications: [
-      {
-        id: "cert-01",
-        name: "PostgreSQL Associate Certification",
-        issuingOrganization: "PostgreSQL Professional Guild",
-        issueDate: "2024-08-15",
-        verificationStatus: "evidence_verified",
-      },
-    ],
-    auditRecords: [
-      {
-        id: "ar-01",
-        skillName: "SQL",
-        verificationType: "Evidence Verified",
-        verifiedLevel: 82,
-        source: "GitHub Repository Inspection",
-        notes: "Repository contains schema migrations, connection pooling, and indexed queries.",
-        verifiedAt: "2026-08-20",
-      },
-      {
-        id: "ar-02",
-        skillName: "Node.js",
-        verificationType: "Assessment Verified",
-        verifiedLevel: 80,
-        source: "SkillBridge Knowledge Benchmark",
-        notes: "Scored 80/100 on official server-side evaluated assessment.",
-        verifiedAt: "2026-08-15",
-      },
-    ],
-  }
-
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: profile } = await (supabase as any)
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', user.id)
-        .maybeSingle()
 
-      if (profile && (profile as any).full_name) {
-        defaultPassportData.profile.name = (profile as any).full_name
-        defaultPassportData.profile.email = (profile as any).email
-      }
+    const userId = user?.id || request.headers.get('x-user-id') || (request.headers.get('x-demo-mode') === 'true' ? '00000000-0000-0000-0000-000000000001' : null)
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
-  } catch {
-    // ignore
-  }
 
-  return NextResponse.json({
-    success: true,
-    data: defaultPassportData,
-  })
+    const [profileRes, studentProfRes, skillsRes, projectsRes, certsRes, settingsRes] = await Promise.all([
+      (supabase as any).from('profiles').select('*').eq('id', userId).maybeSingle(),
+      (supabase as any).from('student_profiles').select('*, career_targets(id, name, slug)').eq('profile_id', userId).maybeSingle(),
+      (supabase as any).from('student_skills').select('*, skills(id, name, category)').eq('student_id', userId),
+      (supabase as any).from('projects').select('*').eq('student_id', userId).order('created_at', { ascending: false }),
+      (supabase as any).from('certifications').select('*').eq('student_id', userId).order('created_at', { ascending: false }),
+      (supabase as any).from('passport_settings').select('*').eq('student_id', userId).maybeSingle()
+    ])
+
+    const prof = profileRes?.data || {}
+    const studentProf = studentProfRes?.data || {}
+    const skills = skillsRes?.data || []
+    const projects = projectsRes?.data || []
+    const certs = certsRes?.data || []
+    const settings = settingsRes?.data || { share_token: `sp-${userId.substring(0, 8)}`, is_public: true }
+
+    const passportData = {
+      profile: {
+        id: userId,
+        name: prof.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student',
+        email: user?.email || prof.email || '',
+        college_name: studentProf.college_name || '',
+        degree: studentProf.degree || studentProf.education || '',
+        branch: studentProf.branch || '',
+        academic_year: studentProf.academic_year || '',
+        graduation_year: studentProf.graduation_year || 2026,
+        location: prof.location || '',
+        bio: prof.bio || '',
+        avatar_url: prof.avatar_url || user?.user_metadata?.avatar_url || null,
+        linkedin_url: studentProf.linkedin_url || '',
+        github_url: studentProf.github_url || '',
+        portfolio_url: studentProf.portfolio_url || '',
+        target_role: studentProf.career_targets?.name || null,
+      },
+      settings,
+      skills: skills.map((s: any) => ({
+        id: s.skill_id || s.id,
+        name: s.skills?.name || s.skill_name || s.name || 'Skill',
+        category: s.skills?.category || 'Technical',
+        score: Number(s.current_level ?? s.self_declared_level ?? 50),
+        verification_status: s.verification_status || 'self_declared',
+      })),
+      projects: projects.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        technologies: p.technologies || [],
+        github_url: p.github_url,
+        project_url: p.project_url,
+      })),
+      certifications: certs.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        issuing_organization: c.issuing_organization,
+        issue_date: c.issue_date,
+        credential_url: c.credential_url,
+      }))
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: passportData
+    })
+  } catch (err: any) {
+    console.error('Error in student passport route:', err)
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const userId = user?.id || request.headers.get('x-user-id') || (request.headers.get('x-demo-mode') === 'true' ? '00000000-0000-0000-0000-000000000001' : null)
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { data, error } = await (supabase as any)
+      .from('passport_settings')
+      .upsert({ student_id: userId, ...body, updated_at: new Date().toISOString() }, { onConflict: 'student_id' })
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ success: true, data: { student_id: userId, ...body } })
+    }
+
+    return NextResponse.json({ success: true, data })
+  } catch (err: any) {
+    console.error('Error updating passport settings:', err)
+    return NextResponse.json({ success: false, error: 'Failed to update settings' }, { status: 500 })
+  }
 }

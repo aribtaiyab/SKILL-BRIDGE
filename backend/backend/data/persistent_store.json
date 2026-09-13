@@ -560,10 +560,114 @@
         "verification_status": "self_declared",
         "skills": {
           "id": "40000000-0000-0000-0000-000000000004",
-          "name": "Git & Version Control",
+          "name": "Git/GitHub",
           "category": "Tools"
         },
-        "updated_at": "2026-09-12T06:17:19.849Z"
+        "updated_at": "2026-09-12T10:33:46.096Z"
+      },
+      "40000000-0000-0000-0000-000000000016": {
+        "id": "ss-1789209225039-1rzff4",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000016",
+        "self_declared_level": 100,
+        "current_level": 100,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000016",
+          "name": "HTML",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-12T10:33:45.039Z"
+      },
+      "40000000-0000-0000-0000-000000000017": {
+        "id": "ss-1789209225246-zbuxr5",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000017",
+        "self_declared_level": 100,
+        "current_level": 100,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000017",
+          "name": "CSS",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-12T10:33:45.246Z"
+      },
+      "40000000-0000-0000-0000-000000000015": {
+        "id": "ss-1789209225454-8et1s4",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000015",
+        "self_declared_level": 30,
+        "current_level": 0,
+        "verified_level": 0,
+        "verification_status": "assessment_verified",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000015",
+          "name": "JavaScript",
+          "category": "Technical"
+        }
+      },
+      "40000000-0000-0000-0000-000000000006": {
+        "id": "ss-1789209225686-s67c3i",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000006",
+        "self_declared_level": 0,
+        "current_level": 0,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000006",
+          "name": "React",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-12T10:33:45.686Z"
+      },
+      "40000000-0000-0000-0000-000000000018": {
+        "id": "ss-1789209225890-wxt0y3",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000018",
+        "self_declared_level": 40,
+        "current_level": 40,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000018",
+          "name": "Responsive Design",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-12T10:33:45.891Z"
+      },
+      "40000000-0000-0000-0000-000000000019": {
+        "id": "ss-1789209226301-cbncdv",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000019",
+        "self_declared_level": 0,
+        "current_level": 0,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000019",
+          "name": "API Integration",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-12T10:33:46.301Z"
+      },
+      "40000000-0000-0000-0000-000000000020": {
+        "id": "ss-1789209226507-ok87ik",
+        "student_id": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skill_id": "40000000-0000-0000-0000-000000000020",
+        "self_declared_level": 40,
+        "current_level": 40,
+        "verified_level": 0,
+        "verification_status": "self_declared",
+        "skills": {
+          "id": "40000000-0000-0000-0000-000000000020",
+          "name": "State Management",
+          "category": "Frontend"
+        },
+        "updated_at": "2026-09-12T10:33:46.507Z"
       }
     }
   },
@@ -692,7 +796,113 @@
         "completedAt": "2026-09-09T15:13:06.056Z",
         "createdAt": "2026-09-09T15:13:06.056Z"
       }
+    ],
+    "c19182b8-4699-4663-a7cd-66406f12a059": [
+      {
+        "id": "attempt-1789209290493-t29bi",
+        "studentId": "c19182b8-4699-4663-a7cd-66406f12a059",
+        "skillId": "40000000-0000-0000-0000-000000000015",
+        "skillName": "JavaScript",
+        "title": "JavaScript Language Knowledge Benchmark",
+        "assessmentId": "assess-l1-javascript-core",
+        "score": 0,
+        "percentage": 0,
+        "passed": false,
+        "attemptNumber": 1,
+        "previousScore": null,
+        "improvement": 0,
+        "verificationLevel": "assessment_verified",
+        "completedAt": "2026-09-12T10:35:16.475Z",
+        "createdAt": "2026-09-12T10:35:16.475Z"
+      }
     ]
   },
-  "updatedAt": "2026-09-12T06:17:20.049Z"
+  "projects": {
+    "demo-student-id": [
+      {
+        "id": "proj-1789200092239-qwvbq",
+        "student_id": "demo-student-id",
+        "title": "SkillBridge Platform Engine",
+        "description": "Distributed skill passport and career readiness ledger with real-time verification.",
+        "technologies": [
+          "Node.js",
+          "Express",
+          "TypeScript",
+          "PostgreSQL",
+          "Next.js"
+        ],
+        "github_url": "https://github.com/aribtaiyab/skillbridge",
+        "project_url": "https://skillbridge.dev",
+        "created_at": "2026-09-12T08:01:32.239Z"
+      },
+      {
+        "id": "proj-1789200053917-4tjg0",
+        "student_id": "demo-student-id",
+        "title": "SkillBridge Platform Engine",
+        "description": "Distributed skill passport and career readiness ledger with real-time verification.",
+        "technologies": [
+          "Node.js",
+          "Express",
+          "TypeScript",
+          "PostgreSQL",
+          "Next.js"
+        ],
+        "github_url": "https://github.com/aribtaiyab/skillbridge",
+        "project_url": "https://skillbridge.dev",
+        "created_at": "2026-09-12T08:00:53.917Z"
+      }
+    ]
+  },
+  "certifications": {
+    "demo-student-id": [
+      {
+        "id": "cert-1789200092637-szcql",
+        "student_id": "demo-student-id",
+        "name": "AWS Certified Solutions Architect - Associate",
+        "issuing_organization": "Amazon Web Services",
+        "issue_date": "2026-08-15",
+        "credential_url": "https://credly.com/sample-cert",
+        "created_at": "2026-09-12T08:01:32.637Z"
+      },
+      {
+        "id": "cert-1789200054340-45gbx",
+        "student_id": "demo-student-id",
+        "name": "AWS Certified Solutions Architect - Associate",
+        "issuing_organization": "Amazon Web Services",
+        "issue_date": "2026-08-15",
+        "credential_url": "https://credly.com/sample-cert",
+        "created_at": "2026-09-12T08:00:54.340Z"
+      }
+    ]
+  },
+  "studentProfiles": {
+    "demo-student-id": {
+      "full_name": "Md Arib",
+      "college_name": "Dr. Akhilesh Das Gupta Institute of Professional Studies",
+      "degree": "B.Tech",
+      "branch": "Computer Science & Engineering",
+      "academic_year": "2nd Year",
+      "graduation_year": 2028,
+      "location": "Delhi, India",
+      "bio": "Building distributed systems, asynchronous microservices, and AI-powered educational platforms.",
+      "linkedin_url": "https://linkedin.com/in/mdarib",
+      "github_url": "https://github.com/aribtaiyab",
+      "portfolio_url": "https://aribtaiyab.dev"
+    },
+    "c19182b8-4699-4663-a7cd-66406f12a059": {
+      "full_name": "Arib Taiyab",
+      "bio": "",
+      "location": "DELHI",
+      "phone": "",
+      "college_name": "Dr. Akhilesh Das Gupta Institute of Professional Studies",
+      "degree": "Undergraduate",
+      "branch": "",
+      "academic_year": "2ND YEAR",
+      "graduation_year": 2029,
+      "linkedin_url": "https://www.linkedin.com/in/aribtayab/",
+      "github_url": "https://github.com/aribtaiyab",
+      "portfolio_url": "https://aribtaiyab-portfolio.vercel.app/"
+    }
+  },
+  "updatedAt": "2026-09-12T14:19:28.905Z"
 }

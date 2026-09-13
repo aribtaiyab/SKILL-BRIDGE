@@ -15,6 +15,7 @@ router.patch('/notifications', ac.markNotificationsRead)
 // Core Academia Hub Features
 router.get('/students', ac.getCohortStudents)
 router.get('/students/:id', ac.getStudentDetail)
+router.get('/skill-gaps', ac.getAcademiaSkillGaps)
 router.get('/insights', ac.getAcademicianInsights)
 router.get('/mentorship', ac.getMentorshipSessions)
 router.get('/mentorships', ac.getMentorshipSessions)

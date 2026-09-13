@@ -74,15 +74,15 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
           {/* User profile footer */}
           <div className="border-t border-slate-100 bg-slate-50/70 p-3.5">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-8 w-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0">
+            <Link href="/student/profile" className="flex items-center gap-3 mb-2 p-1.5 rounded-xl hover:bg-slate-100/80 transition-colors group">
+              <div className="h-8 w-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0 group-hover:bg-emerald-200 transition-colors">
                 {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold truncate text-slate-900">{displayName}</div>
-                <div className="text-[11px] text-slate-400 truncate">{displayEmail}</div>
+                <div className="text-xs font-bold truncate text-slate-900 group-hover:text-emerald-700 transition-colors">{displayName}</div>
+                <div className="text-[11px] text-slate-400 truncate">View Profile</div>
               </div>
-            </div>
+            </Link>
             {!isDemo && (
               <Button
                 variant="ghost"
@@ -104,12 +104,12 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
               <span className="text-sm text-slate-900">Student Portal</span>
             </div>
             <div className="ml-auto flex items-center gap-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+              <Link href="/student/profile" className="flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors">
                 <div className="h-8 w-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold">
                   {initials}
                 </div>
                 <span className="hidden sm:block">{displayName}</span>
-              </div>
+              </Link>
               {!isDemo && (
                 <Button variant="ghost" size="sm" onClick={signOut} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg h-8 px-2.5">
                   <LogOut className="h-4 w-4" />

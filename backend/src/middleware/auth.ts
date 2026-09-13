@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { getSupabasePublic } from '../config/supabase.js'
+import { getSupabasePublic, getSupabaseAdmin } from '../config/supabase.js'
 
 export interface AuthenticatedUser {
   id: string
@@ -59,11 +59,36 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       return
     }
 
+    let userRole = user.user_metadata?.role || (user as any).role
+    let fullName = user.user_metadata?.full_name || user.user_metadata?.name
+
+    // Check profiles table if role is not directly on metadata
+    const dbClient = getSupabaseAdmin() || supabase
+    if (dbClient) {
+      try {
+        const { data: profile } = await dbClient
+          .from('profiles')
+          .select('role, full_name')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (profile) {
+          if (profile.role) userRole = profile.role
+          if (profile.full_name && !fullName) fullName = profile.full_name
+        }
+      } catch {
+        // ignore if profiles table lookup fails
+      }
+    }
+
     req.user = {
       id: user.id,
       email: user.email,
-      role: user.user_metadata?.role || (user as any).role,
-      user_metadata: user.user_metadata,
+      role: userRole,
+      user_metadata: {
+        ...user.user_metadata,
+        full_name: fullName,
+        role: userRole,
+      },
     }
     req.token = token
     next()
@@ -101,11 +126,35 @@ export async function optionalAuth(req: AuthenticatedRequest, res: Response, nex
   try {
     const { data: { user } } = await supabase.auth.getUser(token)
     if (user) {
+      let userRole = user.user_metadata?.role || (user as any).role
+      let fullName = user.user_metadata?.full_name || user.user_metadata?.name
+
+      const dbClient = getSupabaseAdmin() || supabase
+      if (dbClient) {
+        try {
+          const { data: profile } = await dbClient
+            .from('profiles')
+            .select('role, full_name')
+            .eq('id', user.id)
+            .maybeSingle()
+          if (profile) {
+            if (profile.role) userRole = profile.role
+            if (profile.full_name && !fullName) fullName = profile.full_name
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       req.user = {
         id: user.id,
         email: user.email,
-        role: user.user_metadata?.role || (user as any).role,
-        user_metadata: user.user_metadata,
+        role: userRole,
+        user_metadata: {
+          ...user.user_metadata,
+          full_name: fullName,
+          role: userRole,
+        },
       }
       req.token = token
     }
@@ -116,22 +165,48 @@ export async function optionalAuth(req: AuthenticatedRequest, res: Response, nex
 }
 
 export function requireRole(...allowedRoles: string[]) {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       res.status(401).json({ success: false, error: 'Authentication required' })
       return
     }
 
-    const userRole = (req.user.role || req.user.user_metadata?.role || 'student').toLowerCase()
+    let userRole = (req.user.role || req.user.user_metadata?.role || '').toLowerCase()
     
-    // Check direct match, admin bypass, or aliases (academician <-> faculty, industry <-> recruiter)
+    // Fallback: If role wasn't resolved yet, try querying profiles table
+    if (!userRole && req.user.id) {
+      try {
+        const dbClient = getSupabaseAdmin() || getSupabasePublic()
+        if (dbClient) {
+          const { data: profile } = await dbClient
+            .from('profiles')
+            .select('role')
+            .eq('id', req.user.id)
+            .maybeSingle()
+          if (profile?.role) {
+            userRole = profile.role.toLowerCase()
+            req.user.role = userRole
+            if (req.user.user_metadata) req.user.user_metadata.role = userRole
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!userRole) {
+      userRole = 'student'
+    }
+
+    // Check direct match, admin bypass, or aliases (academician <-> faculty/institution/academia, industry <-> recruiter/employer)
     const normalizedAllowed = allowedRoles.map(r => r.toLowerCase())
     const isAllowed =
       userRole === 'admin' ||
       normalizedAllowed.includes(userRole) ||
-      (normalizedAllowed.includes('academician') && (userRole === 'faculty' || userRole === 'professor' || userRole === 'institution' || userRole === 'academia' || userRole === 'academician')) ||
-      (normalizedAllowed.includes('industry') && (userRole === 'recruiter' || userRole === 'partner' || userRole === 'employer')) ||
-      (normalizedAllowed.includes('student') && userRole === 'learner')
+      (normalizedAllowed.includes('academician') && (userRole === 'faculty' || userRole === 'professor' || userRole === 'institution' || userRole === 'academia' || userRole === 'academician' || userRole === 'educator')) ||
+      (normalizedAllowed.includes('institution') && (userRole === 'academician' || userRole === 'faculty' || userRole === 'professor' || userRole === 'academia' || userRole === 'institution')) ||
+      (normalizedAllowed.includes('industry') && (userRole === 'recruiter' || userRole === 'partner' || userRole === 'employer' || userRole === 'company')) ||
+      (normalizedAllowed.includes('student') && (userRole === 'learner' || userRole === 'candidate'))
 
     if (!isAllowed) {
       res.status(403).json({ success: false, error: `Forbidden: requires ${allowedRoles.join(' or ')} role` })
@@ -140,3 +215,4 @@ export function requireRole(...allowedRoles: string[]) {
     next()
   }
 }
+

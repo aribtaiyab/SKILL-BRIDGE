@@ -93,6 +93,7 @@ export default function StudentVerificationPage() {
   const [projectTitle, setProjectTitle] = useState('')
   const [techStack, setTechStack] = useState('')
   const [selectedFacultyId, setSelectedFacultyId] = useState('')
+  const [submittedSuccessItem, setSubmittedSuccessItem] = useState<VerificationRequest | null>(null)
   const [evidenceList, setEvidenceList] = useState<SupportingEvidence[]>([
     { title: 'Primary Project Repository', type: 'github_repo', url: '', description: 'Main source code repository with architecture and documentation' }
   ])
@@ -197,6 +198,7 @@ export default function StudentVerificationPage() {
     }
     setSubmitError(null)
     setSubmitSuccess(null)
+    setSubmittedSuccessItem(null)
     setIsSubmitModalOpen(true)
   }
 
@@ -243,18 +245,33 @@ export default function StudentVerificationPage() {
       })
 
       if (res?.success) {
+        const createdItem = res.data || {
+          id: `vr-${Date.now()}`,
+          skill_name: selectedSkillName,
+          status: 'pending' as const,
+          verification_tier: 'Institution Verified',
+          score: claimedScore,
+          claimed_level: claimedProficiency,
+          created_at: new Date().toISOString(),
+          student_id: user?.id || 'std-2026-001',
+          student_name: profile?.full_name || 'Student',
+          student_email: user?.email || '',
+          proof_url: validEvidence[0]?.url || null,
+          proof_notes: experienceDescription,
+          supporting_evidence: validEvidence,
+        }
+
+        setSubmittedSuccessItem(createdItem)
         setSubmitSuccess('Your skill verification request was successfully submitted to faculty for endorsement!')
-        // Reset form
+        
+        // Reset form fields
         setExperienceDescription('')
         setProjectTitle('')
         setTechStack('')
         setEvidenceList([{ title: 'Primary Project Repository', type: 'github_repo', url: '', description: 'Source code repository' }])
         
+        // Refetch latest data to immediately update database stats and list
         await loadInitialData(true)
-        setTimeout(() => {
-          setIsSubmitModalOpen(false)
-          setSubmitSuccess(null)
-        }, 1500)
       } else {
         setSubmitError('Failed to submit verification request. Please check your inputs.')
       }
@@ -268,9 +285,9 @@ export default function StudentVerificationPage() {
   // Summary Metrics
   const stats = useMemo(() => {
     const total = requests.length
-    const verified = requests.filter(r => r.status === 'approved').length
-    const pending = requests.filter(r => r.status === 'pending' || r.status === 'in_review').length
-    const rejected = requests.filter(r => r.status === 'rejected').length
+    const verified = requests.filter(r => (r.status as string) === 'approved' || (r.status as string) === 'verified').length
+    const pending = requests.filter(r => ['pending', 'in_review', 'request_sent', 'accepted', 'scheduled'].includes(r.status as string)).length
+    const rejected = requests.filter(r => (r.status as string) === 'rejected' || (r.status as string) === 'reassessment_required').length
     return { total, verified, pending, rejected }
   }, [requests])
 
@@ -643,7 +660,54 @@ export default function StudentVerificationPage() {
               </button>
             </div>
 
-            {/* Modal Form Body */}
+            {/* Modal Form Body or Success Screen */}
+            {submittedSuccessItem ? (
+              <div className="p-6 sm:p-8 text-center space-y-5 flex-1 flex flex-col items-center justify-center animate-in zoom-in-95 duration-200">
+                <div className="h-16 w-16 rounded-3xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm">
+                  <CheckCircle2 className="h-9 w-9" />
+                </div>
+                
+                <div className="space-y-2 max-w-md">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                    Verification Request Sent
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    Your verification request for <strong className="text-slate-900 font-bold">{submittedSuccessItem.skill_name}</strong> has been successfully submitted to Academia.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/70 w-full max-w-md flex items-center justify-between gap-3 text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Current Status</div>
+                      <div className="text-[11px] text-slate-500 font-medium">Waiting for Academia review</div>
+                    </div>
+                  </div>
+                  <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-xs font-bold uppercase tracking-wider px-2.5 py-1">
+                    Pending Review
+                  </Badge>
+                </div>
+
+                <p className="text-xs text-slate-500 max-w-sm">
+                  You can track its progress and faculty feedback from your Skill Verification dashboard.
+                </p>
+
+                <div className="flex items-center gap-3 w-full max-w-md pt-2">
+                  <Button
+                    onClick={() => {
+                      setSubmittedSuccessItem(null)
+                      setIsSubmitModalOpen(false)
+                    }}
+                    className="w-full rounded-xl text-xs font-bold h-11 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white shadow-xs transition-all"
+                  >
+                    View My Verification
+                  </Button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSubmitVerification} className="p-5 overflow-y-auto space-y-4 flex-1">
               {submitError && (
                 <div className="p-3 rounded-xl bg-red-50 text-red-800 border border-red-200 text-xs font-semibold flex items-center gap-2">
@@ -862,6 +926,7 @@ export default function StudentVerificationPage() {
                 </Button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

@@ -11,11 +11,14 @@ router.use(requireAuth)
 router.get('/academicians', vc.getAvailableAcademicians)
 
 // 2. Student Request Operations
+router.post('/request', vc.createVerificationRequest)
 router.post('/requests', vc.createVerificationRequest)
 router.get('/student/requests', vc.getStudentVerificationRequests)
+router.get('/list', vc.getVerificationList)
 
 // 3. Academician Queue & Decision Operations
 router.get('/academician/requests', vc.getAcademicianVerificationRequests)
+router.patch('/action', vc.patchVerificationAction)
 router.post('/requests/:id/accept', vc.acceptVerificationRequest)
 router.post('/requests/:id/schedule', vc.scheduleVerificationSession)
 router.post('/requests/:id/notes', vc.saveVerificationNotes)

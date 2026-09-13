@@ -65,10 +65,12 @@ export default function AcademiaSkillGapsPage() {
   const [workshopCapacity, setWorkshopCapacity] = useState(35)
   const [submittingWorkshop, setSubmittingWorkshop] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const fetchGaps = async () => {
     try {
       setLoading(true)
+      setErrorMessage(null)
 
       if (isDemo) {
         const res = demoService.getAggregatedSkillGaps(careerFilter, severityFilter)
@@ -95,9 +97,12 @@ export default function AcademiaSkillGapsPage() {
           totalGapsTracked: 0,
           uniqueStudentsAffected: 0,
         })
+      } else if (!json.success) {
+        setErrorMessage((json as any).error || 'Failed to load skill gaps')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch skill gaps:', err)
+      setErrorMessage(err.message || 'Failed to fetch skill gaps')
     } finally {
       setLoading(false)
     }
@@ -188,6 +193,18 @@ export default function AcademiaSkillGapsPage() {
           </Link>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="p-4 rounded-[var(--radius-card)] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-sm flex items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchGaps()} className="text-xs">
+            Retry
+          </Button>
+        </div>
+      )}
 
       {toastMessage && (
         <div className="p-4 rounded-[var(--radius-card)] bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm flex items-center gap-2 animate-in fade-in">

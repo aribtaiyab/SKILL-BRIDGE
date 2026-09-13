@@ -355,13 +355,20 @@ export async function createVerificationRequest(req: AuthenticatedRequest, res: 
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
-    const {
-      skill_name,
-      skill_id,
-      academician_id,
-      supporting_evidence = [],
-      student_notes = '',
-    } = req.body || {}
+    const body = req.body || {}
+    const skill_name = body.skill_name || body.skillName || 'React'
+    const skill_id = body.skill_id || body.skillId || `skill-${skill_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+    const academician_id = body.academician_id || body.academicianId || body.selectedFacultyId || 'fac-01-sarah-mitchell'
+    const score = Number(body.score || body.claimed_score || body.current_level || 85)
+    const claimed_level = body.claimed_level || body.claimedLevel || 'Strong'
+    const verification_tier = body.verification_tier || body.verificationTier || 'Institution Verified'
+    const description = body.description || body.student_notes || body.proof_notes || ''
+    const project_title = body.project_title || body.projectTitle || 'Practical Engineering Implementation'
+    const project_url = body.project_url || body.projectUrl || null
+    const tech_stack = body.tech_stack || body.techStack || null
+    const proof_url = body.proof_url || body.proofUrl || project_url || null
+    const proof_notes = body.proof_notes || body.proofNotes || description || null
+    const supporting_evidence = Array.isArray(body.supporting_evidence) ? body.supporting_evidence : Array.isArray(body.supportingEvidence) ? body.supportingEvidence : []
 
     if (!skill_name) {
       return res.status(400).json({ success: false, error: 'skill_name is required' })
@@ -369,19 +376,12 @@ export async function createVerificationRequest(req: AuthenticatedRequest, res: 
 
     const assignedAcademician = PRESET_ACADEMICIANS.find(a => a.id === academician_id || a.profile_id === academician_id) || PRESET_ACADEMICIANS[0]
 
-    // Fetch student's current assessed score for this skill
-    let currentScore = 75
-    let assessmentScore = 75
-    if (sessionSkills.has(user.id)) {
-      const userSkills = sessionSkills.get(user.id)!
-      for (const s of userSkills.values()) {
-        if (s.skills?.name?.toLowerCase() === skill_name.toLowerCase() || s.skill_name?.toLowerCase() === skill_name.toLowerCase()) {
-          currentScore = s.current_level || s.verified_level || 75
-          assessmentScore = s.verified_level || s.current_level || 75
-          break
-        }
-      }
-    }
+    // Construct evidence list
+    const finalEvidence = supporting_evidence.length > 0
+      ? supporting_evidence
+      : proof_url
+      ? [{ title: project_title, type: 'github_repo', url: proof_url, description: proof_notes }]
+      : []
 
     const requestId = `vr-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
     const newRequest = {
@@ -389,17 +389,24 @@ export async function createVerificationRequest(req: AuthenticatedRequest, res: 
       student_id: user.id,
       student_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
       student_email: user.email || '',
+      department: (user.user_metadata as any)?.department || 'Computer Science & Engineering',
       academician_id: assignedAcademician.id,
       academician_name: assignedAcademician.full_name,
       academician_institution: assignedAcademician.institution_name,
       academician_department: assignedAcademician.department,
-      skill_id: skill_id || `skill-${skill_name.toLowerCase()}`,
+      skill_id,
       skill_name,
-      current_skill_score: currentScore,
-      assessment_score: assessmentScore,
-      status: 'request_sent',
-      supporting_evidence: Array.isArray(supporting_evidence) ? supporting_evidence : [],
-      student_notes,
+      score,
+      claimed_level,
+      verification_tier,
+      description,
+      project_title,
+      project_url,
+      tech_stack,
+      proof_url,
+      proof_notes,
+      supporting_evidence: finalEvidence,
+      status: 'pending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -412,24 +419,37 @@ export async function createVerificationRequest(req: AuthenticatedRequest, res: 
         await supabase.from('verification_requests').insert({
           id: requestId,
           student_id: user.id,
-          academician_id: assignedAcademician.profile_id,
+          student_name: newRequest.student_name,
+          student_email: newRequest.student_email,
+          department: newRequest.department,
           skill_name,
-          status: 'request_sent',
-          supporting_evidence: newRequest.supporting_evidence,
+          verification_tier,
+          score,
+          proof_url,
+          proof_notes,
+          status: 'pending',
+          academician_id: assignedAcademician.profile_id || assignedAcademician.id,
+          supporting_evidence: finalEvidence,
         })
 
         // Notify academician
         await supabase.from('notifications').insert({
-          user_id: assignedAcademician.profile_id,
+          user_id: assignedAcademician.profile_id || assignedAcademician.id,
           title: 'New Skill Verification Request',
           message: `${newRequest.student_name} requested verification for ${skill_name}.`,
           type: 'verification',
           link: '/academia/verification',
         })
-      } catch {}
+      } catch (dbErr) {
+        console.warn('Supabase verification insert notice:', dbErr)
+      }
     }
 
-    return res.status(201).json({ success: true, data: newRequest })
+    return res.status(201).json({
+      success: true,
+      data: newRequest,
+      message: 'Verification request submitted successfully.',
+    })
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Failed to submit verification request' })
   }
@@ -440,35 +460,35 @@ export async function getStudentVerificationRequests(req: AuthenticatedRequest, 
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
+    const memoryRequests = Array.from(sessionVerificationRequests.values())
+      .filter(r => r.student_id === user.id || (user.email && r.student_email?.toLowerCase() === user.email.toLowerCase()))
+
     const supabase = getSupabaseAdmin()
     if (supabase) {
       try {
         const { data, error } = await supabase
           .from('verification_requests')
-          .select('*, verification_sessions(*)')
-          .eq('student_id', user.id)
+          .select('*')
+          .or(`student_id.eq.${user.id},student_email.eq.${user.email || ''}`)
           .order('created_at', { ascending: false })
 
         if (!error && data && data.length > 0) {
-          return res.status(200).json({ success: true, data })
+          const map = new Map<string, any>()
+          memoryRequests.forEach(m => map.set(m.id, m))
+          data.forEach((d: any) => {
+            map.set(d.id, {
+              ...d,
+              supporting_evidence: d.supporting_evidence || (d.proof_url ? [{ title: d.project_title || 'Project Repository', type: 'github_repo', url: d.proof_url, description: d.proof_notes }] : []),
+            })
+          })
+          const merged = Array.from(map.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          return res.status(200).json({ success: true, data: merged, requests: merged })
         }
       } catch {}
     }
 
-    const userRequests = Array.from(sessionVerificationRequests.values())
-      .filter(r => r.student_id === user.id)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-    // Attach session details if scheduled
-    const enriched = userRequests.map(r => {
-      const session = sessionVerificationSessions.get(r.id)
-      return {
-        ...r,
-        session: session || null,
-      }
-    })
-
-    return res.status(200).json({ success: true, data: enriched })
+    const sorted = memoryRequests.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return res.status(200).json({ success: true, data: sorted, requests: sorted })
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Failed to fetch verification requests' })
   }
@@ -479,32 +499,136 @@ export async function getAcademicianVerificationRequests(req: AuthenticatedReque
     const user = req.user
     if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
 
+    const memoryRequests = Array.from(sessionVerificationRequests.values())
+
     const supabase = getSupabaseAdmin()
     if (supabase) {
       try {
         const { data, error } = await supabase
           .from('verification_requests')
-          .select('*, profiles:student_id(full_name, email, avatar_url), verification_sessions(*)')
+          .select('*')
           .order('created_at', { ascending: false })
 
         if (!error && data && data.length > 0) {
-          return res.status(200).json({ success: true, data })
+          const map = new Map<string, any>()
+          memoryRequests.forEach(m => map.set(m.id, m))
+          data.forEach((d: any) => {
+            map.set(d.id, {
+              ...d,
+              supporting_evidence: d.supporting_evidence || (d.proof_url ? [{ title: d.project_title || 'Project Repository', type: 'github_repo', url: d.proof_url, description: d.proof_notes }] : []),
+            })
+          })
+          const merged = Array.from(map.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          return res.status(200).json({ success: true, data: merged, requests: merged })
         }
       } catch {}
     }
 
-    // In-memory or demo fallback
-    const allRequests = Array.from(sessionVerificationRequests.values())
-      .map(r => ({
-        ...r,
-        session: sessionVerificationSessions.get(r.id) || null,
-      }))
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-    return res.status(200).json({ success: true, data: allRequests })
+    const sorted = memoryRequests.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return res.status(200).json({ success: true, data: sorted, requests: sorted })
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Failed to fetch verification requests' })
   }
+}
+
+export async function patchVerificationAction(req: AuthenticatedRequest, res: Response) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, error: 'Authentication required' })
+
+    const body = req.body || {}
+    const requestId = body.requestId || body.id || req.params?.id
+    const action = body.action === 'approved' || body.action === 'verified' ? 'approved' : 'rejected'
+    const facultyFeedback = body.facultyFeedback || body.faculty_feedback || (action === 'approved' ? 'Verified with high technical competence and valid evidence.' : 'Insufficient practical evidence provided.')
+    const rejectionReason = body.rejectionReason || body.rejection_reason || (action === 'rejected' ? 'Insufficient practical repository evidence' : null)
+    const verifiedScore = Number(body.verifiedScore || body.score || 85)
+    const reviewerName = body.reviewerName || user.user_metadata?.full_name || 'Faculty Reviewer'
+
+    if (!requestId) {
+      return res.status(400).json({ success: false, error: 'requestId is required' })
+    }
+
+    // Update in-memory session request
+    const memReq = sessionVerificationRequests.get(requestId)
+    if (memReq) {
+      memReq.status = action
+      memReq.faculty_feedback = facultyFeedback
+      memReq.rejection_reason = rejectionReason
+      memReq.verified_level = verifiedScore
+      memReq.reviewed_at = new Date().toISOString()
+      memReq.updated_at = new Date().toISOString()
+      sessionVerificationRequests.set(requestId, memReq)
+    }
+
+    let ticket: any = memReq || {
+      id: requestId,
+      status: action,
+      faculty_feedback: facultyFeedback,
+      rejection_reason: rejectionReason,
+      verified_level: verifiedScore,
+      reviewed_at: new Date().toISOString(),
+    }
+
+    const supabase = getSupabaseAdmin()
+    if (supabase) {
+      try {
+        const { data: updatedTicket, error: ticketError } = await supabase
+          .from('verification_requests')
+          .update({
+            status: action,
+            faculty_feedback: facultyFeedback,
+            rejection_reason: rejectionReason,
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq('id', requestId)
+          .select()
+          .single()
+
+        if (!ticketError && updatedTicket) {
+          ticket = { ...ticket, ...updatedTicket }
+        }
+
+        // If approved, update student_skills
+        if (action === 'approved' && ticket.student_id) {
+          await supabase
+            .from('student_skills')
+            .upsert({
+              student_id: ticket.student_id,
+              skill_name: ticket.skill_name,
+              score: verifiedScore,
+              current_level: verifiedScore,
+              verified_level: verifiedScore,
+              verification_level: 'Institution Verified',
+              verification_status: 'institution_verified',
+              last_evaluated: new Date().toISOString(),
+            }, { onConflict: 'student_id,skill_name' })
+
+          await supabase.from('notifications').insert({
+            user_id: ticket.student_id,
+            title: `Skill Endorsed: ${ticket.skill_name}`,
+            message: `Congratulations! ${ticket.skill_name} was verified by ${reviewerName} with a score of ${verifiedScore}/100.`,
+            type: 'verification',
+            link: '/student/verification',
+          })
+        }
+      } catch (dbErr) {
+        console.warn('Supabase verification action notice:', dbErr)
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      ticket,
+      action,
+      message: action === 'approved' ? 'Skill successfully endorsed and verified.' : 'Verification request rejected with constructive feedback.',
+    })
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to record verification decision' })
+  }
+}
+
+export async function getVerificationList(req: AuthenticatedRequest, res: Response) {
+  return getAcademicianVerificationRequests(req, res)
 }
 
 export async function acceptVerificationRequest(req: AuthenticatedRequest, res: Response) {

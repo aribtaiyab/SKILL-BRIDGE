@@ -1,90 +1,77 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
-export async function GET() {
-  const defaultPassportData = {
-    name: "Arib Tayab",
-    collegeName: "Dr. Akhilesh Das Gupta Institute of Professional Studies",
-    department: "Computer Science & Engineering",
-    course: "B.Tech in Computer Science",
-    year: "2nd Year (4th Semester)",
-    targetRole: "Backend Developer Internship",
-    passportId: "SKILL-2026-IN-8491",
-    readinessScore: 82,
-    skills: [
-      { name: "Node.js & Express", category: "Backend", score: 82, verificationLevel: "Practical Verified", lastEvaluated: "Aug 2026" },
-      { name: "REST API Design", category: "Backend", score: 78, verificationLevel: "Practical Verified", lastEvaluated: "Aug 2026" },
-      { name: "PostgreSQL & Database Design", category: "Database", score: 85, verificationLevel: "Assessment Verified", lastEvaluated: "Jul 2026" },
-      { name: "Data Structures & Algorithms", category: "Core CS", score: 76, verificationLevel: "Assessment Verified", lastEvaluated: "Jul 2026" },
-      { name: "Git & Version Control", category: "DevOps & Tools", score: 88, verificationLevel: "Evidence Verified", lastEvaluated: "Aug 2026" },
-      { name: "React.js & Tailwind CSS", category: "Frontend", score: 70, verificationLevel: "Self-Declared", lastEvaluated: "Pending" }
-    ],
-    projects: [
-      {
-        title: "Scalable Task Automation Engine",
-        description: "Distributed job execution service with Redis background queues and role-based JWT access.",
-        tags: ["Node.js", "Redis", "PostgreSQL", "Express"],
-        githubUrl: "https://github.com",
-        liveUrl: "https://demo.vercel.app",
-        verifiedStatus: "Practical Verified"
-      },
-      {
-        title: "Campus Academic Resource Hub",
-        description: "Centralized lab and seminar hall booking platform with real-time slot conflict resolution.",
-        tags: ["TypeScript", "Next.js", "Tailwind CSS"],
-        githubUrl: "https://github.com",
-        verifiedStatus: "Repository Linked"
-      }
-    ]
-  }
-
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: profile } = await (supabase as any)
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', user.id)
-        .maybeSingle()
 
-      if (profile && (profile as any).full_name) {
-        defaultPassportData.name = (profile as any).full_name
-      }
+    const userId = user?.id || request.headers.get('x-user-id') || (request.headers.get('x-demo-mode') === 'true' ? '00000000-0000-0000-0000-000000000001' : null)
 
-      // Merge verified skills from student_skills table
-      try {
-        const { data: verifiedSkills } = await (supabase as any)
-          .from('student_skills')
-          .select('skill_name, score, verification_level, last_evaluated')
-          .eq('student_id', user.id)
-
-        if (verifiedSkills && verifiedSkills.length > 0) {
-          for (const v of verifiedSkills) {
-            const idx = defaultPassportData.skills.findIndex(s => s.name.toLowerCase() === v.skill_name.toLowerCase())
-            if (idx >= 0) {
-              defaultPassportData.skills[idx].score = Number(v.score) || defaultPassportData.skills[idx].score
-              defaultPassportData.skills[idx].verificationLevel = v.verification_level || defaultPassportData.skills[idx].verificationLevel
-            } else {
-              defaultPassportData.skills.unshift({
-                name: v.skill_name,
-                category: "Backend",
-                score: Number(v.score) || 85,
-                verificationLevel: v.verification_level || "Institution Verified",
-                lastEvaluated: "Just Now",
-              })
-            }
-          }
-        }
-      } catch {}
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
-  } catch {
-    // Graceful fallback to default passport data
-  }
 
-  return NextResponse.json({
-    success: true,
-    ...defaultPassportData,
-    data: defaultPassportData,
-  })
+    const [profileRes, studentProfRes, skillsRes, projectsRes, certsRes] = await Promise.all([
+      (supabase as any).from('profiles').select('*').eq('id', userId).maybeSingle(),
+      (supabase as any).from('student_profiles').select('*, career_targets(id, name, slug)').eq('profile_id', userId).maybeSingle(),
+      (supabase as any).from('student_skills').select('*, skills(id, name, category)').eq('student_id', userId),
+      (supabase as any).from('projects').select('*').eq('student_id', userId).order('created_at', { ascending: false }),
+      (supabase as any).from('certifications').select('*').eq('student_id', userId).order('created_at', { ascending: false })
+    ])
+
+    const prof = profileRes?.data || {}
+    const studentProf = studentProfRes?.data || {}
+    const skills = skillsRes?.data || []
+    const projects = projectsRes?.data || []
+    const certs = certsRes?.data || []
+
+    const passportData = {
+      id: `sp-${userId.substring(0, 8)}`,
+      name: prof.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student',
+      email: user?.email || prof.email || '',
+      college_name: studentProf.college_name || '',
+      degree: studentProf.degree || studentProf.education || '',
+      branch: studentProf.branch || '',
+      academic_year: studentProf.academic_year || '',
+      graduation_year: studentProf.graduation_year || 2026,
+      location: prof.location || '',
+      bio: prof.bio || '',
+      avatar_url: prof.avatar_url || user?.user_metadata?.avatar_url || null,
+      linkedin_url: studentProf.linkedin_url || '',
+      github_url: studentProf.github_url || '',
+      portfolio_url: studentProf.portfolio_url || '',
+      target_role: studentProf.career_targets?.name || null,
+      skills: skills.map((s: any) => ({
+        id: s.skill_id || s.id,
+        name: s.skills?.name || s.skill_name || s.name || 'Skill',
+        category: s.skills?.category || 'Technical',
+        score: Number(s.current_level ?? s.self_declared_level ?? 50),
+        verification_status: s.verification_status || 'self_declared',
+      })),
+      projects: projects.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        technologies: p.technologies || [],
+        github_url: p.github_url,
+        project_url: p.project_url,
+      })),
+      certifications: certs.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        issuing_organization: c.issuing_organization,
+        issue_date: c.issue_date,
+        credential_url: c.credential_url,
+      }))
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: passportData
+    })
+  } catch (err: any) {
+    console.error('Error in passport route:', err)
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 })
+  }
 }

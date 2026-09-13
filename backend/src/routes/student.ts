@@ -50,6 +50,13 @@ router.delete('/evidence/:id', sc.deleteStudentEvidence)
 // Projects
 router.get('/projects', sc.getStudentProjects)
 router.post('/projects', sc.createStudentProject)
+router.patch('/projects/:id', sc.updateStudentProject)
+router.delete('/projects/:id', sc.deleteStudentProject)
+
+// Certifications
+router.get('/certifications', sc.getStudentCertifications)
+router.post('/certifications', sc.createStudentCertification)
+router.delete('/certifications/:id', sc.deleteStudentCertification)
 
 // Passport
 router.get('/passport', sc.getStudentPassport)
